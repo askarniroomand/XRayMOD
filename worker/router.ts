@@ -136,23 +136,70 @@ export async function handleRequest(
   }
 
   // Serve static assets (React SPA)
-  try {
-    const assetResponse = await env.ASSETS.fetch(request);
-    if (assetResponse.status === 200) {
-      return assetResponse;
+  if (env.ASSETS) {
+    try {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status === 200) {
+        return assetResponse;
+      }
+    } catch (_e) {
+      // Fall through to SPA fallback
     }
-  } catch (_e) {
-    // Fall through to SPA fallback
+
+    // SPA fallback: serve index.html for non-API, non-file routes
+    if (!url.pathname.startsWith('/api/') && !url.pathname.includes('.')) {
+      try {
+        const indexRequest = new Request(new URL('/index.html', request.url).toString(), request);
+        return await env.ASSETS.fetch(indexRequest);
+      } catch (_e) {
+        // Fall through to fallback
+      }
+    }
   }
 
-  // SPA fallback: serve index.html for non-API, non-file routes
-  if (!url.pathname.startsWith('/api/') && !url.pathname.includes('.')) {
-    try {
-      const indexRequest = new Request(new URL('/index.html', request.url).toString(), request);
-      return await env.ASSETS.fetch(indexRequest);
-    } catch (_e) {
-      // Fall through to 404
-    }
+  // Fallback: serve a status page when no frontend assets are available
+  if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/sub/')) {
+    return new Response(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XrayMOD</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #09090b; color: #fafafa;
+           display: grid; place-items: center; min-height: 100vh; }
+    .box { text-align: center; padding: 2rem; max-width: 480px; }
+    .icon { width: 48px; height: 48px; background: #10b981; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 1.5rem; color: #000; margin: 0 auto 1.5rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    p { color: #a1a1aa; margin-bottom: 1rem; font-size: 0.875rem; line-height: 1.6; }
+    a { color: #10b981; text-decoration: none; }
+    .status { padding: 1rem; background: #18181b; border: 1px solid #27272a;
+              border-radius: 0.75rem; margin-top: 1.5rem; text-align: left; }
+    .row { display: flex; justify-content: space-between; padding: 0.25rem 0;
+            font-size: 0.875rem; }
+    .label { color: #71717a; }
+    .ok { color: #10b981; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">X</div>
+    <h1>XrayMOD</h1>
+    <p>Panel is deployed and the API is running.<br>
+       The frontend needs to be built and uploaded separately.</p>
+    <div class="status">
+      <div class="row"><span class="label">API Health</span><span class="ok"><a href="/api/health">/api/health</a></span></div>
+      <div class="row"><span class="label">Login</span><span class="ok"><a href="/api/login">POST /api/login</a></span></div>
+      <div class="row"><span class="label">Docs</span><span class="ok"><a href="https://github.com/EvolveBeyond/XRayMOD">GitHub</a></span></div>
+    </div>
+  </div>
+</body>
+</html>`, {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
   }
 
   return notFound();
