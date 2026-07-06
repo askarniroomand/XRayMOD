@@ -1314,6 +1314,7 @@ async function handleRequest(request, env, ctx) {
       return route.handler(request, env, ctx, params);
     }
   }
+  const pagesUrl = env.PAGES_URL;
   if (env.ASSETS) {
     try {
       const assetResponse = await env.ASSETS.fetch(request);
@@ -1328,6 +1329,32 @@ async function handleRequest(request, env, ctx) {
         return await env.ASSETS.fetch(indexRequest);
       } catch (_e) {
       }
+    }
+  }
+  if (pagesUrl && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/sub/")) {
+    try {
+      const assetPath = url.pathname === "/" ? "/index.html" : url.pathname;
+      const remoteUrl = pagesUrl.replace(/\/$/, "") + assetPath;
+      const remoteResponse = await fetch(remoteUrl);
+      if (remoteResponse.status === 200) {
+        const contentType = remoteResponse.headers.get("content-type") || "text/html";
+        return new Response(remoteResponse.body, {
+          status: 200,
+          headers: { "Content-Type": contentType }
+        });
+      }
+    } catch (_e) {
+    }
+    try {
+      const spaUrl = pagesUrl.replace(/\/$/, "") + "/index.html";
+      const spaResponse = await fetch(spaUrl);
+      if (spaResponse.status === 200) {
+        return new Response(spaResponse.body, {
+          status: 200,
+          headers: { "Content-Type": "text/html" }
+        });
+      }
+    } catch (_e) {
     }
   }
   if (!url.pathname.startsWith("/api/") && !url.pathname.startsWith("/sub/")) {

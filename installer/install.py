@@ -90,6 +90,8 @@ def deploy(token: str, worker_name: str, d1_name: str, admin_password: str) -> d
 
     # Step 4: Upload worker
     print("\n[4/5] Uploading worker...")
+    # PAGES_URL points to the GitHub Pages hosted frontend
+    pages_url = "https://evolvebeyond.github.io/XRayMOD"
     metadata = {
         "main_module": "worker.js",
         "compatibility_date": "2025-01-01",
@@ -97,6 +99,7 @@ def deploy(token: str, worker_name: str, d1_name: str, admin_password: str) -> d
         "bindings": [
             {"type": "d1", "name": "DB", "database_id": d1_id},
             {"type": "plain_text", "name": "ADMIN_PASSWORD", "text": admin_password},
+            {"type": "plain_text", "name": "PAGES_URL", "text": pages_url},
         ],
     }
 

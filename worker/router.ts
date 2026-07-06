@@ -135,29 +135,55 @@ export async function handleRequest(
     }
   }
 
-  // Serve static assets (React SPA)
+  // Serve static assets — try ASSETS binding first, then PAGES_URL, then fallback
+  const pagesUrl = (env as any).PAGES_URL as string | undefined;
+
+  // 1. Try ASSETS binding (if deployed with assets)
   if (env.ASSETS) {
     try {
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status === 200) {
         return assetResponse;
       }
-    } catch (_e) {
-      // Fall through to SPA fallback
-    }
+    } catch (_e) {}
 
-    // SPA fallback: serve index.html for non-API, non-file routes
     if (!url.pathname.startsWith('/api/') && !url.pathname.includes('.')) {
       try {
         const indexRequest = new Request(new URL('/index.html', request.url).toString(), request);
         return await env.ASSETS.fetch(indexRequest);
-      } catch (_e) {
-        // Fall through to fallback
-      }
+      } catch (_e) {}
     }
   }
 
-  // Fallback: serve a status page when no frontend assets are available
+  // 2. Try PAGES_URL (fetch from GitHub Pages or static host)
+  if (pagesUrl && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/sub/')) {
+    try {
+      const assetPath = url.pathname === '/' ? '/index.html' : url.pathname;
+      const remoteUrl = pagesUrl.replace(/\/$/, '') + assetPath;
+      const remoteResponse = await fetch(remoteUrl);
+      if (remoteResponse.status === 200) {
+        const contentType = remoteResponse.headers.get('content-type') || 'text/html';
+        return new Response(remoteResponse.body, {
+          status: 200,
+          headers: { 'Content-Type': contentType },
+        });
+      }
+    } catch (_e) {}
+
+    // SPA fallback via PAGES_URL
+    try {
+      const spaUrl = pagesUrl.replace(/\/$/, '') + '/index.html';
+      const spaResponse = await fetch(spaUrl);
+      if (spaResponse.status === 200) {
+        return new Response(spaResponse.body, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+    } catch (_e) {}
+  }
+
+  // 3. Fallback: status page
   if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/sub/')) {
     return new Response(`<!DOCTYPE html>
 <html lang="en">
