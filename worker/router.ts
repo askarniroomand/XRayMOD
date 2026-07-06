@@ -157,13 +157,30 @@ export async function handleRequest(
 
   // 2. Try PAGES_URL (fetch from GitHub Pages or static host)
   if (pagesUrl && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/sub/')) {
+    const workerOrigin = new URL(request.url).origin;
+    const apiScript = `<script>window.__API_BASE="${workerOrigin}";</script>`;
+
+    const injectApiBase = async (html: string): Promise<Response> => {
+      const modified = html.replace('<head>', `<head>${apiScript}`);
+      return new Response(modified, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      });
+    };
+
     try {
       const assetPath = url.pathname === '/' ? '/index.html' : url.pathname;
       const remoteUrl = pagesUrl.replace(/\/$/, '') + assetPath;
       const remoteResponse = await fetch(remoteUrl);
       if (remoteResponse.status === 200) {
-        const contentType = remoteResponse.headers.get('content-type') || 'text/html';
-        return new Response(remoteResponse.body, {
+        const contentType = remoteResponse.headers.get('content-type') || '';
+        const body = await remoteResponse.text();
+
+        if (contentType.includes('text/html') || assetPath.endsWith('.html')) {
+          return injectApiBase(body);
+        }
+
+        return new Response(body, {
           status: 200,
           headers: { 'Content-Type': contentType },
         });
@@ -175,10 +192,8 @@ export async function handleRequest(
       const spaUrl = pagesUrl.replace(/\/$/, '') + '/index.html';
       const spaResponse = await fetch(spaUrl);
       if (spaResponse.status === 200) {
-        return new Response(spaResponse.body, {
-          status: 200,
-          headers: { 'Content-Type': 'text/html' },
-        });
+        const html = await spaResponse.text();
+        return injectApiBase(html);
       }
     } catch (_e) {}
   }
