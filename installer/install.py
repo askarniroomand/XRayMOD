@@ -4,7 +4,7 @@
 # ///
 """
 XrayMOD Installer — Stage 2 (Python / uv)
-Deploys the XrayMOD panel to a Cloudflare account via OAuth (no API token needed).
+Deploys the XrayMOD panel to a Cloudflare account.
 
 Usage (called by install.sh):
     uv run install.py
@@ -12,145 +12,16 @@ Usage (called by install.sh):
 
 from __future__ import annotations
 
-import hashlib
 import json
 import secrets
 import sys
-import threading
 import webbrowser
-from base64 import urlsafe_b64encode
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 
 CF_API = "https://api.cloudflare.com/client/v4"
 PANEL_GITHUB = "https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main"
-
-# OAuth settings — these are the app's own Cloudflare OAuth credentials
-OAUTH_CLIENT_ID = "eb14e6bc5d43ef8a0f4a549e6f03b690"
-OAUTH_AUTH_URL = "https://dash.cloudflare.com/oauth2/auth"
-OAUTH_TOKEN_URL = "https://dash.cloudflare.com/oauth2/token"
-OAUTH_SCOPES = [
-    "account:read",
-    "user:read",
-    "workers:write",
-    "workers_kv:write",
-    "workers_scripts:write",
-    "d1:write",
-]
-OAUTH_REDIRECT_PORT = 18976
-
-# ── OAuth State ──────────────────────────────────────────────
-
-_oauth_state: str = ""
-_oauth_code_verifier: str = ""
-_oauth_result: dict = {}
-_oauth_event = threading.Event()
-
-
-def _gen_state() -> str:
-    return urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
-
-
-def _gen_verifier() -> str:
-    return urlsafe_b64encode(secrets.token_bytes(33)).decode().rstrip("=")
-
-
-def _gen_challenge(verifier: str) -> str:
-    digest = hashlib.sha256(verifier.encode()).digest()
-    return urlsafe_b64encode(digest).decode().rstrip("=")
-
-
-# ── OAuth Callback Server ────────────────────────────────────
-
-class OAuthCallbackHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        global _oauth_result
-        parsed = urlparse(self.path)
-
-        if parsed.path != "/callback":
-            self.send_response(404)
-            self.end_headers()
-            return
-
-        params = parse_qs(parsed.query)
-        code = params.get("code", [None])[0]
-        state = params.get("state", [None])[0]
-        error = params.get("error", [None])[0]
-
-        if error:
-            _oauth_result = {"ok": False, "error": error}
-            html = self._page("Authorization Failed", f"Error: {error}", False)
-        elif not code or state != _oauth_state:
-            _oauth_result = {"ok": False, "error": "Invalid state"}
-            html = self._page("Authorization Failed", "Invalid state parameter", False)
-        else:
-            try:
-                token_data = _exchange_code(code)
-                _oauth_result = {"ok": True, "token": token_data["access_token"]}
-                html = self._page("Connected", "You can close this tab and return to the terminal.", True)
-            except Exception as e:
-                _oauth_result = {"ok": False, "error": str(e)}
-                html = self._page("Authorization Failed", str(e), False)
-
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(html.encode())
-
-        _oauth_event.set()
-
-    def _page(self, title: str, message: str, success: bool) -> str:
-        color = "#10b981" if success else "#ef4444"
-        icon = "✓" if success else "✗"
-        return f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>{title}</title>
-<style>
-body {{ margin:0; background:#09090b; color:#fafafa; font-family:system-ui,sans-serif;
-       display:grid; place-items:center; min-height:100vh; }}
-.box {{ text-align:center; padding:3rem; max-width:400px; }}
-.icon {{ font-size:3rem; margin-bottom:1rem; color:{color}; }}
-h1 {{ font-size:1.5rem; margin:0 0 0.5rem; }}
-p {{ color:#a1a1aa; margin:0; }}
-</style></head><body>
-<div class="box">
-  <div class="icon">{icon}</div>
-  <h1>{title}</h1>
-  <p>{message}</p>
-</div></body></html>"""
-
-    def log_message(self, *args):
-        pass
-
-
-def _start_oauth_server() -> HTTPServer:
-    server = HTTPServer(("127.0.0.1", OAUTH_REDIRECT_PORT), OAuthCallbackHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    return server
-
-
-def _exchange_code(code: str) -> dict:
-    data = urlencode({
-        "client_id": OAUTH_CLIENT_ID,
-        "code": code,
-        "code_verifier": _oauth_code_verifier,
-        "redirect_uri": f"http://localhost:{OAUTH_REDIRECT_PORT}/callback",
-        "grant_type": "authorization_code",
-    }).encode()
-
-    resp = httpx.post(OAUTH_TOKEN_URL, content=data, headers={
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Accept": "application/json",
-    }, timeout=30)
-
-    result = resp.json()
-    if not result.get("access_token"):
-        desc = result.get("error_description", result.get("error", "Unknown error"))
-        raise RuntimeError(f"Token exchange failed: {desc}")
-    return result
-
+TOKEN_CREATE_URL = "https://dash.cloudflare.com/profile/api-tokens"
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -285,54 +156,51 @@ def deploy(token: str, worker_name: str, d1_name: str, admin_password: str) -> d
 # ── Main ─────────────────────────────────────────────────────
 
 def main() -> None:
-    global _oauth_state, _oauth_code_verifier
-
     print()
     print("╔══════════════════════════════════════╗")
     print("║       XrayMOD Cloudflare Deployer    ║")
     print("╚══════════════════════════════════════╝")
     print()
     print("This will deploy the XrayMOD panel to your Cloudflare account.")
-    print("You'll be asked to authorize via Cloudflare — no API token needed.")
     print()
 
-    # Start OAuth server
-    server = _start_oauth_server()
+    # Guide user to create API token
+    print("  ┌─────────────────────────────────────────────────────┐")
+    print("  │ Step 1: Create a Cloudflare API Token              │")
+    print("  │                                                     │")
+    print("  │ I'll open the token creation page in your browser. │")
+    print("  │ Click 'Create Token' and use this template:        │")
+    print("  │   - Account > Workers Scripts > Edit               │")
+    print("  │   - Account > D1 > Edit                            │")
+    print("  │                                                     │")
+    print("  │ Copy the token and paste it below.                 │")
+    print("  └─────────────────────────────────────────────────────┘")
+    print()
 
-    # Generate PKCE values
-    _oauth_state = _gen_state()
-    _oauth_code_verifier = _gen_verifier()
-    challenge = _gen_challenge(_oauth_code_verifier)
+    open_page = input("  Open token creation page? [Y/n] ").strip().lower()
+    if open_page != "n":
+        webbrowser.open(TOKEN_CREATE_URL)
+        print(f"  ✓ Opened: {TOKEN_CREATE_URL}")
+        print()
 
-    # Build OAuth URL
-    auth_url = OAUTH_AUTH_URL + "?" + urlencode({
-        "client_id": OAUTH_CLIENT_ID,
-        "response_type": "code",
-        "redirect_uri": f"http://localhost:{OAUTH_REDIRECT_PORT}/callback",
-        "scope": " ".join(OAUTH_SCOPES),
-        "state": _oauth_state,
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-    })
-
-    # Open browser
-    print("  Opening Cloudflare authorization page...")
-    print(f"  If the browser doesn't open, visit:\n  {auth_url}\n")
-    webbrowser.open(auth_url)
-
-    # Wait for callback
-    print("  Waiting for authorization...")
-    _oauth_event.wait(timeout=120)
-    server.shutdown()
-
-    if not _oauth_result.get("ok"):
-        print(f"\n❌ Authorization failed: {_oauth_result.get('error', 'Unknown error')}")
+    token = _input("Paste your API token")
+    if not token:
+        print("\n  Error: Token is required.")
         sys.exit(1)
 
-    token = _oauth_result["token"]
-    print("  ✓ Authorized successfully!\n")
+    # Verify token works
+    print("\n  Verifying token...")
+    try:
+        accounts = _cf(token, "/accounts?per_page=1")
+        account_name = accounts["result"][0]["name"]
+        print(f"  ✓ Token valid — Account: {account_name}")
+    except RuntimeError as e:
+        print(f"\n  ❌ Token verification failed: {e}")
+        print("  Make sure the token has these permissions:")
+        print("    - Account > Workers Scripts > Edit")
+        print("    - Account > D1 > Edit")
+        sys.exit(1)
 
-    # Get config
     worker_name = _input("Worker name", f"xraymod-{secrets.token_hex(4)}")
     d1_name = _input("D1 database name", f"{worker_name}-db")
     admin_password = _input("Admin password (empty = auto-generate)", "")
@@ -348,13 +216,13 @@ def main() -> None:
 
     confirm = input("  Deploy? [Y/n] ").strip().lower()
     if confirm and confirm != "y":
-        print("Cancelled.")
+        print("  Cancelled.")
         sys.exit(0)
 
     try:
         result = deploy(token, worker_name, d1_name, admin_password)
     except Exception as e:
-        print(f"\n❌ Deployment failed: {e}")
+        print(f"\n  ❌ Deployment failed: {e}")
         sys.exit(1)
 
     print()
