@@ -26,26 +26,45 @@ XrayMOD is a serverless proxy management panel that runs entirely on Cloudflare 
 - **API Router** — Handles authentication, user/node/protocol management, settings, and subscriptions
 - **Proxy Handler** — WebSocket upgrade for VLESS/Trojan/Shadowsocks traffic
 - **D1 Database** — Stores users, protocols, configs, and key-value settings
-┌─────────────────────────────────────────────────────────┐
-│  Cloudflare Worker                                      │
-│  ┌─────────────┐  ┌──────────────────────────────────┐  │
-│  │ Static Assets│ │ API Router                       │  │
-│  │ (React SPA)  │ │ /api/login, /api/logout          │  │
-│  │              │ │ /api/users, /api/nodes           │  │
-│  └─────────────┘  │ /api/protocols, /api/configs     │  │
-│                    │ /api/settings, /api/health      │  │
-│                    │ /sub/:token (subscription)      │  │
-│                    │ /proxy/* (traffic handler)      │  │
-│                    └─────────────────────────────────┘  │
-│  ┌─────────────────────────────────────────────────────┐│
-│  │ D1 Database: users | protocols | configs | kvstore  ││
-│  └─────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────┘
-```
 
 ## Quick Start
 
-### Option 1: Manual Deployment
+### Option 1: One-Line Installer (Recommended)
+
+Run this single command — no need to clone the repository:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main/install.sh)
+```
+
+The installer will:
+- Check and install prerequisites (curl, uv)
+- Download the deployment script
+- Prompt for your Cloudflare API token
+- Create D1 database automatically
+- Upload and deploy the Worker
+- Give you the panel URL and admin password
+
+### Option 2: Wizard Deployment (For Panel Owners)
+
+The Wizard is a Worker you deploy once, then use to deploy panels for others via their API token.
+
+**Setup Wizard:**
+
+```bash
+git clone https://github.com/EvolveBeyond/XRayMOD.git
+cd XRayMOD/wizard
+wrangler deploy
+```
+
+**Using the Wizard:**
+
+1. Open `https://xraymod-wizard.<your-subdomain>.workers.dev`
+2. Enter the target user's Cloudflare API token
+3. Click **Deploy to Cloudflare**
+4. Share the deployed URL with the user
+
+### Option 3: Manual Deployment (Cloudflare Dashboard)
 
 **Step 1: Create D1 Database**
 
@@ -92,29 +111,6 @@ Visit `https://xraymod.<your-subdomain>.workers.dev`
 Default login: `admin` / `admin`
 
 > Change the default password immediately!
-
-### Option 2: Wizard Deployment (One-Click)
-
-The Wizard allows deploying XRayMOD to other users' Cloudflare accounts using their API token.
-
-**Setup Wizard:**
-
-```bash
-cd wizard
-wrangler deploy
-```
-
-**Using the Wizard:**
-
-1. Open `https://xraymod-wizard.<your-subdomain>.workers.dev`
-2. Enter the target user's Cloudflare API token
-3. Click **Deploy to Cloudflare**
-4. Share the deployed URL with the user
-
-**Required API Token Permissions:**
-
-- `Account: Workers Scripts: Edit`
-- `Account: D1: Edit`
 
 ## Conditional Features
 
@@ -176,7 +172,10 @@ XRayMOD/
 │   ├── main.tsx         # Entry point
 │   └── index.css        # Tailwind CSS v4 theme
 ├── components/ui/       # shadcn/ui components
-├── wizard/              # One-click deployer
+├── installer/           # One-line installer scripts
+│   ├── install.py       # Python deployment script
+├── wizard/              # Web-based deployer
+├── install.sh           # Bash entry point
 ├── wrangler.toml        # Cloudflare config
 └── ROADMAP.md           # Development roadmap
 ```
