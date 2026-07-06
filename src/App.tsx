@@ -424,7 +424,10 @@ export default function App() {
               </div>
             </div>
 
-            <Button variant="ghost" className="w-full justify-start text-zinc-500 hover:text-rose-400 hover:bg-rose-400/5" onClick={() => setIsLoggedIn(false)}>
+            <Button variant="ghost" className="w-full justify-start text-zinc-500 hover:text-rose-400 hover:bg-rose-400/5" onClick={async () => {
+              try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+              setIsLoggedIn(false);
+            }}>
               <LogOut className="mr-3 h-4 w-4" /> Logout
             </Button>
           </div>
@@ -438,7 +441,10 @@ export default function App() {
               <Zap className="text-emerald-500 w-5 h-5" />
               <span className="font-black tracking-tighter uppercase">Xray<span className="text-emerald-500">Mod</span></span>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsLoggedIn(false)}><LogOut size={18} /></Button>
+            <Button variant="ghost" size="icon" onClick={async () => {
+              try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+              setIsLoggedIn(false);
+            }}><LogOut size={18} /></Button>
           </header>
 
           <div className="p-4 md:p-10 max-w-6xl mx-auto space-y-8 pb-28 md:pb-10">

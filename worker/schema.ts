@@ -193,21 +193,36 @@ async function hashPassword(password: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-let schemaInitialized = false;
+async function tableExists(db: D1Database, tableName: string): Promise<boolean> {
+  try {
+    const result = await db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
+    ).bind(tableName).first();
+    return result !== null;
+  } catch {
+    return false;
+  }
+}
 
 export async function ensureSchema(db: D1Database): Promise<void> {
-  if (schemaInitialized) return;
-
+  // Create tables if they don't exist
   await db.exec(SCHEMA_SQL);
 
-  // Seed default protocols
-  for (const p of DEFAULT_PROTOCOLS) {
-    await db
-      .prepare(
-        'INSERT OR IGNORE INTO protocols (id, name, schema_json, template_json, price, client_limit, client_price) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      )
-      .bind(p.id, p.name, p.schema_json, p.template_json, p.price, p.client_limit, p.client_price)
-      .run();
+  // Check if protocols table is empty and seed if needed
+  const protocolsExist = await tableExists(db, 'protocols');
+  if (protocolsExist) {
+    const count = await db.prepare('SELECT COUNT(*) as count FROM protocols').first<{ count: number }>();
+    if (count && count.count === 0) {
+      // Seed default protocols
+      for (const p of DEFAULT_PROTOCOLS) {
+        await db
+          .prepare(
+            'INSERT OR IGNORE INTO protocols (id, name, schema_json, template_json, price, client_limit, client_price) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          )
+          .bind(p.id, p.name, p.schema_json, p.template_json, p.price, p.client_limit, p.client_price)
+          .run();
+      }
+    }
   }
 
   // Seed default settings
@@ -266,6 +281,4 @@ export async function ensureSchema(db: D1Database): Promise<void> {
       )
       .run();
   }
-
-  schemaInitialized = true;
 }

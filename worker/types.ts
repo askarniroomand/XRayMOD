@@ -1,6 +1,6 @@
 export interface Env {
   DB: D1Database;
-  ASSETS: { fetch: typeof fetch };
+  ASSETS: { fetch: (request: Request) => Promise<Response> };
   ENABLE_TELEGRAM: string;
   ENABLE_TON_WALLET: string;
   EXTERNAL_SERVER_URL: string;
@@ -89,4 +89,10 @@ export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   message?: string;
+}
+
+export interface Session {
+  userId: number;
+  role: string;
+  created: number;
 }

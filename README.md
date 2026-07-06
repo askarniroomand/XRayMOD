@@ -1,136 +1,126 @@
 # XrayMOD
 
-A modular proxy management panel built on Cloudflare Workers with React, Tailwind CSS v4, and shadcn/ui.
+> A modular proxy management panel built on Cloudflare Workers with React, shadcn/ui, and Tailwind CSS v4.
 
-[English](#english) | [فارسی](#persian)
+[English](#english) | [فارسی](#persian-فارسی)
 
 ---
 
 ## English
 
+### Overview
+
+XrayMOD is a serverless proxy management panel that runs entirely on Cloudflare Workers. It provides a complete admin dashboard for managing proxy protocols (VLESS, Trojan, Shadowsocks), users, and subscription links.
+
 ### Features
 
-- **Proxy Engine**: VLESS, Trojan, Shadowsocks over WebSocket with traffic tracking
-- **Admin Panel**: Dashboard, node management, user management, protocol configuration, settings
-- **User Panel**: Subscription dashboard, marketplace, referral program, payment, profile
-- **Modular Protocols**: Define new protocols via JSON schema + Xray config templates
-- **Subscription Links**: Auto-generate configs for Clash, sing-box, V2RayNG, and base64
-- **Dark Theme**: Emerald accent color scheme with responsive design
-- **Optional Integrations**: Telegram Bot and TON Wallet (requires external server)
-- **One-Click Deploy**: Wizard script to deploy panel to other users' Cloudflare accounts
+| Feature | Description |
+|---------|-------------|
+| **Proxy Engine** | VLESS, Trojan, Shadowsocks over WebSocket with traffic tracking |
+| **Admin Panel** | Dashboard, node management, user management, protocol configuration |
+| **User Panel** | Subscription dashboard, marketplace, referral program, payment, profile |
+| **Modular Protocols** | Define new protocols via JSON schema + Xray config templates |
+| **Subscription Links** | Auto-generate configs for Clash, sing-box, V2RayNG, and base64 |
+| **Dark Theme** | Emerald accent color scheme with responsive design |
+| **Optional Integrations** | Telegram Bot and TON Wallet (requires external server) |
+| **Wizard Deployer** | One-click deployment to other users' Cloudflare accounts |
 
 ### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Cloudflare Worker (Single deployment)                  │
-│                                                         │
+│  Cloudflare Worker                                       │
 │  ┌─────────────┐  ┌──────────────────────────────────┐  │
 │  │ Static Assets│  │ API Router                       │  │
-│  │ (React SPA)  │  │ /api/login, /api/users           │  │
-│  │              │  │ /api/nodes, /api/protocols        │  │
-│  └─────────────┘  │ /api/configs, /api/settings       │  │
+│  │ (React SPA)  │  │ /api/login, /api/logout          │  │
+│  │              │  │ /api/users, /api/nodes            │  │
+│  └─────────────┘  │ /api/protocols, /api/configs      │  │
+│                    │ /api/settings, /api/health        │  │
 │                    │ /sub/:token (subscription)        │  │
 │                    │ /proxy/* (traffic handler)        │  │
 │                    └──────────────────────────────────┘  │
-│                                                         │
 │  ┌─────────────────────────────────────────────────────┐│
-│  │ D1 Database                                        ││
-│  │ users | protocols | configs | kvstore              ││
+│  │ D1 Database: users | protocols | configs | kvstore ││
 │  └─────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Prerequisites
+### Quick Start
 
-- [Node.js](https://nodejs.org/) v18+
-- [Cloudflare account](https://dash.cloudflare.com/) with Workers enabled
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npm install -g wrangler`)
+#### Option 1: Manual Deployment (Cloudflare Dashboard)
 
-### Installation (Cloudflare Dashboard)
+**Step 1: Create D1 Database**
 
-#### Step 1: Create D1 Database
-
-1. Go to Cloudflare Dashboard → Workers & Pages → D1
-2. Click "Create a database"
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) → Workers & Pages → D1
+2. Click **Create a database**
 3. Name it `xraymod-db`
-4. Copy the Database ID
+4. Copy the **Database ID**
 
-#### Step 2: Create Worker
+**Step 2: Clone and Build**
 
-1. Go to Workers & Pages → Create Application
-2. Click "Create Worker"
-3. Name it `xraymod`
-4. Click "Deploy" (we'll update the code later)
+```bash
+git clone https://github.com/EvolveBeyond/XRayMOD.git
+cd XRayMOD
+npm install
+```
 
-#### Step 3: Upload Code
+**Step 3: Configure Wrangler**
 
-1. Install Wrangler CLI: `npm install -g wrangler`
-2. Clone the repository:
-   ```bash
-   git clone https://github.com/EvolveBeyond/XRayMOD.git
-   cd XRayMOD
-   npm install
-   ```
-3. Update `wrangler.toml` with your D1 database ID
-4. Build and deploy:
-   ```bash
-   npm run deploy
-   ```
+Update `wrangler.toml` with your D1 database ID:
 
-#### Step 4: Set Environment Variables
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "xraymod-db"
+database_id = "your-d1-database-id-here"
+```
 
-In the Cloudflare Dashboard → Workers → xraymod → Settings → Variables:
+**Step 4: Deploy**
 
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `ADMIN_PASSWORD` | Your password | Initial admin password |
-| `ENABLE_TELEGRAM` | `false` | Enable Telegram bot |
-| `ENABLE_TON_WALLET` | `false` | Enable TON wallet |
+```bash
+npm run deploy
+```
 
-#### Step 5: Access Your Panel
+**Step 5: Set Admin Password**
+
+In Cloudflare Dashboard → Workers → xraymod → Settings → Variables:
+
+| Variable | Value |
+|----------|-------|
+| `ADMIN_PASSWORD` | Your secure password |
+
+**Step 6: Access Your Panel**
 
 Visit `https://xraymod.<your-subdomain>.workers.dev`
 
-Default login:
-- **Admin**: `admin` / `admin`
-- **User**: `user` / `user`
+Default login: `admin` / `admin`
 
-> Change these passwords immediately!
+> ⚠️ Change the default password immediately!
 
-### Wizard Deployment (One-Click)
+#### Option 2: Wizard Deployment (One-Click)
 
-The Wizard allows you to deploy XRayMOD to other users' Cloudflare accounts using their API token.
+The Wizard allows deploying XRayMOD to other users' Cloudflare accounts using their API token.
 
-#### Setup Wizard
+**Setup Wizard:**
 
-1. Deploy the wizard Worker:
-   ```bash
-   cd wizard
-   wrangler deploy
-   ```
+```bash
+cd wizard
+wrangler deploy
+```
 
-2. Access the wizard at `https://xraymod-wizard.<your-subdomain>.workers.dev`
+**Using the Wizard:**
 
-3. (Optional) Set `WIZARD_SECRET` environment variable to protect the wizard
-
-#### Using the Wizard
-
-1. Open the wizard URL
+1. Open `https://xraymod-wizard.<your-subdomain>.workers.dev`
 2. Enter the target user's Cloudflare API token
-3. Click "Deploy to Cloudflare"
-4. The panel is deployed and the user gets their URL
+3. Click **Deploy to Cloudflare**
+4. Share the deployed URL with the user
 
-#### API Token Permissions
+**Required API Token Permissions:**
 
-The API token needs these permissions:
 - `Account: Workers Scripts: Edit`
 - `Account: D1: Edit`
-- `Account: Workers KV Storage: Edit`
 
 ### Conditional Features
-
-#### External Server Mode
 
 Some features require a separate Node.js server:
 
@@ -142,100 +132,90 @@ Some features require a separate Node.js server:
 
 To enable, set `EXTERNAL_SERVER_URL` in environment variables.
 
-#### Custom JSON Configurations
-
-By default, custom JSON configs are blocked on the base Worker. To use them:
-
-1. Set up a Node.js server
-2. Set `EXTERNAL_SERVER_URL` to your server URL
-3. Enable in admin Settings → Integrations
-
 ### API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/login` | Authenticate user |
-| GET | `/api/nodes` | List proxy nodes |
-| POST | `/api/nodes` | Add new node |
-| GET | `/api/users` | List users (admin) |
-| POST | `/api/users` | Create user (admin) |
-| PUT | `/api/users/:id` | Update user (admin) |
-| GET | `/api/protocols` | List protocols (admin) |
-| POST | `/api/protocols` | Add protocol (admin) |
-| GET | `/api/configs` | List configs (admin) |
-| POST | `/api/configs` | Create config (admin) |
-| GET | `/api/settings` | Get settings (admin) |
-| PUT | `/api/settings` | Update settings (admin) |
-| GET | `/sub/:token` | User subscription link |
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/login` | Authenticate user | No |
+| POST | `/api/logout` | Logout user | Yes |
+| GET | `/api/health` | Health check | No |
+| GET | `/api/nodes` | List nodes | Admin |
+| POST | `/api/nodes` | Add node | Admin |
+| GET | `/api/users` | List users | Admin |
+| POST | `/api/users` | Create user | Admin |
+| PUT | `/api/users/:id` | Update user | Admin |
+| GET | `/api/protocols` | List protocols | Admin |
+| POST | `/api/protocols` | Add protocol | Admin |
+| GET | `/api/configs` | List configs | Admin |
+| POST | `/api/configs` | Create config | Admin |
+| GET | `/api/settings` | Get settings | Admin |
+| PUT | `/api/settings` | Update settings | Admin |
+| GET | `/sub/:token` | User subscription | No |
 
 ### Subscription Links
 
-Users access their subscription at:
+Access subscription at:
 ```
 https://your-worker.workers.dev/sub/<user-uuid>
 ```
 
-Supported formats (via `?format=` query parameter):
+**Supported formats** (via `?format=` parameter):
 - `base64` (default) — Base64-encoded URI list
 - `clash` — Clash/Mihomo YAML config
 - `singbox` — sing-box JSON config
 
-### Git Repository Fix
-
-If you encounter these errors when pushing:
+### Project Structure
 
 ```
-fatal: unknown index entry format 0x6c540000
-error: remote origin already exists
-error: src refspec main does not match any
-```
-
-Run this fix script:
-
-```bash
-#!/bin/bash
-# Fix Git Repository Issues
-
-echo "Fixing Git repository..."
-
-# Remove corrupted index
-rm -f .git/index
-
-# Reinitialize Git
-git init
-
-# Rename branch to main
-git branch -M main
-
-# Remove existing remote
-git remote remove origin 2>/dev/null || true
-
-# Add remote
-git remote add origin git@github.com:EvolveBeyond/XRayMOD.git
-
-# Stage and commit
-git add .
-git commit -m "Initial commit"
-
-# Push
-git push -u origin main
-
-echo "Done!"
+XRayMOD/
+├── worker/              # Cloudflare Worker source
+│   ├── index.ts         # Entry point
+│   ├── router.ts        # Request routing
+│   ├── auth.ts          # Authentication
+│   ├── schema.ts        # D1 database schema
+│   ├── types.ts         # TypeScript types
+│   ├── api/             # API handlers
+│   ├── proxy/           # Proxy traffic engine
+│   └── subscription.ts  # Subscription generation
+├── src/                 # React frontend
+│   ├── App.tsx          # Main application
+│   ├── main.tsx         # Entry point
+│   └── index.css        # Tailwind CSS v4 theme
+├── components/ui/       # shadcn/ui components
+├── wizard/              # One-click deployer
+├── wrangler.toml        # Cloudflare config
+└── ROADMAP.md           # Development roadmap
 ```
 
 ### Troubleshooting
 
-**Worker won't deploy**
-- Check Wrangler is logged in: `wrangler whoami`
-- Verify D1 database ID in `wrangler.toml`
+#### Git Push Errors
 
-**API returns 401**
-- Ensure `ADMIN_PASSWORD` is set in environment variables
-- Check the password matches what you're entering
+If you encounter `fatal: unknown index entry format 0x6c540000`:
 
-**Subscription link not working**
-- Verify user has active status and valid expiry date
-- Check the UUID is correct in the URL
+```bash
+# Fix corrupted index
+rm -f .git/index
+git init
+git branch -M main
+git remote remove origin 2>/dev/null || true
+git remote add origin git@github.com:EvolveBeyond/XRayMOD.git
+git add .
+git commit -m "Initial commit"
+git push -u origin main
+```
+
+#### Worker Won't Deploy
+
+1. Verify Wrangler is logged in: `wrangler whoami`
+2. Check D1 database ID in `wrangler.toml`
+3. Ensure all dependencies are installed: `npm install`
+
+#### API Returns 401
+
+1. Ensure `ADMIN_PASSWORD` is set in environment variables
+2. Clear browser cookies and try again
+3. Check the password matches what you're entering
 
 ### License
 
@@ -243,131 +223,101 @@ MIT
 
 ---
 
-## فارسی
+## فارسی (فارسی)
+
+### معرفی
+
+XrayMOD یک پنل مدیریت پروکسی سرورلس است که به‌طور کامل روی Cloudflare Workers اجرا می‌شود. این پنل یک داشبورد کامل برای مدیریت پروتکل‌های پروکسی (VLESS، Trojan، Shadowsocks)، کاربران و لینک‌های اشتراک فراهم می‌کند.
 
 ### ویژگی‌ها
 
-- **موتور پروکسی**: VLESS، Trojan، Shadowsocks روی WebSocket با ردیابی ترافیک
-- **پنل مدیریت**: داشبورد، مدیریت سرورها، مدیریت کاربران، پیکربندی پروتکل‌ها، تنظیمات
-- **پنل کاربر**: داشبورد اشتراک، بازار، برنامه ارجاع، پرداخت، پروفایل
-- **پروتکل‌های ماژولار**: تعریف پروتکل‌های جدید از طریق JSON schema + قالب‌های Xray
-- **لینک‌های اشتراک**: تولید خودکار پیکربندی برای Clash، sing-box، V2RayNG و base64
-- **حالت تاریک**: طرح رنگی زمردی با طراحی واکنشگرا
-- **یکپارچگی‌های اختیاری**: ربات تلگرام و کیف پول TON (نیاز به سرور جداگانه)
-- **استقرار با یک کلیک**: اسکریپت ویزار برای استقرار پنل روی حساب‌های Cloudflare دیگران
+| ویژگی | توضیحات |
+|-------|---------|
+| **موتور پروکسی** | VLESS، Trojan، Shadowsocks روی WebSocket با ردیابی ترافیک |
+| **پنل مدیریت** | داشبورد، مدیریت سرورها، مدیریت کاربران، پیکربندی پروتکل‌ها |
+| **پنل کاربر** | داشبورد اشتراک، بازار، برنامه ارجاع، پرداخت، پروفایل |
+| **پروتکل‌های ماژولار** | تعریف پروتکل‌های جدید از طریق JSON schema |
+| **لینک‌های اشتراک** | تولید خودکار پیکربندی برای Clash، sing-box، V2RayNG |
+| **حالت تاریک** | طرح رنگی زمردی با طراحی واکنشگرا |
+| **یکپارچگی‌های اختیاری** | ربات تلگرام و کیف پول TON |
+| **ویزار استقرار** | استقرار با یک کلیک روی حساب‌های Cloudflare دیگران |
 
-### معماری
+### شروع سریع
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  کلاودفلر ورکر (استقرار واحد)                            │
-│                                                         │
-│  ┌─────────────┐  ┌──────────────────────────────────┐  │
-│  │ دارایی‌های   │  │ مسیریاب API                       │  │
-│  │ استاتیک      │  │ /api/login، /api/users            │  │
-│  │ (React SPA)  │  │ /api/nodes، /api/protocols        │  │
-│  └─────────────┘  │ /api/configs، /api/settings       │  │
-│                    │ /sub/:token (اشتراک)              │  │
-│                    │ /proxy/* (هدایت ترافیک)           │  │
-│                    └──────────────────────────────────┘  │
-│                                                         │
-│  ┌─────────────────────────────────────────────────────┐│
-│  │ پایگاه داده D1                                     ││
-│  │ users | protocols | configs | kvstore              ││
-│  └─────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────┘
-```
+#### گزینه ۱: استقرار دستی (داشبورد کلاودفلر)
 
-### پیش‌نیازها
+**مرحله ۱: ایجاد پایگاه داده D1**
 
-- [Node.js](https://nodejs.org/) نسخه ۱۸ یا بالاتر
-- [حساب کلاودفلر](https://dash.cloudflare.com/) با Workers فعال
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (`npm install -g wrangler`)
-
-### نصب (از طریق داشبورد کلاودفلر)
-
-#### مرحله ۱: ایجاد پایگاه داده D1
-
-1. به داشبورد کلاودفلر → Workers & Pages → D1 بروید
-2. روی «ایجاد پایگاه داده» کلیک کنید
+1. به [داشبورد کلاودفلر](https://dash.cloudflare.com/) → Workers & Pages → D1 بروید
+2. روی **ایجاد پایگاه داده** کلیک کنید
 3. نام آن را `xraymod-db` بگذارید
-4. شناسه پایگاه داده را کپی کنید
+4. **شناسه پایگاه داده** را کپی کنید
 
-#### مرحله ۲: ایجاد ورکر
+**مرحله ۲: کلون و بیلد**
 
-1. به Workers & Pages → Create Application بروید
-2. روی «Create Worker» کلیک کنید
-3. نام آن را `xraymod` بگذارید
-4. روی «Deploy» کلیک کنید (بعداً کد را به‌روزرسانی می‌کنیم)
+```bash
+git clone https://github.com/EvolveBeyond/XRayMOD.git
+cd XRayMOD
+npm install
+```
 
-#### مرحله ۳: آپلود کد
+**مرحله ۳: پیکربندی Wrangler**
 
-1. نصب Wrangler CLI: `npm install -g wrangler`
-2. کلون کردن مخزن:
-   ```bash
-   git clone https://github.com/EvolveBeyond/XRayMOD.git
-   cd XRayMOD
-   npm install
-   ```
-3. `wrangler.toml` را با شناسه پایگاه داده D1 خود به‌روزرسانی کنید
-4. بسازید و استقرار دهید:
-   ```bash
-   npm run deploy
-   ```
+شناسه پایگاه داده D1 خود را در `wrangler.toml` وارد کنید:
 
-#### مرحله ۴: تنظیم متغیرهای محیطی
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "xraymod-db"
+database_id = "your-d1-database-id-here"
+```
+
+**مرحله ۴: استقرار**
+
+```bash
+npm run deploy
+```
+
+**مرحله ۵: تنظیم رمز عبور مدیر**
 
 در داشبورد کلاودفلر → Workers → xraymod → Settings → Variables:
 
-| متغیر | مقدار | توضیحات |
-|--------|-------|---------|
-| `ADMIN_PASSWORD` | رمز عبور شما | رمز عبور اولیه مدیر |
-| `ENABLE_TELEGRAM` | `false` | فعال‌سازی ربات تلگرام |
-| `ENABLE_TON_WALLET` | `false` | فعال‌سازی کیف پول TON |
+| متغیر | مقدار |
+|--------|-------|
+| `ADMIN_PASSWORD` | رمز عبور امن شما |
 
-#### مرحله ۵: دسترسی به پنل
+**مرحله ۶: دسترسی به پنل**
 
 به آدرس `https://xraymod.<your-subdomain>.workers.dev` بروید
 
-ورود پیش‌فرض:
-- **مدیر**: `admin` / `admin`
-- **کاربر**: `user` / `user`
+ورود پیش‌فرض: `admin` / `admin`
 
-> فوراً این رمزهای عبور را تغییر دهید!
+> ⚠️ فوراً رمز عبور پیش‌فرض را تغییر دهید!
 
-### استقرار با ویزار (با یک کلیک)
+#### گزینه ۲: استقرار با ویزار (با یک کلیک)
 
-ویزار به شما امکان می‌دهد XRayMOD را با استفاده از توکن API کاربران دیگر روی حساب Cloudflare آنها استقرار دهید.
+ویزار امکان استقرار XRayMOD روی حساب‌های Cloudflare دیگران با استفاده از توکن API آنها را فراهم می‌کند.
 
-#### راه‌اندازی ویزار
+**راه‌اندازی ویزار:**
 
-1. ورکر ویزار را استقرار دهید:
-   ```bash
-   cd wizard
-   wrangler deploy
-   ```
+```bash
+cd wizard
+wrangler deploy
+```
 
-2. ویزار را در `https://xraymod-wizard.<your-subdomain>.workers.dev` باز کنید
+**استفاده از ویزار:**
 
-3. (اختیاری) متغیر محیطی `WIZARD_SECRET` را برای محافظت از ویزار تنظیم کنید
-
-#### استفاده از ویزار
-
-1. URL ویزار را باز کنید
+1. `https://xraymod-wizard.<your-subdomain>.workers.dev` را باز کنید
 2. توکن API کلاودفلر کاربر مورد نظر را وارد کنید
-3. روی «Deploy to Cloudflare» کلیک کنید
-4. پنل استقرار می‌یابد و کاربر URL خود را دریافت می‌کند
+3. روی **Deploy to Cloudflare** کلیک کنید
+4. URL استقرار شده را با کاربر به اشتراک بگذارید
 
-#### مجوزهای توکن API
+**مجوزهای توکن API مورد نیاز:**
 
-توکن API به این مجوزها نیاز دارد:
 - `Account: Workers Scripts: Edit`
 - `Account: D1: Edit`
-- `Account: Workers KV Storage: Edit`
 
 ### ویژگی‌های مشروط
-
-#### حالت سرور خارجی
 
 برخی ویژگی‌ها به یک سرور Node.js جداگانه نیاز دارند:
 
@@ -379,56 +329,90 @@ MIT
 
 برای فعال‌سازی، `EXTERNAL_SERVER_URL` را در متغیرهای محیطی تنظیم کنید.
 
-#### پیکربندی‌های JSON سفارشی
-
-به‌طور پیش‌فرض، پیکربندی‌های JSON سفارشی در ورکر پایه مسدود هستند. برای استفاده:
-
-1. یک سرور Node.js راه‌اندازی کنید
-2. `EXTERNAL_SERVER_URL` را به URL سرور خود تنظیم کنید
-3. در پنل مدیریت → یکپارچگی‌ها فعال کنید
-
 ### پایانه‌های API
 
-| متد | مسیر | توضیحات |
-|-----|------|---------|
-| POST | `/api/login` | احراز هویت کاربر |
-| GET | `/api/nodes` | لیست سرورهای پروکسی |
-| POST | `/api/nodes` | افزودن سرور جدید |
-| GET | `/api/users` | لیست کاربران (مدیر) |
-| POST | `/api/users` | ایجاد کاربر (مدیر) |
-| PUT | `/api/users/:id` | به‌روزرسانی کاربر (مدیر) |
-| GET | `/api/protocols` | لیست پروتکل‌ها (مدیر) |
-| POST | `/api/protocols` | افزودن پروتکل (مدیر) |
-| GET | `/api/configs` | لیست پیکربندی‌ها (مدیر) |
-| POST | `/api/configs` | ایجاد پیکربندی (مدیر) |
-| GET | `/api/settings` | دریافت تنظیمات (مدیر) |
-| PUT | `/api/settings` | به‌روزرسانی تنظیمات (مدیر) |
-| GET | `/sub/:token` | لینک اشتراک کاربر |
+| متد | مسیر | توضیحات | احراز هویت |
+|-----|------|---------|-----------|
+| POST | `/api/login` | احراز هویت کاربر | خیر |
+| POST | `/api/logout` | خروج کاربر | بله |
+| GET | `/api/health` | بررسی سلامت | خیر |
+| GET | `/api/nodes` | لیست سرورها | مدیر |
+| POST | `/api/nodes` | افزودن سرور | مدیر |
+| GET | `/api/users` | لیست کاربران | مدیر |
+| POST | `/api/users` | ایجاد کاربر | مدیر |
+| PUT | `/api/users/:id` | به‌روزرسانی کاربر | مدیر |
+| GET | `/api/protocols` | لیست پروتکل‌ها | مدیر |
+| POST | `/api/protocols` | افزودن پروتکل | مدیر |
+| GET | `/api/configs` | لیست پیکربندی‌ها | مدیر |
+| POST | `/api/configs` | ایجاد پیکربندی | مدیر |
+| GET | `/api/settings` | دریافت تنظیمات | مدیر |
+| PUT | `/api/settings` | به‌روزرسانی تنظیمات | مدیر |
+| GET | `/sub/:token` | لینک اشتراک کاربر | خیر |
 
 ### لینک‌های اشتراک
 
-کاربران به اشتراک خود از این آدرس دسترسی دارند:
+دسترسی به اشتراک:
 ```
 https://your-worker.workers.dev/sub/<user-uuid>
 ```
 
-فرمت‌های پشتیبانی شده (از طریق پارامتر `?format=`):
-- `base64` (پیش‌فرض) — لیست URI رمزگذاری شده base64
+**فرمت‌های پشتیبانی شده** (از طریق پارامتر `?format=`):
+- `base64` (پیش‌فرض) — لیست URI رمزگذاری شده
 - `clash` — پیکربندی YAML Clash/Mihomo
 - `singbox` — پیکربندی JSON sing-box
+
+### ساختار پروژه
+
+```
+XRayMOD/
+├── worker/              # سورس ورکر کلاودفلر
+│   ├── index.ts         # نقطه ورود
+│   ├── router.ts        # مسیریابی درخواست‌ها
+│   ├── auth.ts          # احراز هویت
+│   ├── schema.ts        # شema پایگاه داده D1
+│   ├── types.ts         # تایپ‌های TypeScript
+│   ├── api/             # هندلرهای API
+│   ├── proxy/           # موتور ترافیک پروکسی
+│   └── subscription.ts  # تولید اشتراک
+├── src/                 # فرانت‌اند React
+│   ├── App.tsx          # برنامه اصلی
+│   ├── main.tsx         # نقطه ورود
+│   └── index.css        # تم Tailwind CSS v4
+├── components/ui/       # کامپوننت‌های shadcn/ui
+├── wizard/              # ابزار استقرار یک کلیکی
+├── wrangler.toml        # پیکربندی کلاودفلر
+└── ROADMAP.md           # نقشه راه توسعه
+```
+
 ### عیب‌یابی
 
-**ورکر استقرار نمی‌یابد**
-- وارد بودن Wrangler را بررسی کنید: `wrangler whoami`
-- شناسه پایگاه داده D1 در `wrangler.toml` را تأیید کنید
+#### خطاهای Git Push
 
-**API خطای 401 برمی‌گرداند**
-- تنظیم `ADMIN_PASSWORD` در متغیرهای محیطی را بررسی کنید
-- مطابقت رمز عبور با آنچه وارد می‌کنید را بررسی کنید
+اگر با خطای `fatal: unknown index entry format 0x6c540000` مواجه شدید:
 
-**لینک اشتراک کار نمی‌کند**
-- فعال بودن وضعیت کاربر و تاریخ انقضای معتبر را بررسی کنید
-- صحت UUID در URL را بررسی کنید
+```bash
+# رفع ایندکس خراب
+rm -f .git/index
+git init
+git branch -M main
+git remote remove origin 2>/dev/null || true
+git remote add origin git@github.com:EvolveBeyond/XRayMOD.git
+git add .
+git commit -m "Initial commit"
+git push -u origin main
+```
+
+#### ورکر استقرار نمی‌یابد
+
+1. وارد بودن Wrangler را بررسی کنید: `wrangler whoami`
+2. شناسه پایگاه داده D1 در `wrangler.toml` را تأیید کنید
+3. نصب بودن تمام وابستگی‌ها را بررسی کنید: `npm install`
+
+#### API خطای 401 برمی‌گرداند
+
+1. تنظیم `ADMIN_PASSWORD` در متغیرهای محیطی را بررسی کنید
+2. کوکی‌های مرورگر را پاک کرده و دوباره تلاش کنید
+3. مطابقت رمز عبور با آنچه وارد می‌کنید را بررسی کنید
 
 ### مجوز
 

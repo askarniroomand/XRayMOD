@@ -1,6 +1,8 @@
 import type { Env } from './types';
 import { ensureSchema } from './schema';
 import { handleLogin } from './api/login';
+import { handleLogout } from './api/logout';
+import { handleHealth } from './api/health';
 import { handleNodes } from './api/nodes';
 import { handleUsers } from './api/users';
 import { handleProtocols } from './api/protocols';
@@ -37,16 +39,22 @@ function notFound(): Response {
   return jsonResponse({ success: false, message: 'Not found' }, 404);
 }
 
-function methodNotAllowed(): Response {
-  return jsonResponse({ success: false, message: 'Method not allowed' }, 405);
-}
-
 const routes: Route[] = [
-  // API routes
+  // Public routes
   {
     pattern: new URLPattern({ pathname: '/api/login' }),
     handler: handleLogin,
   },
+  {
+    pattern: new URLPattern({ pathname: '/api/health' }),
+    handler: handleHealth,
+  },
+  // Auth routes
+  {
+    pattern: new URLPattern({ pathname: '/api/logout' }),
+    handler: handleLogout,
+  },
+  // Admin routes
   {
     pattern: new URLPattern({ pathname: '/api/nodes' }),
     handler: handleNodes,
@@ -133,7 +141,7 @@ export async function handleRequest(
     if (assetResponse.status === 200) {
       return assetResponse;
     }
-  } catch (e) {
+  } catch (_e) {
     // Fall through to SPA fallback
   }
 
@@ -142,7 +150,7 @@ export async function handleRequest(
     try {
       const indexRequest = new Request(new URL('/index.html', request.url).toString(), request);
       return await env.ASSETS.fetch(indexRequest);
-    } catch (e) {
+    } catch (_e) {
       // Fall through to 404
     }
   }
