@@ -1,0 +1,5 @@
+{
+  "name": "Xray Modular Panel",
+  "description": "A modular Xray management panel with Telegram Mini App support and SSH node management.",
+  "requestFramePermissions": ["geolocation"]
+}

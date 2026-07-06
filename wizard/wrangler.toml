@@ -1,0 +1,9 @@
+name = "xraymod-wizard"
+main = "index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Optional: Set a secret to protect the wizard from unauthorized use
+# WIZARD_SECRET = "your-secret-here"
+PANEL_GITHUB_URL = "https://github.com/EvolveBeyond/XRayMOD"
