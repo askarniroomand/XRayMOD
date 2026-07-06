@@ -109,10 +109,13 @@ interface UserConfig {
 }
 
 // --- Backend API Service ---
+const API_BASE = (window as any).__API_BASE || '';
+const api = (path: string) => `${API_BASE}${path}`;
+
 const API = {
   getNodes: async (): Promise<Node[]> => {
     try {
-      const res = await fetch('/api/nodes');
+      const res = await fetch(api('/api/nodes'));
       const data = await res.json() as { success: boolean; data?: Node[] };
       return data.data || [];
     } catch {
@@ -121,7 +124,7 @@ const API = {
   },
   getUsers: async (): Promise<User[]> => {
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch(api('/api/users'));
       const data = await res.json() as { success: boolean; data?: User[] };
       return data.data || [];
     } catch {
@@ -130,7 +133,7 @@ const API = {
   },
   getProtocols: async (): Promise<ProtocolDefinition[]> => {
     try {
-      const res = await fetch('/api/protocols');
+      const res = await fetch(api('/api/protocols'));
       const data = await res.json() as { success: boolean; data?: any[] };
       return (data.data || []).map((p: any) => ({
         id: p.id,
@@ -147,7 +150,7 @@ const API = {
   },
   getUserConfigs: async (): Promise<UserConfig[]> => {
     try {
-      const res = await fetch('/api/configs');
+      const res = await fetch(api('/api/configs'));
       const data = await res.json() as { success: boolean; data?: any[] };
       return (data.data || []).map((c: any) => ({
         id: c.id,
@@ -425,7 +428,7 @@ export default function App() {
             </div>
 
             <Button variant="ghost" className="w-full justify-start text-zinc-500 hover:text-rose-400 hover:bg-rose-400/5" onClick={async () => {
-              try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+              try { await fetch(api('/api/logout'), { method: 'POST' }); } catch {}
               setIsLoggedIn(false);
             }}>
               <LogOut className="mr-3 h-4 w-4" /> Logout
@@ -442,7 +445,7 @@ export default function App() {
               <span className="font-black tracking-tighter uppercase">Xray<span className="text-emerald-500">Mod</span></span>
             </div>
             <Button variant="ghost" size="icon" onClick={async () => {
-              try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+              try { await fetch(api('/api/logout'), { method: 'POST' }); } catch {}
               setIsLoggedIn(false);
             }}><LogOut size={18} /></Button>
           </header>
@@ -1879,7 +1882,7 @@ function LoginScreen({ onLogin }: { onLogin: (role: 'admin' | 'user', userProfil
     setIsAuthenticating(true);
     
     try {
-      const res = await fetch('/api/login', {
+      const res = await fetch(api('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
