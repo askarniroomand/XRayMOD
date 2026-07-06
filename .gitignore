@@ -27,6 +27,7 @@ npm-debug.log*
 .idea/
 *.swp
 *.swo
+*.kate-swp
 
 # Temporary files
 tmp/
