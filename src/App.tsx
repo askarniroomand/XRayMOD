@@ -111,11 +111,12 @@ interface UserConfig {
 // --- Backend API Service ---
 const API_BASE = (window as any).__API_BASE || '';
 const api = (path: string) => `${API_BASE}${path}`;
+const FETCH_OPTS: RequestInit = { credentials: 'include' };
 
 const API = {
   getNodes: async (): Promise<Node[]> => {
     try {
-      const res = await fetch(api('/api/nodes'));
+      const res = await fetch(api('/api/nodes'), FETCH_OPTS);
       const data = await res.json() as { success: boolean; data?: Node[] };
       return data.data || [];
     } catch {
@@ -124,7 +125,7 @@ const API = {
   },
   getUsers: async (): Promise<User[]> => {
     try {
-      const res = await fetch(api('/api/users'));
+      const res = await fetch(api('/api/users'), FETCH_OPTS);
       const data = await res.json() as { success: boolean; data?: User[] };
       return data.data || [];
     } catch {
@@ -133,7 +134,7 @@ const API = {
   },
   getProtocols: async (): Promise<ProtocolDefinition[]> => {
     try {
-      const res = await fetch(api('/api/protocols'));
+      const res = await fetch(api('/api/protocols'), FETCH_OPTS);
       const data = await res.json() as { success: boolean; data?: any[] };
       return (data.data || []).map((p: any) => ({
         id: p.id,
@@ -150,7 +151,7 @@ const API = {
   },
   getUserConfigs: async (): Promise<UserConfig[]> => {
     try {
-      const res = await fetch(api('/api/configs'));
+      const res = await fetch(api('/api/configs'), FETCH_OPTS);
       const data = await res.json() as { success: boolean; data?: any[] };
       return (data.data || []).map((c: any) => ({
         id: c.id,
@@ -1885,7 +1886,8 @@ function LoginScreen({ onLogin }: { onLogin: (role: 'admin' | 'user', userProfil
       const res = await fetch(api('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
+        credentials: 'include',
       });
       
       const data = await res.json() as { success: boolean; role?: string; user?: any; message?: string };
