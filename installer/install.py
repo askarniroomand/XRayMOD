@@ -94,7 +94,7 @@ def deploy(
     print(f"  ✓ Account: {account['name']} ({account_id})")
 
     # Step 2: Create or find D1 database
-    print("\n[2/5] Setting up D1 database...")
+    print("\n[2/6] Setting up D1 database...")
     d1_id = None
     try:
         d1 = _cf(token, f"/accounts/{account_id}/d1/database", "POST", {"name": d1_name})
@@ -108,13 +108,96 @@ def deploy(
         else:
             raise
 
-    # Step 3: Fetch panel code
-    print("\n[3/5] Fetching panel code...")
-    panel_code = fetch_panel_code()
+    # Step 3: Create Cloudflare Pages project for frontend
+    print("\n[3/6] Setting up Cloudflare Pages...")
+    pages_name = f"{worker_name}-ui"
+    pages_url = None
+    try:
+        # Check if project exists
+        existing = _cf(token, f"/accounts/{account_id}/pages/projects/{pages_name}", accept_404=True)
+        if existing.get("result"):
+            pages_url = f"https://{existing['result'].get('subdomain', pages_name)}.pages.dev"
+            print(f"  ✓ Pages project found: {pages_name}")
+        else:
+            # Create Pages project
+            _cf(token, f"/accounts/{account_id}/pages/projects", "POST", {
+                "name": pages_name,
+                "production_branch": "main",
+            })
+            pages_url = f"https://{pages_name}.pages.dev"
+            print(f"  ✓ Pages project created: {pages_name}")
+    except RuntimeError:
+        # Pages creation might fail, fall back to GitHub
+        print("  ⚠ Pages project creation failed, using GitHub Pages fallback")
+        pages_url = PANEL_GITHUB
 
-    # Step 4: Upload worker
-    print("\n[4/5] Uploading worker...")
-    pages_url = f"{PANEL_GITHUB}"
+    # Step 4: Deploy frontend to Pages (if we have the built files)
+    print("\n[4/6] Deploying frontend...")
+    dist_dir = Path(__file__).parent.parent / "dist"
+    if dist_dir.exists():
+        # Upload dist files to Pages
+        try:
+            # Create deployment with dist files
+            deploy_data = {}
+            for f in dist_dir.rglob("*"):
+                if f.is_file():
+                    relative = str(f.relative_to(dist_dir))
+                    deploy_data[relative] = f.read_bytes()
+
+            # Build multipart form for Pages deployment
+            boundary = f"----pages-{secrets.token_hex(8)}"
+            parts = []
+
+            # Manifest
+            manifest = {}
+            for filename in deploy_data:
+                manifest[filename] = {
+                    "hash": secrets.token_hex(16),
+                    "size": len(deploy_data[filename]),
+                }
+            parts.append(
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="manifest"\r\n'
+                f"Content-Type: application/json\r\n\r\n"
+                f"{json.dumps(manifest)}\r\n"
+            )
+
+            # Upload each file
+            for filename, content in deploy_data.items():
+                parts.append(
+                    f"--{boundary}\r\n"
+                    f'Content-Disposition: form-data; name="{filename}"; filename="{filename}"\r\n'
+                    f"Content-Type: application/octet-stream\r\n\r\n"
+                )
+                parts.append(content)
+                parts.append(b"\r\n")
+
+            parts.append(f"--{boundary}--\r\n")
+            body = b"".join(parts) if isinstance(parts[0], bytes) else "".join(parts).encode()
+
+            resp = httpx.put(
+                f"{CF_API}/accounts/{account_id}/pages/projects/{pages_name}/deployments",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": f"multipart/form-data; boundary={boundary}",
+                },
+                content=body,
+                timeout=120,
+            )
+            if resp.status_code in (200, 201):
+                print(f"  ✓ Frontend deployed to Pages")
+            else:
+                print(f"  ⚠ Pages deployment returned {resp.status_code}, using fallback")
+                pages_url = PANEL_GITHUB
+        except Exception as e:
+            print(f"  ⚠ Pages deployment failed: {e}")
+            pages_url = PANEL_GITHUB
+    else:
+        print("  ⚠ dist/ directory not found, using GitHub fallback")
+        pages_url = PANEL_GITHUB
+
+    # Step 5: Upload worker
+    print("\n[5/6] Uploading worker...")
     metadata = {
         "main_module": "worker.js",
         "compatibility_date": "2025-01-01",
@@ -156,8 +239,8 @@ def deploy(
         raise RuntimeError(f"Worker upload failed: {resp.text}")
     print(f"  ✓ Worker uploaded: {worker_name}")
 
-    # Step 5: Enable workers.dev subdomain
-    print("\n[5/5] Enabling workers.dev subdomain...")
+    # Step 6: Enable workers.dev subdomain
+    print("\n[6/6] Enabling workers.dev subdomain...")
     subdomain = "workers.dev"
     try:
         sub = _cf(token, f"/accounts/{account_id}/workers/subdomain")
@@ -187,6 +270,7 @@ def deploy(
     return {
         "worker_name": worker_name,
         "worker_url": worker_url,
+        "pages_url": pages_url,
         "d1_database": d1_name,
         "d1_id": d1_id,
         "admin_password": admin_password,
@@ -309,6 +393,7 @@ def main() -> None:
     print("═══════════════════════════════════════")
     print()
     print(f"  Panel URL:   {result['worker_url']}/install")
+    print(f"  Frontend:    {result['pages_url']}")
     print(f"  Admin user:  admin")
     print(f"  Admin pass:  {result['admin_password']}")
     print(f"  Database:    {result['d1_database']}")
