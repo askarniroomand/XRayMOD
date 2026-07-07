@@ -113,10 +113,15 @@ def deploy(
     pages_name = f"{worker_name}-ui"
     pages_url = None
     try:
-        # Check if project exists
-        existing = _cf(token, f"/accounts/{account_id}/pages/projects/{pages_name}", accept_404=True)
-        if existing.get("result"):
-            pages_url = f"https://{existing['result'].get('subdomain', pages_name)}.pages.dev"
+        # Try to get existing project
+        resp = httpx.get(
+            f"{CF_API}/accounts/{account_id}/pages/projects/{pages_name}",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            timeout=30,
+        )
+        data = resp.json()
+        if data.get("success") and data.get("result"):
+            pages_url = f"https://{data['result'].get('subdomain', pages_name)}.pages.dev"
             print(f"  ✓ Pages project found: {pages_name}")
         else:
             # Create Pages project
@@ -126,9 +131,10 @@ def deploy(
             })
             pages_url = f"https://{pages_name}.pages.dev"
             print(f"  ✓ Pages project created: {pages_name}")
-    except RuntimeError:
+    except RuntimeError as e:
         # Pages creation might fail, fall back to GitHub
-        print("  ⚠ Pages project creation failed, using GitHub Pages fallback")
+        print(f"  ⚠ Pages project setup failed: {e}")
+        print("  Using GitHub Pages as fallback")
         pages_url = PANEL_GITHUB
 
     # Step 4: Deploy frontend to Pages (if we have the built files)
