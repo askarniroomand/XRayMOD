@@ -62,4 +62,4 @@ echo -e "${YELLOW}→${NC} Press Ctrl+C to stop"
 echo ""
 
 cd "${INSTALLER_DIR}/XRayMOD"
-exec uv run xraymod-install "$@"
+exec uv run python -m installer "$@"
