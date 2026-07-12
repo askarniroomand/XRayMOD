@@ -79,20 +79,20 @@ XrayMOD is a **serverless, self-hosted proxy management panel** that runs entire
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   Cloudflare CDN                     │
+│                   Cloudflare CDN                    │
 ├─────────────────────────────────────────────────────┤
-│                  Cloudflare Worker                   │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │ React SPA│  │ REST API │  │  Proxy Handler   │  │
-│  │ (Static) │  │ (Router) │  │ (WS/gRPC/XHTTP) │  │
-│  └──────────┘  └──────────┘  └──────────────────┘  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │ Disguise │  │ TG Bot   │  │  Clean IP System │  │
-│  │  System  │  │ Webhook  │  │  ISP Detection   │  │
-│  └──────────┘  └──────────┘  └──────────────────┘  │
+│                  Cloudflare Worker                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │ React SPA│  │ REST API │  │  Proxy Handler   │   │
+│  │ (Static) │  │ (Router) │  │ (WS/gRPC/XHTTP)  │   │
+│  └──────────┘  └──────────┘  └──────────────────┘   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
+│  │ Disguise │  │ TG Bot   │  │  Clean IP System │   │
+│  │  System  │  │ Webhook  │  │  ISP Detection   │   │
+│  └──────────┘  └──────────┘  └──────────────────┘   │
 ├─────────────────────────────────────────────────────┤
-│              Cloudflare D1 Database                  │
-│         (users, protocols, configs, settings)        │
+│              Cloudflare D1 Database                 │
+│         (users, protocols, configs, settings)       │
 └─────────────────────────────────────────────────────┘
 ```
 
