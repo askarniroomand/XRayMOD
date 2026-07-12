@@ -96,40 +96,42 @@ https://your-worker.workers.dev/<your-unique-uuid>/
 
 ## Quick Start
 
-### One-Line Install (Recommended)
+### Step 1 — Install
+
+Open a terminal (Command Prompt, PowerShell, or Terminal) and paste this single command:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
 ```
 
-This launches a **local WebUI installer** in your browser (`http://localhost:8000`):
+That's it! The script will:
+- Install required tools automatically (`uv`)
+- Download the installer
+- Open the WebUI in your browser
 
-1. Opens automatically in your default browser
-2. Enter your **Cloudflare API Token**
-3. Click **Verify** — validates your token and shows your account
-4. Click **Deploy** — creates D1 database + Worker automatically
-5. **Your secret panel URL with UUID is shown** — save it!
+### Step 2 — Deploy via WebUI
 
-### What You Get
+Your browser opens to `http://localhost:8000`. Just follow the on-screen steps:
 
-| Item | Value |
-|------|-------|
-| Installer URL | `http://localhost:8000` |
-| Panel URL | `https://xxx.workers.dev/a1b2c3d4-...` |
-| Admin user | `admin` |
-| Admin pass | *(auto-generated or your choice)* |
+1. Paste your **Cloudflare API Token** (get one from [dash.cloudflare.com](https://dash.cloudflare.com/profile/api-tokens) → Create Token → Edit Cloudflare Workers template)
+2. Click **Verify** — makes sure your token works
+3. Click **Deploy** — creates everything automatically
+4. **Copy your Panel URL** — this is your secret admin link
 
-**Save the Panel URL!** It is the only way to access your panel. The UUID part (`a1b2c3d4-...`) is your secret — never share it.
+### Step 3 — Login
 
-### First Login
+Open the Panel URL you just copied. Login with:
 
-1. Open your panel URL in browser
-2. Login with admin credentials
-3. You'll see the dashboard with all management tools
+| Field | Value |
+|-------|-------|
+| Username | `admin` |
+| Password | *(shown after deploy)* |
 
-### Changing Your Panel UUID
+That's it — you're in!
 
-From within the panel, go to **Settings → Security** to generate a new UUID. The old URL will stop working immediately.
+---
+
+> **Tip:** Lost your Panel URL? Re-run the install command above and deploy again.
 
 ---
 
