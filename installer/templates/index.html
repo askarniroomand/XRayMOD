@@ -32,7 +32,7 @@
       <div id="step-cf" class="step">
         <button class="back-btn" onclick="goBack()">&larr; Back</button>
         <h2>Cloudflare Setup</h2>
-        <p class="step-desc">Connect your Cloudflare account to deploy the panel.</p>
+        <p class="step-desc">Connect your Cloudflare account and set up your panel.</p>
 
         <!-- OAuth Connect Button -->
         <div id="oauth-section">
@@ -53,14 +53,17 @@
 
         <div id="token-status" class="status-msg"></div>
 
+        <!-- Required: Admin Password -->
         <div class="form-group">
-          <label>Worker Name</label>
-          <input type="text" id="workerName" placeholder="Auto-generated if empty">
+          <label>Admin Password *</label>
+          <input type="password" id="adminPassword" placeholder="Choose a secure password" required minlength="4">
+          <p class="help">This is your panel login password. Minimum 4 characters.</p>
         </div>
 
+        <!-- Optional: Worker Name -->
         <div class="form-group">
-          <label>Admin Password</label>
-          <input type="text" id="adminPassword" placeholder="Auto-generated if empty">
+          <label>Worker Name (optional)</label>
+          <input type="text" id="workerName" placeholder="Auto-generated if empty">
         </div>
 
         <button class="btn-primary" id="deployBtn" onclick="deploy()" disabled>Deploy to Cloudflare</button>
@@ -91,14 +94,20 @@
       <div id="step-result" class="step">
         <div class="result-icon">&#10003;</div>
         <h2>Deployment Complete!</h2>
-        <p class="step-desc">Your panel is ready. Save this information.</p>
+        <p class="step-desc">Your panel is ready. Follow the steps below.</p>
 
-        <div class="result-card">
+        <!-- Step 1: Visit Install URL -->
+        <div class="result-card highlight">
+          <div class="result-label-big">Step 1: Visit this URL to complete setup</div>
           <div class="result-row">
-            <span class="result-label">Panel URL</span>
-            <code id="result-url" class="result-value"></code>
-            <button class="copy-btn" onclick="copy('result-url')">Copy</button>
+            <code id="result-install-url" class="result-value url"></code>
+            <button class="copy-btn" onclick="copy('result-install-url')">Copy</button>
           </div>
+          <p class="help">Open this URL in your browser to set your panel password.</p>
+        </div>
+
+        <!-- Credentials -->
+        <div class="result-card">
           <div class="result-row">
             <span class="result-label">Admin User</span>
             <code class="result-value">admin</code>
@@ -114,8 +123,17 @@
           </div>
         </div>
 
-        <p class="help">Open the panel URL and login with the credentials above.</p>
-        <button class="btn-primary" onclick="window.open(document.getElementById('result-url').textContent + '/install', '_blank')">Open Panel</button>
+        <!-- Step 2: After setup, use this URL -->
+        <div class="result-card">
+          <div class="result-label-big">Step 2: After setup, use this URL</div>
+          <div class="result-row">
+            <code id="result-panel-url" class="result-value url"></code>
+            <button class="copy-btn" onclick="copy('result-panel-url')">Copy</button>
+          </div>
+          <p class="help">This URL will work after you complete Step 1.</p>
+        </div>
+
+        <button class="btn-primary" id="openInstallBtn" onclick="window.open(document.getElementById('result-install-url').textContent, '_blank')">Open Install Page</button>
       </div>
 
       <div class="footer">XrayMOD Installer — Secure Proxy Panel</div>

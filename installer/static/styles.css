@@ -48,6 +48,9 @@ input::placeholder{color:#52525b}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .result-icon{width:56px;height:56px;background:#052e16;border:2px solid #166534;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#4ade80;margin:0 auto 1rem}
 .result-card{background:#09090b;border:1px solid #27272a;border-radius:.75rem;padding:1rem;margin:1.5rem 0}
+.result-card.highlight{border-color:#10b981;background:#052e16}
+.result-label-big{font-size:.75rem;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}
+.result-value.url{font-size:.75rem;word-break:break-all}
 .result-row{display:flex;align-items:center;padding:.5rem 0;border-bottom:1px solid #1a1a1e}
 .result-row:last-child{border-bottom:none}
 .result-label{font-size:.7rem;font-weight:700;color:#52525b;text-transform:uppercase;letter-spacing:.05em;width:90px;flex-shrink:0}

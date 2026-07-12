@@ -17,14 +17,67 @@ export async function handleInstall(
     .first<{ v: string }>();
 
   if (configured && configured.v) {
-    // Already configured, redirect to login
-    return new Response(null, {
-      status: 302,
-      headers: { Location: '/' },
-    });
+    // Already configured, check if we have UUID
+    const uuidRow = await env.DB.prepare(
+      'SELECT v FROM kvstore WHERE k = ?'
+    )
+      .bind('panel.access_uuid')
+      .first<{ v: string }>();
+
+    if (uuidRow && uuidRow.v) {
+      // Redirect to panel with UUID
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `/${uuidRow.v}/` },
+      });
+    }
   }
 
-  // Handle POST (set password)
+  // Auto-configure from ADMIN_PASSWORD env var (first visit)
+  if (!configured || !configured.v) {
+    const adminPassword = (env as any).ADMIN_PASSWORD as string | undefined;
+    if (adminPassword && adminPassword.length >= 4) {
+      // Set password from env var
+      const hash = await hashPassword(adminPassword);
+      await env.DB.prepare(
+        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+      )
+        .bind('panel.password_hash', hash, Date.now())
+        .run();
+
+      // Generate random panel access UUID
+      const accessUUID = crypto.randomUUID();
+      await env.DB.prepare(
+        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+      )
+        .bind('panel.access_uuid', accessUUID, Date.now())
+        .run();
+
+      // Generate random secret key
+      const secretKey = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+      await env.DB.prepare(
+        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+      )
+        .bind('panel.secret_key', secretKey, Date.now())
+        .run();
+
+      // Update admin user password
+      await env.DB.prepare(
+        'UPDATE users SET password_hash = ? WHERE role = ?'
+      )
+        .bind(hash, 'admin')
+        .run();
+
+      // Redirect to panel with UUID
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `/${accessUUID}/` },
+      });
+    }
+  }
+
+  // Handle POST (manual password setup)
   if (request.method === 'POST') {
     try {
       const body = await request.json<{ password: string }>();
@@ -81,7 +134,7 @@ export async function handleInstall(
     }
   }
 
-  // GET - Show install page
+  // GET - Show install page (manual setup)
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -278,13 +331,17 @@ export async function handleInstall(
           success.innerHTML = 'Setup complete!<br><br>' +
             '<b>Your Panel URL:</b><br>' +
             '<code style="background:#18181b;padding:8px;border-radius:6px;display:block;margin-top:8px;word-break:break-all">' +
-            window.location.origin + '/' + data.accessUUID + '</code><br>' +
+            window.location.origin + '/' + data.accessUUID +
+            '</code><br>' +
+            '<button onclick="navigator.clipboard.writeText(\\'' + window.location.origin + '/' + data.accessUUID + '\\')" ' +
+            'style="margin-top:8px;padding:8px 16px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:700;cursor:pointer">' +
+            'Copy URL</button><br><br>' +
             '<small style="color:#a1a1aa">Save this URL! It is the only way to access your panel.</small>' +
             '<br><br>Redirecting to login...';
           success.style.display = 'block';
           setTimeout(() => {
             window.location.href = '/' + data.accessUUID;
-          }, 5000);
+          }, 10000);
         } else {
           error.textContent = data.error || 'Setup failed';
           error.style.display = 'block';

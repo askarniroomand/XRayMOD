@@ -15,7 +15,6 @@ from .cf_api import (
     create_d1, deploy_worker, get_worker_url, enable_subdomain, verify_token,
 )
 from .config import load, save
-from .pipeline import deploy, verify_token as pipeline_verify, run_pipeline
 from .deployer import fetch_worker_code, generate_password
 
 logging.basicConfig(
@@ -86,15 +85,18 @@ async def oauth_wait(request: Request):
 
 @app.post("/api/deploy")
 async def deploy_endpoint(request: Request):
-    """Deploy using OAuth token."""
+    """Deploy using OAuth token. Password is set here, not in /install page."""
     body = await request.json()
     access_token = body.get("access_token", "").strip()
     worker_name = body.get("worker_name", f"cf-{secrets.token_hex(6)}")
     d1_name = body.get("d1_name", f"{worker_name}-db")
-    admin_password = body.get("admin_password") or generate_password()
+    admin_password = body.get("admin_password", "").strip()
 
     if not access_token:
         return JSONResponse({"error": "Access token is required"}, 400)
+
+    if not admin_password or len(admin_password) < 4:
+        return JSONResponse({"error": "Admin password must be at least 4 characters"}, 400)
 
     try:
         cf = CFClient(access_token)
@@ -112,7 +114,7 @@ async def deploy_endpoint(request: Request):
         # Fetch worker code
         worker_code = fetch_worker_code()
 
-        # Deploy worker
+        # Deploy worker with password in env var
         deploy_worker(cf, account_id, worker_name, worker_code, d1["id"], admin_password)
 
         # Enable subdomain
@@ -121,6 +123,10 @@ async def deploy_endpoint(request: Request):
         # Get URL
         worker_url = get_worker_url(cf, account_id, worker_name)
 
+        # Generate access UUID (will be set on first /install visit)
+        # For now, show the /install URL
+        install_url = f"{worker_url}/install"
+
         # Save config
         save({
             "access_token": access_token,
@@ -128,21 +134,25 @@ async def deploy_endpoint(request: Request):
             "d1_name": d1_name,
             "d1_id": d1["id"],
             "worker_url": worker_url,
+            "install_url": install_url,
             "account_id": account_id,
             "account_name": account_name,
             "mode": "cloudflare",
         })
 
         logger.info(f"Deployment complete: {worker_url}")
+        logger.info(f"First visit: {install_url}")
 
         return {
             "success": True,
             "worker_name": worker_name,
             "worker_url": worker_url,
+            "install_url": install_url,
             "d1_database": d1_name,
             "d1_id": d1["id"],
             "admin_password": admin_password,
             "account_name": account_name,
+            "message": "Visit the install URL to complete setup",
         }
     except CFApiError as e:
         logger.error(f"Deployment failed: {e}")

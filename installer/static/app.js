@@ -38,7 +38,7 @@ async function connectCloudflare() {
     const data = await res.json();
 
     // Open Cloudflare OAuth page
-    const authWindow = window.open(data.url, '_blank', 'width=600,height=700');
+    window.open(data.url, '_blank', 'width=600,height=700');
 
     setStatus('Waiting for Cloudflare authorization...', null);
 
@@ -73,6 +73,14 @@ async function connectCloudflare() {
 // ── Deploy ──────────────────────────────────────────────────
 async function deploy() {
   if (!accessToken) return;
+
+  // Validate password
+  const password = document.getElementById('adminPassword').value.trim();
+  if (!password || password.length < 4) {
+    setStatus('Admin password must be at least 4 characters', false);
+    return;
+  }
+
   const btn = document.getElementById('deployBtn');
   btn.disabled = true;
 
@@ -92,8 +100,8 @@ async function deploy() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         access_token: accessToken,
+        admin_password: password,
         worker_name: document.getElementById('workerName').value.trim() || undefined,
-        admin_password: document.getElementById('adminPassword').value.trim() || undefined,
       }),
     });
     const data = await res.json();
@@ -101,7 +109,9 @@ async function deploy() {
     if (data.success) {
       renderProgress(steps, steps.length);
       setTimeout(() => {
-        document.getElementById('result-url').textContent = data.worker_url;
+        // Show both URLs
+        document.getElementById('result-install-url').textContent = data.install_url;
+        document.getElementById('result-panel-url').textContent = data.worker_url;
         document.getElementById('result-pass').textContent = data.admin_password;
         document.getElementById('result-db').textContent = data.d1_database;
         show('step-result');
