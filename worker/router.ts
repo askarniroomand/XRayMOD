@@ -123,8 +123,29 @@ export async function handleRequest(
 
     const url = new URL(request.url);
 
-    // Ensure DB schema
-    ctx.waitUntil(ensureSchema(env.DB));
+    // Ensure DB schema (must await — handlers depend on tables)
+    await ensureSchema(env.DB);
+
+    // Kill switch & monthly cap — only for proxy traffic (Nova pattern)
+    const isProxyTraffic = request.headers.get('Upgrade') === 'websocket' ||
+      (request.method === 'POST' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/install') && (isGrpcRequest(request) || isXHTTPRequest(request)));
+
+    if (isProxyTraffic) {
+      const pausedRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('panel.paused').first<{ v: string }>();
+      if (pausedRow?.v === 'true') {
+        return new Response('Service paused', { status: 503 });
+      }
+
+      const capRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('panel.monthly_cap_gb').first<{ v: string }>();
+      const capGB = Number(capRow?.v || 0);
+      if (capGB > 0) {
+        const trafficRow = await env.DB.prepare('SELECT SUM(traffic_used) as total FROM users').first<{ total: number }>();
+        const usedBytes = trafficRow?.total || 0;
+        if (usedBytes >= capGB * 1073741824) {
+          return new Response('Monthly data cap reached', { status: 503 });
+        }
+      }
+    }
 
     // WebSocket upgrade — proxy traffic bypasses disguise
     if (request.headers.get('Upgrade') === 'websocket') {
@@ -143,39 +164,24 @@ export async function handleRequest(
       }
     }
 
-    // UUID-based panel access — only serve panel to those who know the UUID
     let pathname = url.pathname;
+
+    // UUID-based panel access — strip UUID prefix if present
     const panelUUID = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('panel.access_uuid').first<{ v: string }>();
     const accessUuid = panelUUID?.v;
 
-    // Routes that bypass UUID check (proxy, sub, install, telegram)
     const bypassUUID = pathname.startsWith('/sub/') || pathname.startsWith('/install') ||
-                       pathname.startsWith('/bot') || pathname === '/admin' ||
+                       pathname.startsWith('/api/') || pathname.startsWith('/bot') ||
                        request.headers.get('Upgrade') === 'websocket';
 
     if (accessUuid && !bypassUUID) {
       const segments = pathname.split('/').filter(Boolean);
       if (segments.length === 0 || segments[0] !== accessUuid) {
-        // UUID not matched — show decoy
         const disguise = await getDisguiseConfig(env, env.DB);
         return getDecoyResponse(url.host, disguise.fallbackPage);
       }
-      // Strip UUID prefix
       pathname = '/' + segments.slice(1).join('/');
       url.pathname = pathname || '/';
-    }
-
-    // Disguise system: remap secret paths and serve decoy for leaked real paths
-    const disguise = await getDisguiseConfig(env, env.DB);
-    if (disguise.on) {
-      const { remapped, isDecoy } = remapDisguisePath(pathname, disguise);
-      if (isDecoy) {
-        return getDecoyResponse(url.host, disguise.fallbackPage);
-      }
-      if (remapped !== pathname) {
-        pathname = remapped;
-        url.pathname = pathname;
-      }
     }
 
     // Redirect to /install if not configured (skip API and install routes)
@@ -213,6 +219,7 @@ export async function handleRequest(
     }
 
     // When disguise is ON, non-API/non-sub unrecognized paths get the decoy page
+    const disguise = await getDisguiseConfig(env, env.DB);
     if (disguise.on && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/sub/') && !url.pathname.startsWith('/install')) {
       return getDecoyResponse(url.host, disguise.fallbackPage);
     }

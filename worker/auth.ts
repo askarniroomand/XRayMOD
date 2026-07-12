@@ -1,6 +1,47 @@
 import type { Env, User } from './types';
 
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const LOGIN_RATE_LIMIT = 5; // max attempts
+const LOGIN_RATE_WINDOW = 60000; // 1 minute
+
+// Timing-safe comparison (Nova pattern)
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+export async function checkLoginRateLimit(db: D1Database, ip: string): Promise<boolean> {
+  const key = `ratelimit:login:${ip}`;
+  const row = await db.prepare('SELECT v, updated FROM kvstore WHERE k = ?').bind(key).first<{ v: string; updated: number }>();
+  if (!row) return true;
+  const data = JSON.parse(row.v || '{"count":0,"first":0}');
+  const now = Date.now();
+  if (now - data.first > LOGIN_RATE_WINDOW) {
+    await db.prepare('DELETE FROM kvstore WHERE k = ?').bind(key).run();
+    return true;
+  }
+  return data.count < LOGIN_RATE_LIMIT;
+}
+
+export async function recordLoginAttempt(db: D1Database, ip: string): Promise<void> {
+  const key = `ratelimit:login:${ip}`;
+  const row = await db.prepare('SELECT v FROM kvstore WHERE k = ?').bind(key).first<{ v: string }>();
+  const now = Date.now();
+  let data = { count: 1, first: now };
+  if (row) {
+    const prev = JSON.parse(row.v || '{"count":0,"first":0}');
+    if (now - prev.first > LOGIN_RATE_WINDOW) {
+      data = { count: 1, first: now };
+    } else {
+      data = { count: prev.count + 1, first: prev.first };
+    }
+  }
+  await db.prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)').bind(key, JSON.stringify(data), now).run();
+}
 
 export async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();

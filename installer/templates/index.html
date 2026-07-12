@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XrayMOD Installer</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <!-- Step 1: Welcome -->
+      <div id="step-welcome" class="step active">
+        <div class="logo">X</div>
+        <h1>XrayMOD Installer</h1>
+        <p class="subtitle">Deploy your proxy panel to Cloudflare or personal server</p>
+        <div class="mode-grid">
+          <button class="mode-card" onclick="selectMode('cloudflare')">
+            <div class="mode-icon cf">CF</div>
+            <div class="mode-name">Cloudflare Workers</div>
+            <div class="mode-desc">Free tier, zero infrastructure</div>
+          </button>
+          <button class="mode-card" onclick="selectMode('server')">
+            <div class="mode-icon sv">SV</div>
+            <div class="mode-name">Personal Server</div>
+            <div class="mode-desc">VPS with CF edge proxy</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Cloudflare Config -->
+      <div id="step-cf" class="step">
+        <button class="back-btn" onclick="goBack()">&larr; Back</button>
+        <h2>Cloudflare Setup</h2>
+        <p class="step-desc">Enter your Cloudflare API token to deploy the panel.</p>
+        
+        <div class="form-group">
+          <label>API Token</label>
+          <input type="password" id="apiToken" placeholder="Paste your Cloudflare API token">
+          <p class="help">Required permissions: Workers Scripts Edit, D1 Edit</p>
+        </div>
+
+        <button class="btn-secondary" onclick="openTokenPage()">Open Token Creation Page</button>
+
+        <div id="token-status" class="status-msg"></div>
+
+        <div class="form-group">
+          <label>Worker Name</label>
+          <input type="text" id="workerName" placeholder="Auto-generated if empty">
+        </div>
+
+        <div class="form-group">
+          <label>Admin Password</label>
+          <input type="text" id="adminPassword" placeholder="Auto-generated if empty">
+        </div>
+
+        <button class="btn-primary" id="deployBtn" onclick="deploy()" disabled>Deploy to Cloudflare</button>
+      </div>
+
+      <!-- Step 3: Server Config (placeholder) -->
+      <div id="step-server" class="step">
+        <button class="back-btn" onclick="goBack()">&larr; Back</button>
+        <h2>Personal Server Setup</h2>
+        <p class="step-desc">Connect to your VPS via SSH to install the panel.</p>
+        
+        <div class="coming-soon">
+          <div class="cs-icon">SV</div>
+          <h3>Coming in Phase 2</h3>
+          <p>VPS deployment will be available after the FastAPI backend is built.</p>
+        </div>
+      </div>
+
+      <!-- Step 4: Progress -->
+      <div id="step-progress" class="step">
+        <div class="spinner"></div>
+        <h2 id="progress-title">Deploying...</h2>
+        <p id="progress-msg" class="step-desc">Setting up your panel</p>
+        <div id="progress-steps" class="progress-steps"></div>
+      </div>
+
+      <!-- Step 5: Result -->
+      <div id="step-result" class="step">
+        <div class="result-icon">&#10003;</div>
+        <h2>Deployment Complete!</h2>
+        <p class="step-desc">Your panel is ready. Save this information.</p>
+        
+        <div class="result-card">
+          <div class="result-row">
+            <span class="result-label">Panel URL</span>
+            <code id="result-url" class="result-value"></code>
+            <button class="copy-btn" onclick="copy('result-url')">Copy</button>
+          </div>
+          <div class="result-row">
+            <span class="result-label">Admin User</span>
+            <code class="result-value">admin</code>
+          </div>
+          <div class="result-row">
+            <span class="result-label">Admin Password</span>
+            <code id="result-pass" class="result-value"></code>
+            <button class="copy-btn" onclick="copy('result-pass')">Copy</button>
+          </div>
+          <div class="result-row">
+            <span class="result-label">Database</span>
+            <code id="result-db" class="result-value"></code>
+          </div>
+        </div>
+
+        <p class="help">Open the panel URL and login with the credentials above.</p>
+        <button class="btn-primary" onclick="window.open(document.getElementById('result-url').textContent + '/install', '_blank')">Open Panel</button>
+      </div>
+
+      <div class="footer">XrayMOD Installer — Secure Proxy Panel</div>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

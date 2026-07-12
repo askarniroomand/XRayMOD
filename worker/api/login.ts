@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import { verifyPassword, createSession, setSessionCookie } from '../auth';
+import { verifyPassword, createSession, setSessionCookie, checkLoginRateLimit, recordLoginAttempt } from '../auth';
 
 function json(data: any, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -16,6 +16,13 @@ export async function handleLogin(
 ): Promise<Response> {
   if (request.method !== 'POST') {
     return json({ success: false, message: 'Method not allowed' }, 405);
+  }
+
+  // Rate limiting (Nova pattern)
+  const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+  const allowed = await checkLoginRateLimit(env.DB, clientIP);
+  if (!allowed) {
+    return json({ success: false, message: 'Too many attempts, try again later' }, 429);
   }
 
   try {
@@ -38,11 +45,13 @@ export async function handleLogin(
       }>();
 
     if (!user) {
+      await recordLoginAttempt(env.DB, clientIP);
       return json({ success: false, message: 'Invalid credentials' }, 401);
     }
 
     const valid = await verifyPassword(password, user.password_hash);
     if (!valid) {
+      await recordLoginAttempt(env.DB, clientIP);
       return json({ success: false, message: 'Invalid credentials' }, 401);
     }
 

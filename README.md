@@ -25,7 +25,7 @@ XrayMOD is a **serverless, self-hosted proxy management panel** that runs entire
 ### Key Differentiators
 
 - Runs on Cloudflare's **free tier** with no external dependencies
-- **Anti-detection disguise** system with fake Cloudflare error pages
+- **Stealth architecture** — panel hidden behind UUID, all other pages show fake Error 1101
 - **Clean IP scanner** with per-ISP optimization for Iranian networks
 - **gRPC + XHTTP** transport protocols beyond standard WebSocket
 - **ECH + TLS Fragment** for advanced DPI bypass
@@ -36,71 +36,65 @@ XrayMOD is a **serverless, self-hosted proxy management panel** that runs entire
 
 ---
 
-## Features
+## How It Works
 
-### Core Proxy Engine
-| Feature | Status |
-|---------|--------|
-| VLESS over WebSocket | ✅ |
-| VLESS over gRPC (gun/multi) | ✅ |
-| Trojan over WebSocket | ✅ |
-| Shadowsocks over WebSocket | ✅ |
-| WebSocket Early Data (0-RTT) | 🔜 |
-| XHTTP transport | 🔜 |
-| Traffic tracking per user | ✅ |
-| Subscription link generation | ✅ |
-
-### Anti-Censorship
-| Feature | Status |
-|---------|--------|
-| ECH (Encrypted Client Hello) | ✅ |
-| TLS Fragment (Shadowrocket/Happ) | ✅ |
-| Clean IP scanning | ✅ |
-| Per-ISP IP optimization | ✅ |
-| Random IP generation from CIDR | ✅ |
-| Disguise system (Error 1101 bypass) | ✅ |
-
-### Management
-| Feature | Status |
-|---------|--------|
-| Admin dashboard | ✅ |
-| User panel | ✅ |
-| Telegram bot management | ✅ |
-| Backend/VPS registration | ✅ |
-| Protocol configuration | ✅ |
-| Subscription formats (base64/Clash/sing-box) | ✅ |
-| Dark emerald theme | ✅ |
-| Telegram Mini App | ✅ |
-| One-click wizard deployer | ✅ |
-
----
-
-## Architecture
+### Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Cloudflare CDN                    │
-├─────────────────────────────────────────────────────┤
-│                  Cloudflare Worker                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
-│  │ React SPA│  │ REST API │  │  Proxy Handler   │   │
-│  │ (Static) │  │ (Router) │  │ (WS/gRPC/XHTTP)  │   │
-│  └──────────┘  └──────────┘  └──────────────────┘   │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐   │
-│  │ Disguise │  │ TG Bot   │  │  Clean IP System │   │
-│  │  System  │  │ Webhook  │  │  ISP Detection   │   │
-│  └──────────┘  └──────────┘  └──────────────────┘   │
-├─────────────────────────────────────────────────────┤
-│              Cloudflare D1 Database                 │
-│         (users, protocols, configs, settings)       │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                     Cloudflare CDN                       │
+├──────────────────────────────────────────────────────────┤
+│                    Cloudflare Worker                     │
+│                                                          │
+│  Request Flow:                                           │
+│  ┌─────────────────────────────────────────────────────┐ │
+│  │ 1. UUID Check                                        │ │
+│  │    ├── No UUID set → redirect to /install            │ │
+│  │    ├── Wrong/missing UUID → Error 1101 page          │ │
+│  │    └── Correct UUID → strip prefix, continue         │ │
+│  ├─────────────────────────────────────────────────────┤ │
+│  │ 2. Route Matching                                    │ │
+│  │    ├── /api/* → REST API handlers                    │ │
+│  │    ├── /sub/:token → subscription links              │ │
+│  │    ├── WebSocket → proxy traffic                     │ │
+│  │    └── Static SPA (from Pages)                       │ │
+│  ├─────────────────────────────────────────────────────┤ │
+│  │ 3. Disguise Fallback                                 │ │
+│  │    └── Unrecognized paths → Error 1101 page          │ │
+│  └─────────────────────────────────────────────────────┘ │
+│                                                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
+│  │ React SPA│  │ REST API │  │    Proxy Handler      │   │
+│  │ (Static) │  │ (Router) │  │  (WS/gRPC/XHTTP)     │   │
+│  └──────────┘  └──────────┘  └──────────────────────┘   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
+│  │ Disguise │  │ TG Bot   │  │   Clean IP System     │   │
+│  │  System  │  │ Webhook  │  │   ISP Detection       │   │
+│  └──────────┘  └──────────┘  └──────────────────────┘   │
+├──────────────────────────────────────────────────────────┤
+│               Cloudflare D1 Database                     │
+│          (users, protocols, configs, kvstore)            │
+└──────────────────────────────────────────────────────────┘
 ```
 
-- **Single Worker deployment** serves both the React SPA and the API
-- **D1 database** for persistent storage (zero cold-start queries)
-- **Disguise layer** intercepts unauthorized requests before they reach the panel
-- **Telegram bot** runs as a webhook endpoint on the same Worker
-- **Clean IP system** fetches Cloudflare CIDR ranges and generates optimized IPs
+### The UUID Access System
+
+After installation, your panel is accessible **only** through a unique UUID URL:
+
+```
+https://your-worker.workers.dev/<your-unique-uuid>/
+```
+
+**Every other page returns a fake Cloudflare Error 1101** — making your panel invisible to scanners, inspectors, and even Cloudflare's own team.
+
+| What happens when... | Result |
+|----------------------|--------|
+| Visiting `/` (no UUID) | Error 1101 page |
+| Visiting `/admin` | Error 1101 page |
+| Visiting `/random-path` | Error 1101 page |
+| Visiting `/<correct-uuid>/` | Your panel dashboard |
+| API calls to `/api/*` | Always work (auth required) |
+| Proxy traffic (WebSocket) | Always works |
 
 ---
 
@@ -118,71 +112,96 @@ The installer handles everything:
 3. Prompts for your Cloudflare API token
 4. Creates D1 database automatically
 5. Deploys the Worker
-6. Displays panel URL and admin credentials
+6. **Shows your secret panel URL with UUID**
 
-### Wizard Deployment (For Resellers)
+### What You Get
 
-Deploy the wizard once, then deploy panels for others:
+After installation, you'll receive:
 
-```bash
-git clone https://github.com/EvolveBeyond/XRayMOD.git
-cd XRayMOD/wizard
-wrangler deploy
+```
+╔══════════════════════════════════════════════════════╗
+║  Panel URL:   https://xxx.workers.dev/a1b2c3d4-...  ║
+║  Admin user:  admin                                  ║
+║  Admin pass:  (your chosen password)                 ║
+╚══════════════════════════════════════════════════════╝
 ```
 
-Open `https://xraymod-wizard.<subdomain>.workers.dev`, enter the user's Cloudflare API token, and click Deploy.
+**Save this URL!** It is the only way to access your panel. The UUID part (`a1b2c3d4-...`) is your secret — never share it.
 
-### Manual Deployment
+### First Login
 
-```bash
-git clone https://github.com/EvolveBeyond/XRayMOD.git
-cd XRayMOD
-npm install
-```
+1. Open your panel URL in browser
+2. Login with admin credentials
+3. You'll see the dashboard with all management tools
 
-Configure `wrangler.toml` with your D1 database ID:
+### Changing Your Panel UUID
 
-```toml
-[[d1_databases]]
-binding = "DB"
-database_name = "xraymod-db"
-database_id = "your-d1-database-id"
-```
-
-Deploy:
-
-```bash
-npm run deploy
-```
-
-Set `ADMIN_PASSWORD` in Worker environment variables, then access the panel at your Workers URL.
+From within the panel, go to **Settings → Security** to generate a new UUID. The old URL will stop working immediately.
 
 ---
 
-## Disguise System
+## Disguise System (Error 1101 Bypass)
 
-The disguise system hides the panel behind secret paths and serves fake Cloudflare error pages to unauthorized visitors.
+The disguise system makes your panel **invisible** to anyone who doesn't know the UUID.
 
 ### How It Works
 
-| Step | What Happens |
-|------|-------------|
-| 1. Secret paths | Set custom paths for admin, login, subscription |
-| 2. Path remapping | Visiting `/x7k9m` transparently rewrites to `/admin` |
-| 3. Decoy pages | Hitting `/admin` directly shows fake Error 1101 |
-| 4. Fallback | Any random URL shows the decoy page |
+1. **UUID Gate** — Every request must include your UUID in the URL path
+2. **Fake Error Pages** — Unauthorized visitors see a realistic Cloudflare Error 1101
+3. **Secret Paths** — Optional: configure custom paths that remap to real routes
 
 ### Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DISGUISE_PAGE` | `1101` or `nginx` | `1101` |
-| `PANEL_RECOVERY` | Set `1` to bypass disguise | `false` |
-| `ADMIN_PATH` | Override admin secret path | (from DB) |
-| `LOGIN_PATH` | Override login secret path | (from DB) |
-| `SUB_PATH` | Override subscription secret path | (from DB) |
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Disguise Enabled | Toggle the entire system | `false` |
+| Admin Secret Path | Custom path for admin access | — |
+| Login Secret Path | Custom path for login | — |
+| Subscription Secret Path | Custom path for subscriptions | — |
+| Fallback Page | `1101` or `nginx` | `1101` |
 
-**Recovery**: If locked out, set `PANEL_RECOVERY=1` in Worker env vars to access `/admin` directly.
+### Recovery Mode
+
+If locked out, set `PANEL_RECOVERY=1` in Worker environment variables to access `/admin` directly.
+
+---
+
+## Features
+
+### Core Proxy Engine
+
+| Feature | Status |
+|---------|--------|
+| VLESS over WebSocket | ✅ |
+| VLESS over gRPC (gun/multi) | ✅ |
+| Trojan over WebSocket | ✅ |
+| Shadowsocks over WebSocket | ✅ |
+| Traffic tracking per user | ✅ |
+| Subscription link generation | ✅ |
+
+### Anti-Censorship
+
+| Feature | Status |
+|---------|--------|
+| ECH (Encrypted Client Hello) | ✅ |
+| TLS Fragment (Shadowrocket/Happ) | ✅ |
+| Clean IP scanning | ✅ |
+| Per-ISP IP optimization | ✅ |
+| Random IP generation from CIDR | ✅ |
+| Disguise system (Error 1101 bypass) | ✅ |
+
+### Management
+
+| Feature | Status |
+|---------|--------|
+| Admin dashboard | ✅ |
+| User panel | ✅ |
+| Telegram bot management | ✅ |
+| Backend/VPS registration | ✅ |
+| Protocol configuration | ✅ |
+| Subscription formats (base64/Clash/sing-box) | ✅ |
+| Dark emerald theme | ✅ |
+| Telegram Mini App | ✅ |
 
 ---
 
@@ -205,14 +224,6 @@ Automatically generates and manages Cloudflare IPs optimized for your ISP.
 2. Click **Scan IPs** — generates random Cloudflare IPs for your network
 3. Review results, then click **Apply Best IPs**
 4. Subscription links will use the optimized IPs as server addresses
-
-### API Endpoints
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/cleanip/scan` | GET | Public | Generate random IPs for visitor's ISP |
-| `/api/cleanip/apply` | POST | Admin | Save IPs to config |
-| `/api/cleanip/list` | GET | Admin | List active clean IPs |
 
 ---
 
@@ -242,14 +253,6 @@ Manage your entire panel from Telegram with inline keyboard navigation.
 | `/users` | List registered users (admin) |
 | `/help` | Command reference |
 
-### Telegram Mini App
-
-The panel automatically detects Telegram Mini App environment and:
-- Initializes the WebApp SDK
-- Enables back button navigation
-- Applies safe area padding for notched devices
-- Matches Telegram's dark theme
-
 ---
 
 ## Backend Mode
@@ -266,14 +269,6 @@ Allow users to provide their own VPS for personal proxy configs.
    ```
 4. The script installs Xray-core with the user's UUID
 5. Subscription links automatically route through the VPS
-
-### API Endpoints
-
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/backends` | GET | Admin | List all backends |
-| `/api/backends` | POST | Admin | Register a backend |
-| `/api/backends/:id` | DELETE | Admin | Remove a backend |
 
 ---
 
@@ -293,43 +288,6 @@ Allow users to provide their own VPS for personal proxy configs.
 https://your-panel.workers.dev/sub/<user-uuid>?format=clash
 ```
 
-### Auto-Generated Parameters
-
-Subscription links automatically include:
-- **ECH** parameters when enabled in settings
-- **TLS Fragment** parameters when enabled
-- **Clean IP** addresses when configured
-- **Backend VPS** address when user has a registered backend
-
----
-
-## API Reference
-
-### Authentication
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/login` | POST | Authenticate user |
-| `/api/logout` | POST | Logout user |
-
-### Management (Admin)
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/nodes` | GET/POST | List or add nodes |
-| `/api/users` | GET/POST | List or create users |
-| `/api/users/:id` | PUT | Update user |
-| `/api/protocols` | GET/POST | List or add protocols |
-| `/api/configs` | GET/POST | List or create configs |
-| `/api/settings` | GET/PUT | Read or update settings |
-| `/api/cleanip/*` | GET/POST | Clean IP management |
-| `/api/backends` | GET/POST/DELETE | Backend management |
-
-### Public
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/health` | GET | Health check |
-| `/sub/:token` | GET | User subscription |
-| `/bot` | POST | Telegram webhook |
-
 ---
 
 ## Project Structure
@@ -338,7 +296,7 @@ Subscription links automatically include:
 XrayMOD/
 ├── worker/                  # Cloudflare Worker source (TypeScript)
 │   ├── index.ts             # Entry point
-│   ├── router.ts            # Request routing + disguise
+│   ├── router.ts            # Request routing + UUID gate + disguise
 │   ├── auth.ts              # Session management
 │   ├── schema.ts            # D1 schema + default protocols
 │   ├── types.ts             # TypeScript interfaces
@@ -346,31 +304,16 @@ XrayMOD/
 │   ├── telegram.ts          # Telegram bot webhook handler
 │   ├── utils.ts             # ISP detection, CIDR IPs, helpers
 │   ├── api/                 # API route handlers
-│   │   ├── login.ts         #   Authentication
-│   │   ├── users.ts         #   User CRUD
-│   │   ├── settings.ts      #   Settings management
-│   │   ├── cleanip.ts       #   Clean IP scanning
-│   │   └── backends.ts      #   Backend/VPS registration
-│   ├── proxy/               # Transport handlers
-│   │   ├── index.ts         #   WebSocket proxy engine
-│   │   ├── vless.ts         #   VLESS protocol parser
-│   │   ├── trojan.ts        #   Trojan protocol parser
-│   │   ├── shadowsocks.ts   #   Shadowsocks handler
-│   │   ├── grpc.ts          #   gRPC frame handling
-│   │   └── xhttp.ts         #   XHTTP transport detection
+│   ├── proxy/               # Transport handlers (VLESS, Trojan, SS, gRPC, XHTTP)
 │   └── subscription.ts      # Subscription link generation
 ├── src/                     # React frontend (Vite + Tailwind v4)
-│   ├── App.tsx              # Main application (2400+ lines)
-│   ├── main.tsx             # Entry point
-│   └── index.css            # Tailwind theme + safe area
 ├── components/ui/           # shadcn/ui components
 ├── installer/               # Deployment scripts
 │   ├── install.py           # Python installer
 │   └── backend-install.sh   # VPS backend installer
 ├── wizard/                  # One-click deployer
 ├── worker.js                # Compiled Worker bundle
-├── wrangler.toml            # Cloudflare configuration
-└── README.md                # This file
+└── wrangler.toml            # Cloudflare configuration
 ```
 
 ---
@@ -383,38 +326,26 @@ XrayMOD/
 | `TG_BOT_TOKEN` | No | Telegram bot token from @BotFather | — |
 | `DISGUISE_PAGE` | No | Decoy page type: `1101` or `nginx` | `1101` |
 | `PANEL_RECOVERY` | No | Set `1` to bypass disguise | `false` |
-| `ADMIN_PATH` | No | Override admin secret path | — |
-| `LOGIN_PATH` | No | Override login secret path | — |
-| `SUB_PATH` | No | Override subscription secret path | — |
-| `EXTERNAL_SERVER_URL` | No | External Node.js server URL | — |
 
 ---
 
 ## Troubleshooting
 
+### Locked Out by Disguise
+
+Set `PANEL_RECOVERY=1` in Worker environment variables to access `/admin` directly.
+
+### Lost Panel URL
+
+If you lost your UUID URL, you can:
+1. Deploy a fresh Worker
+2. Or use `PANEL_RECOVERY=1` to access the old one
+
 ### Worker Won't Deploy
+
 - Verify Wrangler authentication: `wrangler whoami`
 - Confirm D1 database ID in `wrangler.toml`
 - Install dependencies: `npm install`
-
-### API Returns 401
-- Ensure `ADMIN_PASSWORD` is set in Worker env vars
-- Clear browser cookies and retry
-- Verify the password matches
-
-### Subscription Link Not Working
-- Confirm user status is `active`
-- Verify the UUID is correct in the URL
-- Check the user's expiry date hasn't passed
-
-### Locked Out by Disguise
-- Set `PANEL_RECOVERY=1` in Worker environment variables
-- Access the panel using your configured secret path
-
-### Telegram Bot Not Responding
-- Verify `TG_BOT_TOKEN` is set correctly
-- Confirm webhook is registered: `curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"`
-- Check the bot token matches what you entered in Settings
 
 ---
 

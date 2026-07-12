@@ -1,0 +1,15 @@
+[project]
+name = "xraymod"
+version = "2.0.0"
+description = "XrayMOD — Modular Proxy Management Panel"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
+    "aiosqlite",
+]
+
+[project.scripts]
+xraymod-install = "installer.app:main"
+xraymod-backend = "backend.main:main"

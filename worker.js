@@ -1,59 +1,4 @@
 // worker/schema.ts
-var SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  role TEXT DEFAULT 'user',
-  uuid TEXT UNIQUE,
-  email TEXT DEFAULT '',
-  traffic_limit INTEGER DEFAULT 0,
-  traffic_used INTEGER DEFAULT 0,
-  expiry_date TEXT DEFAULT '',
-  status TEXT DEFAULT 'active',
-  created_at INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS configs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER,
-  protocol_id TEXT,
-  name TEXT DEFAULT '',
-  settings_json TEXT DEFAULT '{}',
-  port INTEGER DEFAULT 443,
-  path TEXT DEFAULT '',
-  link TEXT DEFAULT '',
-  node_ip TEXT DEFAULT '',
-  client_limit INTEGER DEFAULT 1,
-  created_at INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS protocols (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  schema_json TEXT NOT NULL,
-  template_json TEXT NOT NULL,
-  price REAL DEFAULT 0,
-  client_limit INTEGER DEFAULT 1,
-  client_price REAL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS kvstore (
-  k TEXT PRIMARY KEY,
-  v TEXT,
-  updated INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS backends (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER,
-  vps_ip TEXT NOT NULL,
-  vps_port INTEGER DEFAULT 443,
-  vps_uuid TEXT DEFAULT '',
-  status TEXT DEFAULT 'pending',
-  created_at INTEGER
-);
-`;
 var DEFAULT_PROTOCOLS = [
   {
     id: "vless-reality",
@@ -253,8 +198,61 @@ async function tableExists(db, tableName) {
     return false;
   }
 }
+var TABLES = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
+    uuid TEXT UNIQUE,
+    email TEXT DEFAULT '',
+    traffic_limit INTEGER DEFAULT 0,
+    traffic_used INTEGER DEFAULT 0,
+    expiry_date TEXT DEFAULT '',
+    status TEXT DEFAULT 'active',
+    created_at INTEGER
+  )`,
+  `CREATE TABLE IF NOT EXISTS configs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    protocol_id TEXT,
+    name TEXT DEFAULT '',
+    settings_json TEXT DEFAULT '{}',
+    port INTEGER DEFAULT 443,
+    path TEXT DEFAULT '',
+    link TEXT DEFAULT '',
+    node_ip TEXT DEFAULT '',
+    client_limit INTEGER DEFAULT 1,
+    created_at INTEGER
+  )`,
+  `CREATE TABLE IF NOT EXISTS protocols (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    schema_json TEXT NOT NULL,
+    template_json TEXT NOT NULL,
+    price REAL DEFAULT 0,
+    client_limit INTEGER DEFAULT 1,
+    client_price REAL DEFAULT 0
+  )`,
+  `CREATE TABLE IF NOT EXISTS kvstore (
+    k TEXT PRIMARY KEY,
+    v TEXT,
+    updated INTEGER
+  )`,
+  `CREATE TABLE IF NOT EXISTS backends (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    vps_ip TEXT NOT NULL,
+    vps_port INTEGER DEFAULT 443,
+    vps_uuid TEXT DEFAULT '',
+    status TEXT DEFAULT 'pending',
+    created_at INTEGER
+  )`
+];
 async function ensureSchema(db) {
-  await db.exec(SCHEMA_SQL);
+  for (const sql of TABLES) {
+    await db.prepare(sql).run();
+  }
   const protocolsExist = await tableExists(db, "protocols");
   if (protocolsExist) {
     const count = await db.prepare("SELECT COUNT(*) as count FROM protocols").first();
@@ -301,6 +299,35 @@ async function ensureSchema(db) {
 
 // worker/auth.ts
 var SESSION_TTL = 7 * 24 * 60 * 60 * 1e3;
+var LOGIN_RATE_LIMIT = 5;
+var LOGIN_RATE_WINDOW = 6e4;
+async function checkLoginRateLimit(db, ip) {
+  const key = `ratelimit:login:${ip}`;
+  const row = await db.prepare("SELECT v, updated FROM kvstore WHERE k = ?").bind(key).first();
+  if (!row) return true;
+  const data = JSON.parse(row.v || '{"count":0,"first":0}');
+  const now = Date.now();
+  if (now - data.first > LOGIN_RATE_WINDOW) {
+    await db.prepare("DELETE FROM kvstore WHERE k = ?").bind(key).run();
+    return true;
+  }
+  return data.count < LOGIN_RATE_LIMIT;
+}
+async function recordLoginAttempt(db, ip) {
+  const key = `ratelimit:login:${ip}`;
+  const row = await db.prepare("SELECT v FROM kvstore WHERE k = ?").bind(key).first();
+  const now = Date.now();
+  let data = { count: 1, first: now };
+  if (row) {
+    const prev = JSON.parse(row.v || '{"count":0,"first":0}');
+    if (now - prev.first > LOGIN_RATE_WINDOW) {
+      data = { count: 1, first: now };
+    } else {
+      data = { count: prev.count + 1, first: prev.first };
+    }
+  }
+  await db.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind(key, JSON.stringify(data), now).run();
+}
 async function hashPassword2(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -412,15 +439,17 @@ async function handleInstall(request, env, _ctx, _params) {
       await env.DB.prepare(
         "INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)"
       ).bind("panel.password_hash", hash, Date.now()).run();
+      const accessUUID = crypto.randomUUID();
+      await env.DB.prepare(
+        "INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)"
+      ).bind("panel.access_uuid", accessUUID, Date.now()).run();
+      const secretKey = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((b) => b.toString(16).padStart(2, "0")).join("");
+      await env.DB.prepare(
+        "INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)"
+      ).bind("panel.secret_key", secretKey, Date.now()).run();
       await env.DB.prepare(
         "UPDATE users SET password_hash = ? WHERE role = ?"
       ).bind(hash, "admin").run();
-      // Generate random panel access UUID
-      const accessUUID = crypto.randomUUID();
-      await env.DB.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind("panel.access_uuid", accessUUID, Date.now()).run();
-      // Generate random secret key
-      const secretKey = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, "0")).join("");
-      await env.DB.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind("panel.secret_key", secretKey, Date.now()).run();
       return new Response(JSON.stringify({ success: true, message: "Password set successfully", accessUUID }), {
         status: 200,
         headers: { "Content-Type": "application/json" }
@@ -648,7 +677,7 @@ async function handleInstall(request, env, _ctx, _params) {
         submitBtn.textContent = 'Complete Setup';
       }
     });
-  <\/script>
+  </script>
 </body>
 </html>`;
   return new Response(html, {
@@ -668,6 +697,11 @@ async function handleLogin(request, env, _ctx, _params) {
   if (request.method !== "POST") {
     return json({ success: false, message: "Method not allowed" }, 405);
   }
+  const clientIP = request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "unknown";
+  const allowed = await checkLoginRateLimit(env.DB, clientIP);
+  if (!allowed) {
+    return json({ success: false, message: "Too many attempts, try again later" }, 429);
+  }
   try {
     const { username, password } = await request.json();
     if (!username || !password) {
@@ -677,14 +711,15 @@ async function handleLogin(request, env, _ctx, _params) {
       "SELECT id, username, password_hash, role, email FROM users WHERE username = ?"
     ).bind(username).first();
     if (!user) {
+      await recordLoginAttempt(env.DB, clientIP);
       return json({ success: false, message: "Invalid credentials" }, 401);
     }
     const valid = await verifyPassword(password, user.password_hash);
     if (!valid) {
+      await recordLoginAttempt(env.DB, clientIP);
       return json({ success: false, message: "Invalid credentials" }, 401);
     }
     const sessionToken = await createSession(env.DB, user.id, user.role);
-    // Check first login
     const firstLoginRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("panel.first_login_done").first();
     const isFirstLogin = !firstLoginRow?.v || firstLoginRow.v !== "true";
     let initialConfig = null;
@@ -697,12 +732,26 @@ async function handleLogin(request, env, _ctx, _params) {
         subscriptionUrl: `${url.protocol}//${url.host}/sub/${adminUser?.uuid || ""}`,
         adminUuid: adminUser?.uuid || "",
         accessUuid: accessUUID?.v || "",
-        instructions: ["Save your Panel URL — this is the only way to access your panel", "Share the Subscription URL with clients to connect", "Install a client app (V2RayNG, sing-box, Clash) and import the subscription", "Go to Settings to configure protocols, ECH, clean IPs, and Telegram bot"],
+        instructions: [
+          "Save your Panel URL \u2014 this is the only way to access your panel",
+          "Share the Subscription URL with clients to connect",
+          "Install a client app (V2RayNG, sing-box, Clash) and import the subscription",
+          "Go to Settings to configure protocols, ECH, clean IPs, and Telegram bot"
+        ]
       };
       await env.DB.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind("panel.first_login_done", "true", Date.now()).run();
     }
     return json(
-      { success: true, role: user.role, user: { id: user.id, username: user.username, email: user.email }, ...(initialConfig ? { initialConfig } : {}) },
+      {
+        success: true,
+        role: user.role,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email
+        },
+        ...initialConfig ? { initialConfig } : {}
+      },
       200,
       { "Set-Cookie": setSessionCookie(sessionToken) }
     );
@@ -1114,7 +1163,116 @@ async function handleSettings(request, env, _ctx, _params) {
   return json7({ success: false, message: "Method not allowed" }, 405);
 }
 
-// --- Clean IP API ---
+// worker/utils.ts
+function detectIranianISP(request) {
+  const cf = request.cf || {};
+  const org = String(cf.asOrganization || "").toLowerCase();
+  const asn = Number(cf.asn || 0);
+  const country = String(cf.country || "").toUpperCase();
+  if (country !== "IR") return "all";
+  if (asn === 44244 || org.includes("irancell") || org.includes("mtn")) return "mtn";
+  if (asn === 197207 || org.includes("mcci") || org.includes("hamrah")) return "mci";
+  if (asn === 57218 || org.includes("rightel")) return "rightel";
+  if (asn === 31549 || org.includes("shatel")) return "shatel";
+  return "ir";
+}
+function getISPInfo(request) {
+  const cf = request.cf || {};
+  return {
+    asn: cf.asn || 0,
+    isp: cf.asOrganization || "",
+    country: cf.country || "",
+    carrier: detectIranianISP(request)
+  };
+}
+var CIDR_LISTS = {};
+var CF_CIDR_URLS = {
+  all: "https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt",
+  mtn: "https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt",
+  mci: "https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt",
+  rightel: "https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt",
+  shatel: "https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt",
+  ir: "https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt"
+};
+var CF_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+function ipToInt(ip) {
+  const parts = ip.split(".").map(Number);
+  return (parts[0] << 24 >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
+}
+function intToIp(n) {
+  return [n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255].join(".");
+}
+function randomIPFromCIDR(cidr) {
+  const [base, prefixStr] = cidr.split("/");
+  const prefix = parseInt(prefixStr);
+  const hostBits = 32 - prefix;
+  const ipInt = ipToInt(base);
+  const mask = 4294967295 << hostBits >>> 0;
+  const randomOffset = Math.floor(Math.random() * Math.pow(2, hostBits));
+  return intToIp(((ipInt & mask) >>> 0) + randomOffset);
+}
+async function fetchCIDRList(carrier) {
+  const now = Date.now();
+  const cached = CIDR_LISTS[carrier];
+  if (cached && now - cached.at < 36e5) return cached.list;
+  const url = CF_CIDR_URLS[carrier] || CF_CIDR_URLS.all;
+  try {
+    const r = await fetch(url, {
+      headers: { "User-Agent": "XRayMOD" },
+      cf: { cacheTtl: 1800, cacheEverything: true }
+    });
+    if (!r.ok) return ["104.16.0.0/13"];
+    const text2 = await r.text();
+    const list = text2.split(/[\r\n,;]+/).map((s) => s.trim()).filter((s) => s && /^\d+\.\d+\.\d+\.\d+\/\d+$/.test(s));
+    CIDR_LISTS[carrier] = { at: now, list: list.length ? list : ["104.16.0.0/13"] };
+    return CIDR_LISTS[carrier].list;
+  } catch {
+    return ["104.16.0.0/13"];
+  }
+}
+async function generateRandomIPs(request, count = 16, port = -1) {
+  const carrier = detectIranianISP(request);
+  const cidrList = await fetchCIDRList(carrier);
+  return Array.from({ length: count }, () => {
+    const ip = randomIPFromCIDR(cidrList[Math.floor(Math.random() * cidrList.length)]);
+    const targetPort = port === -1 ? CF_PORTS[Math.floor(Math.random() * CF_PORTS.length)] : port;
+    return `${ip}:${targetPort}`;
+  });
+}
+async function getCleanIPs(db) {
+  try {
+    const row = await db.prepare("SELECT v FROM kvstore WHERE k = ?").bind("cleanip.ips").first();
+    if (!row || !row.v) return [];
+    return row.v.split("\n").map((s) => s.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+async function setCleanIPs(db, ips) {
+  const unique = [...new Set(ips)].slice(0, 30);
+  await db.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind("cleanip.ips", unique.join("\n"), Date.now()).run();
+}
+async function getCleanIPConfig(db) {
+  try {
+    const row = await db.prepare("SELECT v, updated FROM kvstore WHERE k = ?").bind("cleanip.ips").first();
+    const carrierRow = await db.prepare("SELECT v FROM kvstore WHERE k = ?").bind("cleanip.carrier").first();
+    return {
+      ips: row ? row.v.split("\n").map((s) => s.trim()).filter(Boolean) : [],
+      carrier: carrierRow?.v || "unknown",
+      updatedAt: row?.updated || 0
+    };
+  } catch {
+    return { ips: [], carrier: "unknown", updatedAt: 0 };
+  }
+}
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+// worker/api/cleanip.ts
 async function handleCleanIP(request, env, _ctx, params) {
   const action = params.action;
   if (action === "scan" && request.method === "GET") {
@@ -1126,25 +1284,39 @@ async function handleCleanIP(request, env, _ctx, params) {
     return jsonResponse({ success: true, data: { ips, isp: ispInfo } });
   }
   if (action === "apply" && request.method === "POST") {
-    try { await requireAdmin(request, env.DB); } catch (e) { if (e instanceof Response) return e; return jsonResponse({ success: false, message: "Unauthorized" }, 401); }
+    try {
+      await requireAdmin(request, env.DB);
+    } catch (e) {
+      if (e instanceof Response) return e;
+      return jsonResponse({ success: false, message: "Unauthorized" }, 401);
+    }
     try {
       const body = await request.json();
       const ips = body.ips || [];
-      const validIPs = ips.filter(ip => /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?$/.test(String(ip).trim()));
-      if (!validIPs.length) return jsonResponse({ success: false, message: "Invalid IP format" }, 400);
+      if (!ips.length) {
+        return jsonResponse({ success: false, message: "No IPs provided" }, 400);
+      }
+      const validIPs = ips.filter((ip) => /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?$/.test(ip.trim()));
+      if (!validIPs.length) {
+        return jsonResponse({ success: false, message: "Invalid IP format" }, 400);
+      }
       await setCleanIPs(env.DB, validIPs);
       const carrier = detectIranianISP(request);
       await env.DB.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind("cleanip.carrier", carrier, Date.now()).run();
       return jsonResponse({ success: true, data: { count: validIPs.length, carrier } });
-    } catch { return jsonResponse({ success: false, message: "Invalid request" }, 400); }
+    } catch {
+      return jsonResponse({ success: false, message: "Invalid request" }, 400);
+    }
   }
   if (action === "list" && request.method === "GET") {
-    try { await requireAdmin(request, env.DB); } catch (e) { if (e instanceof Response) return e; return jsonResponse({ success: false, message: "Unauthorized" }, 401); }
     try {
-      const row = await env.DB.prepare("SELECT v, updated FROM kvstore WHERE k = ?").bind("cleanip.ips").first();
-      const carrierRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("cleanip.carrier").first();
-      return jsonResponse({ success: true, data: { ips: row ? row.v.split("\n").map(s => s.trim()).filter(Boolean) : [], carrier: carrierRow?.v || "unknown", updatedAt: row?.updated || 0 } });
-    } catch { return jsonResponse({ success: true, data: { ips: [], carrier: "unknown", updatedAt: 0 } }); }
+      await requireAdmin(request, env.DB);
+    } catch (e) {
+      if (e instanceof Response) return e;
+      return jsonResponse({ success: false, message: "Unauthorized" }, 401);
+    }
+    const config = await getCleanIPConfig(env.DB);
+    return jsonResponse({ success: true, data: config });
   }
   if (!action || action === "") {
     if (request.method === "GET") {
@@ -1156,129 +1328,86 @@ async function handleCleanIP(request, env, _ctx, params) {
   return jsonResponse({ success: false, message: "Not found" }, 404);
 }
 
-// --- Telegram Bot ---
-async function tgApi(botToken, method, payload) {
-  try { const r = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); return r.ok ? await r.json() : null; } catch (e) { console.error("[TG]", method, e); return null; }
+// worker/api/backends.ts
+function json8(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
 }
-async function sendBotMessage(botToken, chatId, text, replyMarkup) {
-  await tgApi(botToken, "sendMessage", { chat_id: chatId, parse_mode: "HTML", text, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) });
-}
-function tgMainKeyboard(panelUrl, subUrl) {
-  return { inline_keyboard: [[{ text: "📊 وضعیت", callback_data: "m:status" }, { text: "🔗 اشتراک", callback_data: "m:sub" }], [{ text: "⚙️ کانفیگ", callback_data: "m:config" }, { text: "👥 کاربران", callback_data: "m:users" }], [{ text: "🖥 پنل", web_app: { url: panelUrl } }, { text: "🔄 منو", callback_data: "m:menu" }]] };
-}
-function tgWelcomeText() { return `<b>🛰 به ربات XrayMOD خوش آمدید</b>\n\n<blockquote>مدیریت پنل از تلگرام:\nدریافت لینک اشتراک، وضعیت و تنظیمات</blockquote>\n\nاز دکمه‌های زیر استفاده کنید 👇`; }
-function tgStatusText(host, userCount) {
-  const uptime = Date.now() - ((globalThis.__workerStart || Date.now()));
-  return `<b>╔═══❰📊 وضعیت ❱═══╗</b>\n\n<blockquote>⏱ <b>آپتایم:</b> <code>${Math.floor(uptime / 3600000)}h ${Math.floor((uptime % 3600000) / 60000)}m</code>\n🌐 <b>Host:</b> <code>${host}</code>\n👥 <b>کاربران:</b> <code>${userCount}</code></blockquote>\n\n<b>╚══════════════════╝</b>`;
-}
-function tgConfigText(cfg) { return `<b>⚙️ تنظیمات</b>\n\n<blockquote>پروتکل: <code>${cfg.protocol || "vless"}</code>\nTransport: <code>${cfg.transport || "ws"}</code>\nECH: ${cfg.ech ? "🟢" : "🔴"}\nTLS Fragment: ${cfg.tlsFrag ? "🟢" : "🔴"}</blockquote>`; }
-function tgUsersText(users) { if (!users.length) return "هیچ کاربری یافت نشد."; return `<b>👥 کاربران</b>\n\n` + users.slice(0, 10).map((u, i) => `${i + 1}. <code>${u.username}</code> — ${u.status === "active" ? "🟢" : "🔴"}`).join("\n"); }
-
-async function handleTelegramWebhook(request, env, _ctx) {
-  try {
-    const tgTokenRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("tg.bot_token").first();
-    const tgChatRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("tg.chat_id").first();
-    if (!tgTokenRow?.v) return new Response("Bot not configured", { status: 200 });
-    const botToken = tgTokenRow.v;
-    const allowedChatId = tgChatRow?.v || "";
-    const update = await request.json();
-    const url = new URL(request.url);
-    const host = url.host;
-    const protocol = url.protocol;
-
-    if (update.callback_query) {
-      const cq = update.callback_query;
-      const cbChat = String(cq.message?.chat?.id || "").trim();
-      if (allowedChatId && cbChat !== allowedChatId) return new Response("Unauthorized", { status: 200 });
-      await tgApi(botToken, "answerCallbackQuery", { callback_query_id: cq.id });
-      const data = cq.data || "";
-      let sendText = null, showKb = false;
-      const userRow = await env.DB.prepare("SELECT uuid FROM users WHERE role = ?").bind("admin").first();
-      const subUrl = `${protocol}//${host}/sub/${userRow?.uuid || ""}`;
-      const panelUrl = `${protocol}//${host}`;
-      const kb = tgMainKeyboard(panelUrl, subUrl);
-
-      if (data === "m:status") {
-        const users = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
-        sendText = tgStatusText(host, users?.count || 0);
-      } else if (data === "m:config") {
-        const echRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("ech.enabled").first();
-        const fragRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("tls_fragment.enabled").first();
-        sendText = tgConfigText({ protocol: "vless", transport: "ws", ech: echRow?.v === "true", tlsFrag: fragRow?.v === "true" });
-      } else if (data === "m:sub") {
-        sendText = `<b>🔗 لینک اشتراک:</b>\n<code>${subUrl}</code>`;
-      } else if (data === "m:users") {
-        const users = await env.DB.prepare("SELECT username, status FROM users LIMIT 10").all();
-        sendText = tgUsersText(users.results);
-      } else if (data === "m:menu") {
-        sendText = tgWelcomeText(); showKb = true;
-      }
-      if (sendText) await sendBotMessage(botToken, cbChat, sendText, showKb ? kb : undefined);
-      return new Response("OK", { status: 200 });
-    }
-
-    if (!update.message?.text) return new Response("OK", { status: 200 });
-    const chatId = String(update.message.chat.id).trim();
-    if (allowedChatId && chatId !== allowedChatId) return new Response("Unauthorized", { status: 200 });
-    const text = update.message.text.trim();
-    const cmd = text.split(" ")[0].toLowerCase();
-    const userRow = await env.DB.prepare("SELECT uuid FROM users WHERE role = ?").bind("admin").first();
-    const subUrl = `${protocol}//${host}/sub/${userRow?.uuid || ""}`;
-    const panelUrl = `${protocol}//${host}`;
-    const kb = tgMainKeyboard(panelUrl, subUrl);
-
-    switch (cmd) {
-      case "/start": case "/menu": await sendBotMessage(botToken, chatId, tgWelcomeText(), kb); break;
-      case "/sub": await sendBotMessage(botToken, chatId, `<b>🔗 لینک اشتراک:</b>\n<code>${subUrl}</code>`, kb); break;
-      case "/status": { const u = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first(); await sendBotMessage(botToken, chatId, tgStatusText(host, u?.count || 0), kb); break; }
-      case "/config": { const ech = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("ech.enabled").first(); const f = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("tls_fragment.enabled").first(); await sendBotMessage(botToken, chatId, tgConfigText({ protocol: "vless", transport: "ws", ech: ech?.v === "true", tlsFrag: f?.v === "true" }), kb); break; }
-      case "/users": { const u = await env.DB.prepare("SELECT username, status FROM users LIMIT 10").all(); await sendBotMessage(botToken, chatId, tgUsersText(u.results), kb); break; }
-      case "/help": await sendBotMessage(botToken, chatId, "<b>📋 راهنما</b>\n\n<code>/start</code> منوی اصلی\n<code>/sub</code> لینک اشتراک\n<code>/status</code> وضعیت\n<code>/config</code> تنظیمات\n<code>/users</code> کاربران", kb); break;
-      default: await sendBotMessage(botToken, chatId, "دستور ناشناخته. از /help استفاده کنید.", kb);
-    }
-    return new Response("OK", { status: 200 });
-  } catch (e) { console.error("[TG] Webhook error:", e); return new Response("OK", { status: 200 }); }
-}
-
-async function handleTelegramLogin(request, env, _ctx) {
-  const url = new URL(request.url);
-  const chatId = url.searchParams.get("chat_id") || "";
-  const token = url.searchParams.get("token") || "";
-  if (!chatId || !token) return new Response("Invalid login link", { status: 400 });
-  const adminRow = await env.DB.prepare("SELECT id, role FROM users WHERE role = ?").bind("admin").first();
-  if (!adminRow) return new Response("Admin not found", { status: 500 });
-  const sessionToken = crypto.randomUUID();
-  await env.DB.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind(`session:${sessionToken}`, JSON.stringify({ userId: adminRow.id, role: adminRow.role, created: Date.now() }), Date.now()).run();
-  return new Response(null, { status: 302, headers: { Location: "/", "Set-Cookie": `session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800` } });
-}
-
-// --- Backends API ---
 async function handleBackends(request, env, _ctx, params) {
-  try { await requireAdmin(request, env.DB); } catch (e) { if (e instanceof Response) return e; return jsonResponse({ success: false, message: "Unauthorized" }, 401); }
+  try {
+    await requireAdmin(request, env.DB);
+  } catch (e) {
+    if (e instanceof Response) return e;
+    return json8({ success: false, message: "Unauthorized" }, 401);
+  }
   if (request.method === "GET") {
     const rows = await env.DB.prepare("SELECT * FROM backends ORDER BY created_at DESC").all();
-    return jsonResponse({ success: true, data: rows.results });
+    return json8({ success: true, data: rows.results });
   }
   if (request.method === "POST") {
     const body = await request.json();
-    if (!body.vps_ip || !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(body.vps_ip)) return jsonResponse({ success: false, message: "Invalid IP" }, 400);
+    if (!body.vps_ip) {
+      return json8({ success: false, message: "VPS IP is required" }, 400);
+    }
+    if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(body.vps_ip)) {
+      return json8({ success: false, message: "Invalid IP format" }, 400);
+    }
+    const port = body.vps_port || 443;
     const adminRow = await env.DB.prepare("SELECT id FROM users WHERE role = ?").bind("admin").first();
-    const userRow = await env.DB.prepare("SELECT uuid FROM users WHERE id = ?").bind(adminRow?.id || 1).first();
-    await env.DB.prepare("INSERT INTO backends (user_id, vps_ip, vps_port, vps_uuid, status, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(adminRow?.id || 1, body.vps_ip, body.vps_port || 443, userRow?.uuid || "", "active", Date.now()).run();
-    return jsonResponse({ success: true });
+    const userId = body.user_id || adminRow?.id || 1;
+    const userRow = await env.DB.prepare("SELECT uuid FROM users WHERE id = ?").bind(userId).first();
+    await env.DB.prepare(
+      "INSERT INTO backends (user_id, vps_ip, vps_port, vps_uuid, status, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    ).bind(userId, body.vps_ip, port, userRow?.uuid || "", "active", Date.now()).run();
+    return json8({ success: true, message: "Backend registered" });
   }
-  if (request.method === "DELETE" && params.id) {
-    await env.DB.prepare("DELETE FROM backends WHERE id = ?").bind(Number(params.id)).run();
-    return jsonResponse({ success: true });
+  if (request.method === "DELETE") {
+    const id = params.id;
+    if (!id) return json8({ success: false, message: "ID required" }, 400);
+    await env.DB.prepare("DELETE FROM backends WHERE id = ?").bind(Number(id)).run();
+    return json8({ success: true, message: "Backend removed" });
   }
-  return jsonResponse({ success: false, message: "Not allowed" }, 405);
+  return json8({ success: false, message: "Method not allowed" }, 405);
 }
 
-// --- Wizard API ---
+// worker/api/wizard.ts
+function json9(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+var CF_API = "https://api.cloudflare.com/client/v4";
+async function cfCall(token, path, method = "GET", body) {
+  const headers = {
+    "Authorization": `Bearer ${token}`,
+    "Accept": "application/json"
+  };
+  const opts = { method, headers };
+  if (body) {
+    headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(`${CF_API}${path}`, opts);
+  const data = await r.json();
+  if (!data.success) {
+    const errors = (data.errors || []).map((e) => e.message || JSON.stringify(e)).join("; ");
+    throw new Error(errors || "Cloudflare API failed");
+  }
+  return data.result;
+}
 async function handleWizard(request, env, _ctx, params) {
   if (request.method === "GET") {
     const wizardKey = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("wizard.api_key").first();
-    return jsonResponse({ success: true, data: { configured: !!wizardKey?.v } });
+    return json9({
+      success: true,
+      data: {
+        configured: !!wizardKey?.v,
+        hasApiKey: !!wizardKey?.v
+      }
+    });
   }
   if (request.method === "POST" && params.action === "setup") {
     const authHeader = request.headers.get("Authorization") || "";
@@ -1287,54 +1416,96 @@ async function handleWizard(request, env, _ctx, params) {
       const accounts = await cfCall(token, "/accounts?per_page=1");
       if (!accounts.length) throw new Error("No accounts found");
       await env.DB.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind("wizard.api_key", token, Date.now()).run();
-      return jsonResponse({ success: true, data: { accountName: accounts[0].name, accountId: accounts[0].id } });
-    } catch (e) { return jsonResponse({ success: false, message: e.message || "Invalid API key" }, 400); }
+      return json9({
+        success: true,
+        data: {
+          accountName: accounts[0].name,
+          accountId: accounts[0].id
+        }
+      });
+    } catch (e) {
+      return json9({ success: false, message: e.message || "Invalid API key" }, 400);
+    }
   }
   if (request.method === "POST" && params.action === "deploy") {
     try {
       const body = await request.json();
       const savedKey = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("wizard.api_key").first();
       const cfToken = body.cfToken || savedKey?.v;
-      if (!cfToken) return jsonResponse({ success: false, message: "No API key" }, 400);
+      if (!cfToken) {
+        return json9({ success: false, message: "No Cloudflare API key configured. Send cfToken or set up wizard first." }, 400);
+      }
       const accounts = await cfCall(cfToken, "/accounts?per_page=1");
-      if (!accounts.length) throw new Error("No accounts found");
+      if (!accounts.length) throw new Error("No Cloudflare accounts found");
       const accountId = body.accountId || accounts[0].id;
-      const projectName = body.projectName || `cf-${Array.from(crypto.getRandomValues(new Uint8Array(6))).map(b => b.toString(16).padStart(2, "0")).join("")}`;
-      const adminPassword = body.adminPassword || Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, "0")).join("");
+      const projectName = body.projectName || `cf-${Array.from(crypto.getRandomValues(new Uint8Array(6))).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+      const dbName = `${projectName}-db`;
+      const adminPassword = body.adminPassword || Array.from(crypto.getRandomValues(new Uint8Array(16))).map((b) => b.toString(16).padStart(2, "0")).join("");
       const logs = [];
-      logs.push(`[${new Date().toLocaleTimeString()}] Creating D1 database...`);
-      const d1 = await cfCall(cfToken, `/accounts/${accountId}/d1/database`, "POST", { name: `${projectName}-db` });
-      logs.push(`[${new Date().toLocaleTimeString()}] Database created: ${d1.uuid || d1.id}`);
-      logs.push(`[${new Date().toLocaleTimeString()}] Downloading worker code...`);
-      const workerCode = await fetch("https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main/worker.js").then(r => r.text());
-      logs.push(`[${new Date().toLocaleTimeString()}] Deploying worker...`);
+      const log = (msg) => logs.push(`[${(/* @__PURE__ */ new Date()).toLocaleTimeString()}] ${msg}`);
+      log("Creating D1 database...");
+      const d1 = await cfCall(cfToken, `/accounts/${accountId}/d1/database`, "POST", { name: dbName });
+      const d1Id = d1.uuid || d1.id;
+      log(`Database created: ${dbName} (${d1Id})`);
+      log("Downloading worker code...");
+      const workerCode = await fetch("https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main/worker.js").then((r) => r.text());
+      log(`Worker code downloaded (${workerCode.length} bytes)`);
+      log("Deploying worker...");
+      const metadata = {
+        main_module: "worker.js",
+        compatibility_date: "2025-01-01",
+        compatibility_flags: ["nodejs_compat"],
+        bindings: [
+          { type: "plain_text", name: "ADMIN_PASSWORD", text: adminPassword },
+          { type: "plain_text", name: "DISGUISE_PAGE", text: "1101" },
+          { type: "plain_text", name: "PANEL_RECOVERY", text: "false" }
+        ],
+        migrations: {
+          new_tag: "v1",
+          old_tag: null
+        }
+      };
       const formData = new FormData();
-      formData.append("metadata", new Blob([JSON.stringify({ main_module: "worker.js", compatibility_date: "2025-01-01", compatibility_flags: ["nodejs_compat"], bindings: [{ type: "plain_text", name: "ADMIN_PASSWORD", text: adminPassword }, { type: "plain_text", name: "DISGUISE_PAGE", text: "1101" }] })], { type: "application/json" }), "metadata.json");
+      formData.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }), "metadata.json");
       formData.append("worker.js", new Blob([workerCode], { type: "application/javascript+module" }), "worker.js");
-      const uploadR = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${projectName}`, { method: "PUT", headers: { "Authorization": `Bearer ${cfToken}` }, body: formData });
+      const uploadResult = await cfCall(cfToken, `/accounts/${accountId}/workers/scripts/${projectName}`, "PUT", null);
+      const uploadR = await fetch(`${CF_API}/accounts/${accountId}/workers/scripts/${projectName}`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${cfToken}` },
+        body: formData
+      });
       const uploadData = await uploadR.json();
-      if (!uploadData.success) throw new Error(`Upload failed: ${(uploadData.errors || []).map(e => e.message).join("; ")}`);
-      logs.push(`[${new Date().toLocaleTimeString()}] Worker deployed`);
+      if (!uploadData.success) {
+        throw new Error(`Worker upload failed: ${(uploadData.errors || []).map((e) => e.message).join("; ")}`);
+      }
+      log("Worker deployed");
+      log("Enabling workers.dev subdomain...");
+      try {
+        await cfCall(cfToken, `/accounts/${accountId}/workers/subdomain`, "POST", { enabled: true });
+      } catch {
+      }
+      log("Subdomain enabled");
       const workerUrl = `https://${projectName}.${accounts[0].subdomain || "workers.dev"}`;
-      logs.push(`[${new Date().toLocaleTimeString()}] Done!`);
-      return jsonResponse({ success: true, data: { projectName, d1Id: d1.uuid || d1.id, workerUrl, adminPassword, logs } });
-    } catch (e) { return jsonResponse({ success: false, message: e.message || "Deployment failed" }, 500); }
+      log("Deployment complete!");
+      return json9({
+        success: true,
+        data: {
+          projectName,
+          d1Id,
+          workerUrl,
+          adminPassword,
+          logs
+        }
+      });
+    } catch (e) {
+      return json9({ success: false, message: e.message || "Deployment failed" }, 500);
+    }
   }
-  return jsonResponse({ success: false, message: "Not found" }, 404);
-}
-
-async function cfCall(token, path, method = "GET", body) {
-  const headers = { "Authorization": `Bearer ${token}`, "Accept": "application/json" };
-  const opts = { method, headers };
-  if (body) { headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
-  const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, opts);
-  const data = await r.json();
-  if (!data.success) throw new Error((data.errors || []).map(e => e.message).join("; ") || "CF API failed");
-  return data.result;
+  return json9({ success: false, message: "Not found" }, 404);
 }
 
 // worker/subscription.ts
-function json8(data, status = 200) {
+function json10(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json" }
@@ -1348,15 +1519,30 @@ function text(content, status = 200) {
 }
 async function handleSubscription(request, env, _ctx, params) {
   const token = params.token;
-  if (!token) return text("Invalid subscription link", 400);
-  const user = await env.DB.prepare("SELECT id, username, uuid, traffic_limit, traffic_used, expiry_date, status FROM users WHERE uuid = ?").bind(token).first();
-  if (!user) return text("Invalid subscription", 404);
-  if (user.status !== "active") return text("Account is not active", 403);
-  if (user.expiry_date && new Date(user.expiry_date) < new Date()) return text("Subscription expired", 403);
-  const configs = await env.DB.prepare(`SELECT c.*, p.id as proto_id, p.name as proto_name, p.schema_json, p.template_json FROM configs c LEFT JOIN protocols p ON c.protocol_id = p.id WHERE c.user_id = ?`).bind(user.id).all();
-  if (configs.results.length === 0) return text("No configurations available");
-
-  // Get ECH and TLS fragment settings
+  if (!token) {
+    return text("Invalid subscription link", 400);
+  }
+  const user = await env.DB.prepare(
+    "SELECT id, username, uuid, traffic_limit, traffic_used, expiry_date, status FROM users WHERE uuid = ?"
+  ).bind(token).first();
+  if (!user) {
+    return text("Invalid subscription", 404);
+  }
+  if (user.status !== "active") {
+    return text("Account is not active", 403);
+  }
+  if (user.expiry_date && new Date(user.expiry_date) < /* @__PURE__ */ new Date()) {
+    return text("Subscription expired", 403);
+  }
+  const configs = await env.DB.prepare(
+    `SELECT c.*, p.id as proto_id, p.name as proto_name, p.schema_json, p.template_json
+     FROM configs c
+     LEFT JOIN protocols p ON c.protocol_id = p.id
+     WHERE c.user_id = ?`
+  ).bind(user.id).all();
+  if (configs.results.length === 0) {
+    return text("No configurations available");
+  }
   const echRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("ech.enabled").first();
   const echSniRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("ech.sni").first();
   const echDnsRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("ech.dns").first();
@@ -1368,56 +1554,83 @@ async function handleSubscription(request, env, _ctx, params) {
   const tlsFragEnabled = tlsFragRow?.v === "true";
   const tlsFragMode = tlsFragModeRow?.v || "Shadowrocket";
   const echParam = echEnabled ? `&ech=${encodeURIComponent((echSni ? echSni + "+" : "") + echDns)}` : "";
-  const tlsFragParam = tlsFragEnabled ? (tlsFragMode === "Shadowrocket" ? `&fragment=${encodeURIComponent("1,40-60,30-50,tlshello")}` : `&fragment=${encodeURIComponent("3,1,tlshello")}`) : "";
-
-  // Get clean IPs for server address
+  const tlsFragParam = tlsFragEnabled ? tlsFragMode === "Shadowrocket" ? `&fragment=${encodeURIComponent("1,40-60,30-50,tlshello")}` : `&fragment=${encodeURIComponent("3,1,tlshello")}` : "";
   const cleanIPs = await getCleanIPs(env.DB);
-  const subUrl = new URL(request.url);
-  let host = subUrl.host;
-  // Check if user has a backend VPS
+  const url = new URL(request.url);
+  let host = url.host;
   const backendRow = await env.DB.prepare("SELECT vps_ip, vps_port FROM backends WHERE user_id = ? AND status = ?").bind(user.id, "active").first();
   if (backendRow) {
     host = backendRow.vps_port === 443 ? backendRow.vps_ip : `${backendRow.vps_ip}:${backendRow.vps_port}`;
   } else if (cleanIPs.length > 0) {
     host = cleanIPs[0].split(":")[0];
   }
-
   const accept = request.headers.get("Accept") || "";
-  const format = subUrl.searchParams.get("format") || "base64";
+  const format = url.searchParams.get("format") || "base64";
+  const mixedRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("protocol.mixed_mode").first();
+  const isMixedMode = mixedRow?.v === "true";
+  const shuffledHosts = [...cleanIPs.length ? cleanIPs.map((ip) => ip.split(":")[0]) : [host]];
+  for (let i = shuffledHosts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledHosts[i], shuffledHosts[j]] = [shuffledHosts[j], shuffledHosts[i]];
+  }
   const links = [];
-  for (const config of configs.results) {
+  const protoCycle = ["vless", "trojan", "ss"];
+  for (let i = 0; i < configs.results.length; i++) {
+    const config = configs.results[i];
     const settings = JSON.parse(config.settings_json || "{}");
+    const effectiveProtoId = isMixedMode ? protoCycle[i % 3] : config.proto_id;
+    const nodeHost = shuffledHosts[i % shuffledHosts.length] || host;
     const port = config.port || 443;
+    let processedTemplate = config.template_json;
+    const templateData = { ...settings, uuid: user.uuid };
+    for (const [key, value] of Object.entries(templateData)) {
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
+      processedTemplate = processedTemplate.replace(regex, String(value));
+    }
     let uri = "";
-    switch (config.proto_id) {
-      case "vless-reality":
-      case "vless-ws":
-      case "vless-wss":
-        uri = `vless://${user.uuid}@${host}:${port}?encryption=none&security=${settings.security || "tls"}&type=${settings.network || "tcp"}&flow=${settings.flow || ""}${echParam}${tlsFragParam}#${encodeURIComponent(config.name)}`;
-        break;
-      case "vless-grpc":
-        uri = `vless://${user.uuid}@${host}:${port}?encryption=none&security=tls&type=grpc&mode=${settings.mode || "gun"}&serviceName=${settings.serviceName || "grpc"}&sni=${settings.sni || host}${echParam}${tlsFragParam}#${encodeURIComponent(config.name)}`;
-        break;
-      case "vmess-ws":
-      case "vmess-wss":
-        uri = `vmess://${btoa(JSON.stringify({ v: "2", ps: config.name, add: host, port, id: user.uuid, aid: 0, scy: "auto", net: settings.network || "ws", type: "none", host, path: settings.path || "/", tls: settings.security === "tls" ? "tls" : "" }))}`;
-        break;
-      case "trojan-ws":
-      case "trojan-wss":
-        uri = `trojan://${settings.password || "password"}@${host}:${port}?type=${settings.network || "ws"}&host=${host}&path=${settings.path || "/"}&security=tls&sni=${settings.sni || host}${echParam}${tlsFragParam}#${encodeURIComponent(config.name)}`;
-        break;
-      case "ss-ws":
-      case "ss-wss":
-        uri = `ss://${btoa(`${settings.method || "chacha20-ietf-poly1305"}:${settings.password || "password"}`)}@${host}:${port}?type=${settings.network || "ws"}&path=${settings.path || "/"}#${encodeURIComponent(config.name)}`;
-        break;
-      default:
-        uri = `${config.proto_id}://${btoa(config.template_json)}@${host}:${port}#${encodeURIComponent(config.name)}`;
+    const protoId = effectiveProtoId;
+    const nodeLabel = `${config.name}${isMixedMode ? " (" + protoId.toUpperCase() + ")" : ""}`;
+    if (protoId === "vless" || config.proto_id.startsWith("vless")) {
+      if (config.proto_id === "vless-grpc") {
+        const grpcMode = settings.mode || "gun";
+        uri = `vless://${user.uuid}@${nodeHost}:${port}?encryption=none&security=tls&type=grpc&mode=${grpcMode}&serviceName=${settings.serviceName || "grpc"}&sni=${settings.sni || nodeHost}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
+      } else {
+        uri = `vless://${user.uuid}@${nodeHost}:${port}?encryption=none&security=${settings.security || "tls"}&type=${settings.network || "tcp"}&flow=${settings.flow || ""}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
+      }
+    } else if (protoId === "trojan" || config.proto_id.startsWith("trojan")) {
+      uri = `trojan://${settings.password || "password"}@${nodeHost}:${port}?type=${settings.network || "ws"}&host=${nodeHost}&path=${settings.path || "/"}&security=tls&sni=${settings.sni || nodeHost}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
+    } else if (protoId === "ss" || config.proto_id.startsWith("ss")) {
+      const ssInfo = btoa(`${settings.method || "chacha20-ietf-poly1305"}:${settings.password || "password"}`);
+      uri = `ss://${ssInfo}@${nodeHost}:${port}?type=${settings.network || "ws"}&path=${settings.path || "/"}#${encodeURIComponent(nodeLabel)}`;
+    } else if (config.proto_id.startsWith("vmess")) {
+      const vmessObj = {
+        v: "2",
+        ps: nodeLabel,
+        add: nodeHost,
+        port,
+        id: user.uuid,
+        aid: 0,
+        scy: "auto",
+        net: settings.network || "ws",
+        type: "none",
+        host: nodeHost,
+        path: settings.path || "/",
+        tls: settings.security === "tls" ? "tls" : ""
+      };
+      uri = `vmess://${btoa(JSON.stringify(vmessObj))}`;
+    } else {
+      uri = `${config.proto_id}://${btoa(processedTemplate)}@${nodeHost}:${port}#${encodeURIComponent(nodeLabel)}`;
     }
     links.push(uri);
   }
-  if (format === "clash" || accept.includes("text/yaml")) return generateClashConfig(links, configs.results, user, echEnabled, echSni);
-  if (format === "singbox" || accept.includes("application/json")) return generateSingboxConfig(links, configs.results, user, echEnabled, echSni);
-  return text(btoa(links.join("\n")));
+  if (format === "clash" || accept.includes("text/yaml")) {
+    return generateClashConfig(links, configs.results, user, echEnabled, echSni);
+  }
+  if (format === "singbox" || accept.includes("application/json")) {
+    return generateSingboxConfig(links, configs.results, user, echEnabled, echSni);
+  }
+  const base64Config = btoa(links.join("\n"));
+  return text(base64Config);
 }
 function generateClashConfig(links, configs, user, echEnabled = false, echSni = "cloudflare-ech.com") {
   const proxies = [];
@@ -1427,7 +1640,13 @@ function generateClashConfig(links, configs, user, echEnabled = false, echSni = 
     const settings = JSON.parse(config.settings_json || "{}");
     const name = config.name || `Config ${i + 1}`;
     proxyNames.push(name);
-    const proxy = { name, type: getClashProxyType(config.proto_id), server: settings.host || settings.sni || "example.com", port: config.port || 443, uuid: user.uuid };
+    const proxy = {
+      name,
+      type: getClashProxyType(config.proto_id),
+      server: settings.host || settings.sni || "example.com",
+      port: config.port || 443,
+      uuid: user.uuid
+    };
     if (config.proto_id.includes("vless")) {
       proxy.flow = settings.flow || "";
       proxy.tls = settings.security === "tls" || settings.security === "reality";
@@ -1436,7 +1655,12 @@ function generateClashConfig(links, configs, user, echEnabled = false, echSni = 
         proxy.network = "grpc";
         proxy["grpc-opts"] = { "grpc-service-name": settings.serviceName || "grpc" };
       }
-      if (echEnabled) proxy["ech-opts"] = { enable: true, "query-server-name": echSni };
+      if (echEnabled) {
+        proxy["ech-opts"] = {
+          enable: true,
+          "query-server-name": echSni
+        };
+      }
     }
     if (config.proto_id.includes("vmess")) {
       proxy.network = settings.network || "ws";
@@ -1454,8 +1678,27 @@ function generateClashConfig(links, configs, user, echEnabled = false, echSni = 
     }
     proxies.push(proxy);
   }
-  const clashConfig = { "mixed-port": 7890, "allow-lan": false, "mode": "rule", "proxies": proxies, "proxy-groups": [{ "name": "Proxy", "type": "select", "proxies": [...proxyNames, "DIRECT"] }], "rules": ["MATCH,Proxy"] };
-  return new Response(`proxies:\n${JSON.stringify(clashConfig, null, 2).split("\n").map((l) => "  " + l).join("\n")}`, { headers: { "Content-Type": "text/yaml; charset=utf-8" } });
+  const clashConfig = {
+    "mixed-port": 7890,
+    "allow-lan": false,
+    "mode": "rule",
+    "proxies": proxies,
+    "proxy-groups": [
+      {
+        "name": "Proxy",
+        "type": "select",
+        "proxies": [...proxyNames, "DIRECT"]
+      }
+    ],
+    "rules": ["MATCH,Proxy"]
+  };
+  return new Response(
+    `proxies:
+${JSON.stringify(clashConfig, null, 2).split("\n").map((l) => "  " + l).join("\n")}`,
+    {
+      headers: { "Content-Type": "text/yaml; charset=utf-8" }
+    }
+  );
 }
 function generateSingboxConfig(links, configs, user, echEnabled = false, echSni = "cloudflare-ech.com") {
   const outbounds = [];
@@ -1463,24 +1706,50 @@ function generateSingboxConfig(links, configs, user, echEnabled = false, echSni 
     const config = configs[i];
     const settings = JSON.parse(config.settings_json || "{}");
     const name = config.name || `Config ${i + 1}`;
-    const outbound = { type: getSingboxOutboundType(config.proto_id), tag: name, server: settings.host || settings.sni || "example.com", server_port: config.port || 443, uuid: user.uuid };
+    const outbound = {
+      type: getSingboxOutboundType(config.proto_id),
+      tag: name,
+      server: settings.host || settings.sni || "example.com",
+      server_port: config.port || 443,
+      uuid: user.uuid
+    };
     if (config.proto_id.includes("vless")) {
       outbound.flow = settings.flow || "";
       if (settings.security === "tls") {
         outbound.tls = { enabled: true, server_name: settings.sni || settings.host };
-        if (echEnabled) outbound.tls.ech = { enabled: true, query_server_name: echSni };
+        if (echEnabled) {
+          outbound.tls.ech = {
+            enabled: true,
+            query_server_name: echSni
+          };
+        }
       }
       if (config.proto_id === "vless-grpc") {
-        outbound.transport = { type: "grpc", serviceName: settings.serviceName || "grpc" };
+        outbound.transport = {
+          type: "grpc",
+          serviceName: settings.serviceName || "grpc"
+        };
       }
     }
     if (config.proto_id.includes("vmess")) {
-      outbound.transport = { type: settings.network || "ws", path: settings.path || "/" };
+      outbound.transport = {
+        type: settings.network || "ws",
+        path: settings.path || "/"
+      };
     }
     outbounds.push(outbound);
   }
-  const singboxConfig = { outbounds, inbounds: [{ type: "mixed", listen: "127.0.0.1", listen_port: 2080 }] };
-  return json8(singboxConfig);
+  const singboxConfig = {
+    outbounds,
+    inbounds: [
+      {
+        type: "mixed",
+        listen: "127.0.0.1",
+        listen_port: 2080
+      }
+    ]
+  };
+  return json10(singboxConfig);
 }
 function getClashProxyType(protoId) {
   if (protoId.includes("vless")) return "vless";
@@ -1736,6 +2005,414 @@ async function handleWebSocketConnection(ws, protocol, config, user, db) {
   });
 }
 
+// worker/disguise.ts
+var EMPTY_DISGUISE = {
+  on: false,
+  adminPath: "",
+  loginPath: "",
+  subPath: "",
+  pubAdmin: "/admin",
+  pubLogin: "/login",
+  fallbackPage: "1101"
+};
+function cleanPath(v) {
+  return String(v || "").trim().toLowerCase().replace(/^\/+|\/+$/g, "").replace(/[^a-z0-9_-]/g, "").slice(0, 40);
+}
+async function getDisguiseConfig(env, db) {
+  try {
+    if (env.PANEL_RECOVERY === "1" || env.PANEL_RECOVERY === "true") {
+      return { ...EMPTY_DISGUISE };
+    }
+    const rows = await db.prepare("SELECT k, v FROM kvstore WHERE k LIKE ?").bind("disguise.%").all();
+    const settings = {};
+    for (const row of rows.results) {
+      settings[row.k] = row.v;
+    }
+    const enabled = settings["disguise.enabled"] === "true";
+    const adminPath = cleanPath(env.ADMIN_PATH) || cleanPath(settings["disguise.admin_path"]);
+    const loginPath = cleanPath(env.LOGIN_PATH) || cleanPath(settings["disguise.login_path"]);
+    const subPath = cleanPath(env.SUB_PATH) || cleanPath(settings["disguise.sub_path"]);
+    const on = (enabled || !!(env.ADMIN_PATH || env.LOGIN_PATH || env.SUB_PATH)) && !!(adminPath || loginPath || subPath);
+    if (!on) {
+      return { ...EMPTY_DISGUISE, fallbackPage: settings["disguise.fallback_page"] || "1101" };
+    }
+    return {
+      on: true,
+      adminPath,
+      loginPath,
+      subPath,
+      pubAdmin: adminPath ? "/" + adminPath : "/admin",
+      pubLogin: loginPath ? "/" + loginPath : "/login",
+      fallbackPage: env.DISGUISE_PAGE || settings["disguise.fallback_page"] || "1101"
+    };
+  } catch {
+    return { ...EMPTY_DISGUISE };
+  }
+}
+function html1101(host) {
+  const now = /* @__PURE__ */ new Date();
+  const ts = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0") + " " + String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0") + ":" + String(now.getSeconds()).padStart(2, "0");
+  const rayId = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `<!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->
+<head>
+<title>Worker threw exception | ${host} | Cloudflare</title>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/cf.errors.css" />
+<!--[if lt IE 9]><link rel="stylesheet" id='cf_styles-ie.css' href="/cdn-cgi/styles/cf.errors.ie.css" /><![endif]-->
+<style>body{margin:0;padding:0}</style>
+
+<!--[if gte IE 10]><!-->
+<script>
+  if (!navigator.cookieEnabled) {
+    window.addEventListener('DOMContentLoaded', function () {
+      var cookieEl = document.getElementById('cookie-alert');
+      cookieEl.style.display = 'block';
+    })
+  }
+</script>
+<!--<![endif]-->
+
+</head>
+<body>
+    <div id="cf-wrapper">
+        <div class="cf-alert cf-alert-error cf-cookie-error" id="cookie-alert" data-translate="enable_cookies">Please enable cookies.</div>
+        <div id="cf-error-details" class="cf-error-details-wrapper">
+            <div class="cf-wrapper cf-header cf-error-overview">
+                <h1>
+                    <span class="cf-error-type" data-translate="error">Error</span>
+                    <span class="cf-error-code">1101</span>
+                    <small class="heading-ray-id">Ray ID: ${rayId} &bull; ${ts} UTC</small>
+                </h1>
+                <h2 class="cf-subheadline" data-translate="error_desc">Worker threw exception</h2>
+            </div>
+
+            <section></section>
+
+            <div class="cf-section cf-wrapper">
+                <div class="cf-columns two">
+                    <div class="cf-column">
+                        <h2 data-translate="what_happened">What happened?</h2>
+                        <p>You've requested a page on a website (${host}) that is on the <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=error_100x" target="_blank">Cloudflare</a> network. An unknown error occurred while rendering the page.</p>
+                    </div>
+
+                    <div class="cf-column">
+                        <h2 data-translate="what_can_i_do">What can I do?</h2>
+                        <p><strong>If you are the owner of this website:</strong><br />refer to <a href="https://developers.cloudflare.com/workers/observability/errors/" target="_blank">Workers - Errors and Exceptions</a> and check Workers Logs for ${host}.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cf-section cf-wrapper">
+                <h2 data-translate="more_info">More information</h2>
+                <p>If you are the owner of this website, you can check <a href="https://developers.cloudflare.com/workers/observability/errors/" target="_blank">Workers Logs</a> for ${host} to learn more about this error.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
+}
+function nginxPage() {
+  return `<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+  body {
+    width: 35em;
+    margin: 0 auto;
+    font-family: Tahoma, Verdana, Arial, sans-serif;
+  }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>`;
+}
+function getDecoyResponse(host, pageType) {
+  const html = pageType === "1101" ? html1101(host) : nginxPage();
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=UTF-8" }
+  });
+}
+
+// worker/proxy/grpc.ts
+function isGrpcRequest(request) {
+  const contentType = request.headers.get("Content-Type") || "";
+  return contentType.startsWith("application/grpc");
+}
+
+// worker/proxy/xhttp.ts
+function isXHTTPRequest(request) {
+  const referer = request.headers.get("Referer") || "";
+  if (referer.includes("x_padding")) return true;
+  const contentType = request.headers.get("Content-Type") || "";
+  if (contentType.includes("application/octet-stream") && request.method === "POST") {
+    return true;
+  }
+  return false;
+}
+
+// worker/telegram.ts
+async function tgApi(botToken, method, payload) {
+  try {
+    const url = `https://api.telegram.org/bot${botToken}/${method}`;
+    const opts = { method: "POST", headers: { "Content-Type": "application/json" } };
+    if (payload) opts.body = JSON.stringify(payload);
+    const r = await fetch(url, opts);
+    return r.ok ? await r.json() : null;
+  } catch (e) {
+    console.error("[TG] API error:", method, e);
+    return null;
+  }
+}
+async function sendBotMessage(botToken, chatId, text2, replyMarkup) {
+  await tgApi(botToken, "sendMessage", {
+    chat_id: chatId,
+    parse_mode: "HTML",
+    text: text2,
+    ...replyMarkup ? { reply_markup: replyMarkup } : {}
+  });
+}
+async function verifyTelegramLogin(chatId, token, key) {
+  const nowBucket = Math.floor(Date.now() / 3e5);
+  for (const b of [nowBucket, nowBucket - 1]) {
+    const enc = new TextEncoder();
+    const data = enc.encode(`tg-login|${chatId}|${b}`);
+    const mac = await crypto.subtle.importKey("raw", enc.encode(String(key)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const sig = await crypto.subtle.sign("HMAC", mac, data);
+    const hex = Array.from(new Uint8Array(sig)).map((b2) => b2.toString(16).padStart(2, "0")).join("");
+    if (hex.slice(0, 32) === token) return true;
+  }
+  return false;
+}
+function mainKeyboard(panelUrl, subUrl) {
+  return {
+    inline_keyboard: [
+      [{ text: "\u{1F4CA} \u0648\u0636\u0639\u06CC\u062A", callback_data: "m:status" }, { text: "\u{1F517} \u0627\u0634\u062A\u0631\u0627\u06A9", callback_data: "m:sub" }],
+      [{ text: "\u2699\uFE0F \u06A9\u0627\u0646\u0641\u06CC\u06AF", callback_data: "m:config" }, { text: "\u{1F465} \u06A9\u0627\u0631\u0628\u0631\u0627\u0646", callback_data: "m:users" }],
+      [{ text: "\u{1F5A5} \u067E\u0646\u0644 \u0645\u062F\u06CC\u0631\u06CC\u062A", web_app: { url: panelUrl } }, { text: "\u{1F504} \u0645\u0646\u0648", callback_data: "m:menu" }]
+    ]
+  };
+}
+function welcomeText() {
+  return `<b>\u{1F6F0} \u0628\u0647 \u0631\u0628\u0627\u062A XrayMOD \u062E\u0648\u0634 \u0622\u0645\u062F\u06CC\u062F</b>
+
+<blockquote>\u0645\u062F\u06CC\u0631\u06CC\u062A \u067E\u0646\u0644 \u0627\u0632 \u062A\u0644\u06AF\u0631\u0627\u0645:
+\u062F\u0631\u06CC\u0627\u0641\u062A \u0644\u06CC\u0646\u06A9 \u0627\u0634\u062A\u0631\u0627\u06A9\u060C \u0648\u0636\u0639\u06CC\u062A\u060C \u0645\u0635\u0631\u0641 \u0648 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A</blockquote>
+
+\u0627\u0632 \u062F\u06A9\u0645\u0647\u200C\u0647\u0627\u06CC \u0632\u06CC\u0631 \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F \u{1F447}`;
+}
+function helpText() {
+  return `<b>\u2554\u2550\u2550\u2550\u2770\u2728 \u0631\u0627\u0647\u0646\u0645\u0627 \u2771\u2550\u2550\u2550\u2557</b>
+
+<blockquote><b>\u{1F4CB} \u062F\u0633\u062A\u0648\u0631\u0627\u062A</b>
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+<code>/start</code>     \u2500\u2500\u2500 \u0645\u0646\u0648\u06CC \u0627\u0635\u0644\u06CC
+<code>/sub</code>       \u2500\u2500\u2500 \u0644\u06CC\u0646\u06A9 \u0627\u0634\u062A\u0631\u0627\u06A9
+<code>/status</code>    \u2500\u2500\u2500 \u0648\u0636\u0639\u06CC\u062A \u0633\u0631\u0648\u0631
+<code>/config</code>    \u2500\u2500\u2500 \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u067E\u0631\u0648\u062A\u06A9\u0644
+<code>/users</code>     \u2500\u2500\u2500 \u0644\u06CC\u0633\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646
+<code>/help</code>      \u2500\u2500\u2500 \u0627\u06CC\u0646 \u0631\u0627\u0647\u0646\u0645\u0627</blockquote>
+
+<b>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D</b>`;
+}
+function statusText(cfg, host, userCount) {
+  const uptime = Date.now() - globalThis.__workerStart || 0;
+  const uptimeStr = `${Math.floor(uptime / 36e5)}h ${Math.floor(uptime % 36e5 / 6e4)}m`;
+  return `<b>\u2554\u2550\u2550\u2550\u2770\u{1F4CA} \u0648\u0636\u0639\u06CC\u062A \u0633\u0631\u0648\u0631 \u2771\u2550\u2550\u2550\u2557</b>
+
+<blockquote>\u23F1 <b>\u0622\u067E\u062A\u0627\u06CC\u0645:</b> <code>${uptimeStr}</code>
+\u{1F310} <b>Host:</b> <code>${host}</code>
+\u{1F465} <b>\u06A9\u0627\u0631\u0628\u0631\u0627\u0646:</b> <code>${userCount}</code>
+\u{1F4E1} <b>\u067E\u0631\u0648\u062A\u06A9\u0644:</b> <code>${cfg?.protocol || "vless"}</code>
+\u{1F510} <b>Transport:</b> <code>${cfg?.transport || "ws"}</code></blockquote>
+
+<b>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D</b>`;
+}
+function configText(cfg) {
+  const status = (v) => v ? "\u{1F7E2} \u0641\u0639\u0627\u0644" : "\u{1F534} \u063A\u06CC\u0631\u0641\u0639\u0627\u0644";
+  return `<b>\u2554\u2550\u2550\u2550\u2770\u2699\uFE0F \u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u2771\u2550\u2550\u2550\u2557</b>
+
+<blockquote><b>\u{1F4E1} \u0634\u0628\u06A9\u0647</b>
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+<b>\u067E\u0631\u0648\u062A\u06A9\u0644:</b> <code>${cfg?.protocol || "vless"}</code>
+<b>Transport:</b> <code>${cfg?.transport || "ws"}</code>
+<b>Host:</b> <code>${cfg?.host || "-"}</code></blockquote>
+
+<blockquote><b>\u{1F510} \u0627\u0645\u0646\u06CC\u062A</b>
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+<b>ECH:</b> ${status(cfg?.ech)}
+<b>TLS Fragment:</b> ${status(cfg?.tlsFragment)}</blockquote>
+
+<b>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D</b>`;
+}
+function usersText(users) {
+  if (!users.length) return "<b>\u0647\u06CC\u0686 \u06A9\u0627\u0631\u0628\u0631\u06CC \u06CC\u0627\u0641\u062A \u0646\u0634\u062F.</b>";
+  const lines = users.slice(0, 10).map(
+    (u, i) => `${i + 1}. <code>${u.username}</code> \u2014 ${u.status === "active" ? "\u{1F7E2}" : "\u{1F534}"} ${u.traffic_used || 0}MB`
+  ).join("\n");
+  return `<b>\u{1F465} \u0644\u06CC\u0633\u062A \u06A9\u0627\u0631\u0628\u0631\u0627\u0646</b>
+
+${lines}`;
+}
+async function handleTelegramWebhook(request, env, _ctx) {
+  try {
+    const tgConfig = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("tg.bot_token").first();
+    const tgChatRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("tg.chat_id").first();
+    if (!tgConfig?.v) {
+      return new Response("Bot not configured", { status: 200 });
+    }
+    const botToken = tgConfig.v;
+    const allowedChatId = tgChatRow?.v || "";
+    const update = await request.json();
+    const url = new URL(request.url);
+    const host = url.host;
+    const protocol = url.protocol;
+    if (update.callback_query) {
+      const cq = update.callback_query;
+      const cbChat = String(cq.message?.chat?.id || "").trim();
+      const cbUser = String(cq.from?.id || "").trim();
+      if (allowedChatId && cbChat !== allowedChatId && cbUser !== allowedChatId) {
+        return new Response("Unauthorized", { status: 200 });
+      }
+      await tgApi(botToken, "answerCallbackQuery", { callback_query_id: cq.id });
+      const data = cq.data || "";
+      let sendText = null;
+      let showKeyboard = false;
+      const userRow2 = await env.DB.prepare("SELECT uuid FROM users WHERE role = ?").bind("admin").first();
+      const userUUID2 = userRow2?.uuid || "";
+      const subUrl2 = `${protocol}//${host}/sub/${userUUID2}`;
+      const panelUrl2 = `${protocol}//${host}`;
+      const kb2 = mainKeyboard(panelUrl2, subUrl2);
+      if (data === "m:status") {
+        const users = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
+        sendText = statusText({ protocol: "vless", transport: "ws" }, host, users?.count || 0);
+      } else if (data === "m:config") {
+        const echRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("ech.enabled").first();
+        const fragRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("tls_fragment.enabled").first();
+        sendText = configText({ protocol: "vless", transport: "ws", host, ech: echRow?.v === "true", tlsFragment: fragRow?.v === "true" });
+      } else if (data === "m:sub") {
+        sendText = `<b>\u2554\u2550\u2550\u2550\u2770\u{1F517} \u0627\u0634\u062A\u0631\u0627\u06A9 \u2771\u2550\u2550\u2550\u2557</b>
+
+<blockquote><b>\u{1F4CE} \u0644\u06CC\u0646\u06A9 \u0627\u0634\u062A\u0631\u0627\u06A9 \u0634\u0645\u0627:</b>
+<code>${subUrl2}</code></blockquote>
+
+<b>\u{1F4E5} <a href="${subUrl2}">\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646 \u0645\u0633\u062A\u0642\u06CC\u0645</a></a></b>
+
+<b>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D</b>`;
+      } else if (data === "m:users") {
+        const users = await env.DB.prepare("SELECT username, status, traffic_used FROM users LIMIT 10").all();
+        sendText = usersText(users.results);
+      } else if (data === "m:menu") {
+        sendText = welcomeText();
+        showKeyboard = true;
+      }
+      if (sendText) {
+        await sendBotMessage(botToken, cbChat, sendText, showKeyboard ? kb2 : void 0);
+      }
+      return new Response("OK", { status: 200 });
+    }
+    if (!update.message?.text) return new Response("OK", { status: 200 });
+    const chatId = String(update.message.chat.id).trim();
+    if (allowedChatId && chatId !== allowedChatId) {
+      return new Response("Unauthorized", { status: 200 });
+    }
+    const text2 = update.message.text.trim();
+    const cmd = text2.split(" ")[0].toLowerCase();
+    const userRow = await env.DB.prepare("SELECT uuid FROM users WHERE role = ?").bind("admin").first();
+    const userUUID = userRow?.uuid || "";
+    const subUrl = `${protocol}//${host}/sub/${userUUID}`;
+    const panelUrl = `${protocol}//${host}`;
+    const kb = mainKeyboard(panelUrl, subUrl);
+    switch (cmd) {
+      case "/start":
+      case "/menu":
+        await sendBotMessage(botToken, chatId, welcomeText(), kb);
+        break;
+      case "/help":
+        await sendBotMessage(botToken, chatId, helpText(), kb);
+        break;
+      case "/sub":
+        await sendBotMessage(
+          botToken,
+          chatId,
+          `<b>\u{1F517} \u0644\u06CC\u0646\u06A9 \u0627\u0634\u062A\u0631\u0627\u06A9:</b>
+<code>${subUrl}</code>
+
+\u{1F4E5} <a href="${subUrl}">\u0628\u0627\u0632 \u06A9\u0631\u062F\u0646</a>`,
+          kb
+        );
+        break;
+      case "/status": {
+        const users = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
+        await sendBotMessage(botToken, chatId, statusText({ protocol: "vless", transport: "ws" }, host, users?.count || 0), kb);
+        break;
+      }
+      case "/config": {
+        const echRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("ech.enabled").first();
+        const fragRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("tls_fragment.enabled").first();
+        await sendBotMessage(botToken, chatId, configText({ protocol: "vless", transport: "ws", host, ech: echRow?.v === "true", tlsFragment: fragRow?.v === "true" }), kb);
+        break;
+      }
+      case "/users": {
+        const users = await env.DB.prepare("SELECT username, status, traffic_used FROM users LIMIT 10").all();
+        await sendBotMessage(botToken, chatId, usersText(users.results), kb);
+        break;
+      }
+      default:
+        await sendBotMessage(botToken, chatId, "\u062F\u0633\u062A\u0648\u0631 \u0646\u0627\u0634\u0646\u0627\u062E\u062A\u0647. \u0627\u0632 /help \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u06A9\u0646\u06CC\u062F.", kb);
+    }
+    return new Response("OK", { status: 200 });
+  } catch (e) {
+    console.error("[TG] Webhook error:", e);
+    return new Response("OK", { status: 200 });
+  }
+}
+async function handleTelegramLogin(request, env, _ctx, params) {
+  const chatId = new URL(request.url).searchParams.get("chat_id") || "";
+  const token = new URL(request.url).searchParams.get("token") || "";
+  if (!chatId || !token) {
+    return new Response("Invalid login link", { status: 400 });
+  }
+  const keyRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("panel.secret_key").first();
+  const key = keyRow?.v || "default-secret";
+  if (!await verifyTelegramLogin(chatId, token, key)) {
+    return new Response("Invalid or expired login token", { status: 401 });
+  }
+  const adminRow = await env.DB.prepare("SELECT id, role FROM users WHERE role = ?").bind("admin").first();
+  if (!adminRow) {
+    return new Response("Admin user not found", { status: 500 });
+  }
+  const sessionToken = crypto.randomUUID();
+  await env.DB.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind(`session:${sessionToken}`, JSON.stringify({ userId: adminRow.id, role: adminRow.role, created: Date.now() }), Date.now()).run();
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: "/",
+      "Set-Cookie": `session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`
+    }
+  });
+}
+
 // worker/router.ts
 var routes = [
   { pattern: new URLPattern({ pathname: "/install" }), handler: handleInstall },
@@ -1754,6 +2431,8 @@ var routes = [
   { pattern: new URLPattern({ pathname: "/api/cleanip/:action" }), handler: handleCleanIP },
   { pattern: new URLPattern({ pathname: "/api/backends" }), handler: handleBackends },
   { pattern: new URLPattern({ pathname: "/api/backends/:id" }), handler: handleBackends },
+  { pattern: new URLPattern({ pathname: "/api/wizard" }), handler: handleWizard },
+  { pattern: new URLPattern({ pathname: "/api/wizard/:action" }), handler: handleWizard },
   { pattern: new URLPattern({ pathname: "/api/wizard" }), handler: handleWizard },
   { pattern: new URLPattern({ pathname: "/api/wizard/:action" }), handler: handleWizard },
   { pattern: new URLPattern({ pathname: "/bot" }), handler: handleTelegramWebhook },
@@ -1790,97 +2469,6 @@ var FALLBACK_HTML = `<!DOCTYPE html>
   </div>
 </body>
 </html>`;
-// --- Encryption Utilities ---
-async function deriveKey(password, salt) {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveKey"]);
-  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
-}
-async function encryptData(plaintext, password) {
-  const enc = new TextEncoder();
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(password, salt);
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv, tagLength: 128 }, key, enc.encode(plaintext));
-  const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
-  combined.set(salt, 0); combined.set(iv, salt.length); combined.set(new Uint8Array(ciphertext), salt.length + iv.length);
-  return btoa(String.fromCharCode(...combined)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-}
-async function decryptData(encoded, password) {
-  const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  const combined = new Uint8Array(atob(padded).split("").map(c => c.charCodeAt(0)));
-  const salt = combined.slice(0, 16), iv = combined.slice(16, 28), ciphertext = combined.slice(28);
-  const key = await deriveKey(password, salt);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv, tagLength: 128 }, key, ciphertext);
-  return new TextDecoder().decode(decrypted);
-}
-
-// --- Utility Functions ---
-function detectIranianISP(request) {
-  const cf = (request && request.cf) || {};
-  const org = String(cf.asOrganization || "").toLowerCase();
-  const asn = Number(cf.asn || 0);
-  const country = String(cf.country || "").toUpperCase();
-  if (country !== "IR") return "all";
-  if (asn === 44244 || org.includes("irancell") || org.includes("mtn")) return "mtn";
-  if (asn === 197207 || org.includes("mcci") || org.includes("hamrah")) return "mci";
-  if (asn === 57218 || org.includes("rightel")) return "rightel";
-  if (asn === 31549 || org.includes("shatel")) return "shatel";
-  return "ir";
-}
-function getISPInfo(request) {
-  const cf = (request && request.cf) || {};
-  return { asn: cf.asn || 0, isp: cf.asOrganization || "", country: cf.country || "", carrier: detectIranianISP(request) };
-}
-const _cidrListCache = new Map();
-const CF_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
-function ipToInt(ip) { const p = ip.split(".").map(Number); return ((p[0] << 24) >>> 0) + (p[1] << 16) + (p[2] << 8) + p[3]; }
-function intToIp(n) { return [(n >>> 24) & 0xFF, (n >>> 16) & 0xFF, (n >>> 8) & 0xFF, n & 0xFF].join("."); }
-function randomIPFromCIDR(cidr) {
-  const [base, prefixStr] = cidr.split("/");
-  const hostBits = 32 - parseInt(prefixStr);
-  const ipInt = ipToInt(base);
-  const mask = (0xFFFFFFFF << hostBits) >>> 0;
-  return intToIp(((ipInt & mask) >>> 0) + Math.floor(Math.random() * Math.pow(2, hostBits)));
-}
-async function fetchCIDRList(carrier) {
-  const now = Date.now();
-  const cached = _cidrListCache.get(carrier);
-  if (cached && now - cached.at < 3600000) return cached.list;
-  try {
-    const r = await fetch("https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt", { headers: { "User-Agent": "XRayMOD" }, cf: { cacheTtl: 1800, cacheEverything: true } });
-    const text = r.ok ? await r.text() : "104.16.0.0/13";
-    const list = text.split(/[\r\n,;]+/).map(s => s.trim()).filter(s => s && /^\d+\.\d+\.\d+\.\d+\/\d+$/.test(s));
-    _cidrListCache.set(carrier, { at: now, list: list.length ? list : ["104.16.0.0/13"] });
-    return _cidrListCache.get(carrier).list;
-  } catch { return ["104.16.0.0/13"]; }
-}
-async function generateRandomIPs(request, count = 16, port = -1) {
-  const carrier = detectIranianISP(request);
-  const cidrList = await fetchCIDRList(carrier);
-  return Array.from({ length: count }, () => {
-    const ip = randomIPFromCIDR(cidrList[Math.floor(Math.random() * cidrList.length)]);
-    const targetPort = port === -1 ? CF_PORTS[Math.floor(Math.random() * CF_PORTS.length)] : port;
-    return `${ip}:${targetPort}`;
-  });
-}
-async function getCleanIPs(db) {
-  try { const row = await db.prepare("SELECT v FROM kvstore WHERE k = ?").bind("cleanip.ips").first(); return row && row.v ? row.v.split("\n").map(s => s.trim()).filter(Boolean) : []; } catch { return []; }
-}
-async function setCleanIPs(db, ips) {
-  const unique = [...new Set(ips)].slice(0, 30);
-  await db.prepare("INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)").bind("cleanip.ips", unique.join("\n"), Date.now()).run();
-}
-function isGrpcRequest(request) { return (request.headers.get("Content-Type") || "").startsWith("application/grpc"); }
-function isXHTTPRequest(request) {
-  const referer = request.headers.get("Referer") || "";
-  if (referer.includes("x_padding")) return true;
-  const contentType = request.headers.get("Content-Type") || "";
-  if (contentType.includes("application/octet-stream") && request.method === "POST") return true;
-  return false;
-}
-
 function errorPage(msg) {
   return new Response(`<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>XrayMOD Error</title>
@@ -1893,128 +2481,6 @@ p{color:#a1a1aa;font-size:.875rem}</style></head>
     headers: { "Content-Type": "text/html" }
   });
 }
-
-// --- Disguise System (Error 1101 bypass) ---
-var EMPTY_DISGUISE = { on: false, adminPath: "", loginPath: "", subPath: "", pubAdmin: "/admin", pubLogin: "/login", fallbackPage: "1101" };
-function cleanPath(v) {
-  return String(v || "").trim().toLowerCase().replace(/^\/+|\/+$/g, "").replace(/[^a-z0-9_-]/g, "").slice(0, 40);
-}
-async function getDisguiseConfig(env, db) {
-  try {
-    if (env.PANEL_RECOVERY === "1" || env.PANEL_RECOVERY === "true") return { ...EMPTY_DISGUISE };
-    const rows = await db.prepare("SELECT k, v FROM kvstore WHERE k LIKE ?").bind("disguise.%").all();
-    const settings = {};
-    for (const row of rows.results) settings[row.k] = row.v;
-    const enabled = settings["disguise.enabled"] === "true";
-    const adminPath = cleanPath(env.ADMIN_PATH) || cleanPath(settings["disguise.admin_path"]);
-    const loginPath = cleanPath(env.LOGIN_PATH) || cleanPath(settings["disguise.login_path"]);
-    const subPath = cleanPath(env.SUB_PATH) || cleanPath(settings["disguise.sub_path"]);
-    const on = (enabled || !!(env.ADMIN_PATH || env.LOGIN_PATH || env.SUB_PATH)) && !!(adminPath || loginPath || subPath);
-    if (!on) return { ...EMPTY_DISGUISE, fallbackPage: settings["disguise.fallback_page"] || "1101" };
-    return { on: true, adminPath, loginPath, subPath, pubAdmin: adminPath ? "/" + adminPath : "/admin", pubLogin: loginPath ? "/" + loginPath : "/login", fallbackPage: env.DISGUISE_PAGE || settings["disguise.fallback_page"] || "1101" };
-  } catch (e) { return { ...EMPTY_DISGUISE }; }
-}
-function remapDisguisePath(pathname, config) {
-  if (!config.on) return { remapped: pathname, isDecoy: false };
-  const clean = pathname.toLowerCase().replace(/\/+$/, "");
-  if (config.adminPath && clean === "/" + config.adminPath) return { remapped: "/admin", isDecoy: false };
-  if (config.adminPath && clean.startsWith("/" + config.adminPath + "/")) return { remapped: "/admin" + clean.slice(config.adminPath.length + 1), isDecoy: false };
-  if (config.loginPath && clean === "/" + config.loginPath) return { remapped: "/login", isDecoy: false };
-  if (config.subPath && clean === "/" + config.subPath) return { remapped: "/sub", isDecoy: false };
-  if (config.subPath && clean.startsWith("/" + config.subPath + "/")) return { remapped: "/sub" + clean.slice(config.subPath.length + 1), isDecoy: false };
-  if (clean === "/admin" || clean === "/login") return { remapped: pathname, isDecoy: true };
-  return { remapped: pathname, isDecoy: false };
-}
-function html1101(host) {
-  const now = new Date();
-  const ts = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0") + " " + String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0") + ":" + String(now.getSeconds()).padStart(2, "0");
-  const rayId = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, "0")).join("");
-  return `<!DOCTYPE html>
-<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
-<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
-<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->
-<head>
-<title>Worker threw exception | ${host} | Cloudflare</title>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-<meta name="robots" content="noindex, nofollow" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/cf.errors.css" />
-<!--[if lt IE 9]><link rel="stylesheet" id='cf_styles-ie.css' href="/cdn-cgi/styles/cf.errors.ie.css" /><![endif]-->
-<style>body{margin:0;padding:0}</style>
-<!--[if gte IE 10]><!-->
-<script>
-  if (!navigator.cookieEnabled) {
-    window.addEventListener('DOMContentLoaded', function () {
-      var cookieEl = document.getElementById('cookie-alert');
-      cookieEl.style.display = 'block';
-    })
-  }
-</script>
-<!--<![endif]-->
-</head>
-<body>
-    <div id="cf-wrapper">
-        <div class="cf-alert cf-alert-error cf-cookie-error" id="cookie-alert" data-translate="enable_cookies">Please enable cookies.</div>
-        <div id="cf-error-details" class="cf-error-details-wrapper">
-            <div class="cf-wrapper cf-header cf-error-overview">
-                <h1>
-                    <span class="cf-error-type" data-translate="error">Error</span>
-                    <span class="cf-error-code">1101</span>
-                    <small class="heading-ray-id">Ray ID: ${rayId} &bull; ${ts} UTC</small>
-                </h1>
-                <h2 class="cf-subheadline" data-translate="error_desc">Worker threw exception</h2>
-            </div>
-            <section></section>
-            <div class="cf-section cf-wrapper">
-                <div class="cf-columns two">
-                    <div class="cf-column">
-                        <h2 data-translate="what_happened">What happened?</h2>
-                        <p>You've requested a page on a website (${host}) that is on the <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=error_100x" target="_blank">Cloudflare</a> network. An unknown error occurred while rendering the page.</p>
-                    </div>
-                    <div class="cf-column">
-                        <h2 data-translate="what_can_i_do">What can I do?</h2>
-                        <p><strong>If you are the owner of this website:</strong><br />refer to <a href="https://developers.cloudflare.com/workers/observability/errors/" target="_blank">Workers - Errors and Exceptions</a> and check Workers Logs for ${host}.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="cf-section cf-wrapper">
-                <h2 data-translate="more_info">More information</h2>
-                <p>If you are the owner of this website, you can check <a href="https://developers.cloudflare.com/workers/observability/errors/" target="_blank">Workers Logs</a> for ${host} to learn more about this error.</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`;
-}
-function nginxPage() {
-  return `<!DOCTYPE html>
-<html>
-<head>
-<title>Welcome to nginx!</title>
-<style>
-  body { width: 35em; margin: 0 auto; font-family: Tahoma, Verdana, Arial, sans-serif; }
-</style>
-</head>
-<body>
-<h1>Welcome to nginx!</h1>
-<p>If you see this page, the nginx web server is successfully installed and
-working. Further configuration is required.</p>
-<p>For online documentation and support please refer to
-<a href="http://nginx.org/">nginx.org</a>.<br/>
-Commercial support is available at
-<a href="http://nginx.com/">nginx.com</a>.</p>
-<p><em>Thank you for using nginx.</em></p>
-</body>
-</html>`;
-}
-function getDecoyResponse(host, pageType) {
-  const html = pageType === "1101" ? html1101(host) : nginxPage();
-  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=UTF-8" } });
-}
-
 async function handleRequest(request, env, ctx) {
   try {
     if (request.method === "OPTIONS") {
@@ -2029,36 +2495,46 @@ async function handleRequest(request, env, ctx) {
       });
     }
     const url = new URL(request.url);
-    ctx.waitUntil(ensureSchema(env.DB));
+    await ensureSchema(env.DB);
+    const isProxyTraffic = request.headers.get("Upgrade") === "websocket" || request.method === "POST" && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/install") && (isGrpcRequest(request) || isXHTTPRequest(request));
+    if (isProxyTraffic) {
+      const pausedRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("panel.paused").first();
+      if (pausedRow?.v === "true") {
+        return new Response("Service paused", { status: 503 });
+      }
+      const capRow = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("panel.monthly_cap_gb").first();
+      const capGB = Number(capRow?.v || 0);
+      if (capGB > 0) {
+        const trafficRow = await env.DB.prepare("SELECT SUM(traffic_used) as total FROM users").first();
+        const usedBytes = trafficRow?.total || 0;
+        if (usedBytes >= capGB * 1073741824) {
+          return new Response("Monthly data cap reached", { status: 503 });
+        }
+      }
+    }
     if (request.headers.get("Upgrade") === "websocket") {
       return handleProxyTraffic(request, env, ctx);
     }
-    // gRPC/XHTTP transport — POST-based proxy traffic
     if (request.method === "POST" && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/install")) {
-      if (isGrpcRequest(request)) return handleProxyTraffic(request, env, ctx);
-      if (isXHTTPRequest(request)) return handleProxyTraffic(request, env, ctx);
+      if (isGrpcRequest(request)) {
+        return handleProxyTraffic(request, env, ctx);
+      }
+      if (isXHTTPRequest(request)) {
+        return handleProxyTraffic(request, env, ctx);
+      }
     }
-
-    // UUID-based panel access
     let pathname = url.pathname;
     const panelUUID = await env.DB.prepare("SELECT v FROM kvstore WHERE k = ?").bind("panel.access_uuid").first();
     const accessUuid = panelUUID?.v;
-    const bypassUUID = pathname.startsWith("/sub/") || pathname.startsWith("/install") || pathname.startsWith("/bot") || pathname === "/admin" || request.headers.get("Upgrade") === "websocket";
+    const bypassUUID = pathname.startsWith("/sub/") || pathname.startsWith("/install") || pathname.startsWith("/api/") || pathname.startsWith("/bot") || request.headers.get("Upgrade") === "websocket";
     if (accessUuid && !bypassUUID) {
       const segments = pathname.split("/").filter(Boolean);
       if (segments.length === 0 || segments[0] !== accessUuid) {
-        const disguise = await getDisguiseConfig(env, env.DB);
-        return getDecoyResponse(url.host, disguise.fallbackPage);
+        const disguise2 = await getDisguiseConfig(env, env.DB);
+        return getDecoyResponse(url.host, disguise2.fallbackPage);
       }
       pathname = "/" + segments.slice(1).join("/");
       url.pathname = pathname || "/";
-    }
-
-    const disguise = await getDisguiseConfig(env, env.DB);
-    if (disguise.on) {
-      const { remapped, isDecoy } = remapDisguisePath(pathname, disguise);
-      if (isDecoy) return getDecoyResponse(url.host, disguise.fallbackPage);
-      if (remapped !== pathname) { pathname = remapped; url.pathname = pathname; }
     }
     const skipInstallCheck = pathname.startsWith("/install") || pathname.startsWith("/api/") || pathname.startsWith("/sub/");
     if (!skipInstallCheck) {
@@ -2086,13 +2562,14 @@ async function handleRequest(request, env, ctx) {
         return route.handler(request, env, ctx, params);
       }
     }
+    const disguise = await getDisguiseConfig(env, env.DB);
     if (disguise.on && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/sub/") && !url.pathname.startsWith("/install")) {
       return getDecoyResponse(url.host, disguise.fallbackPage);
     }
     const pagesUrl = env.PAGES_URL;
     if (pagesUrl && !url.pathname.startsWith("/api/") && !url.pathname.startsWith("/sub/")) {
       const workerOrigin = new URL(request.url).origin;
-      const apiScript = `<script>window.__API_BASE="${workerOrigin}";<\/script>`;
+      const apiScript = `<script>window.__API_BASE="${workerOrigin}";</script>`;
       const injectApiBase = (html) => {
         const modified = html.replace("<head>", `<head>${apiScript}`);
         return new Response(modified, {
@@ -2138,9 +2615,9 @@ async function handleRequest(request, env, ctx) {
   }
 }
 function notFound() {
-  return jsonResponse({ success: false, message: "Not found" }, 404);
+  return jsonResponse2({ success: false, message: "Not found" }, 404);
 }
-function jsonResponse(data, status = 200) {
+function jsonResponse2(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {

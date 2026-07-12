@@ -34,6 +34,9 @@ const CF_CIDR_URLS: Record<string, string> = {
   all: 'https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt',
   mtn: 'https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt',
   mci: 'https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt',
+  rightel: 'https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt',
+  shatel: 'https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt',
+  ir: 'https://raw.githubusercontent.com/Leon406/SubCrawler/master/sub/cf/cloudflare_v4.txt',
 };
 
 const CF_PORTS = [443, 2053, 2083, 2087, 2096, 8443];

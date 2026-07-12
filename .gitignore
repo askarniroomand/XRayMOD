@@ -5,6 +5,7 @@ node_modules/
 build/
 dist/
 .wrangler/
+dist-worker/
 
 # Reference projects (cloned for research)
 .references/
@@ -35,3 +36,17 @@ npm-debug.log*
 # Temporary files
 tmp/
 temp/
+
+# Python
+__pycache__/
+*.pyc
+uv.lock
+
+# Build scripts (generated)
+build-worker.mjs
+index.js
+index.js.map
+
+# Session memory
+.mimocode/
+frontend/.next/

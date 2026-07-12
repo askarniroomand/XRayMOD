@@ -99,63 +99,74 @@ export async function handleSubscription(
   const accept = request.headers.get('Accept') || '';
   const format = url.searchParams.get('format') || 'base64';
 
+  // Check for mixed protocol mode
+  const mixedRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('protocol.mixed_mode').first<{ v: string }>();
+  const isMixedMode = mixedRow?.v === 'true';
+
+  // Shuffle hosts for per-node fingerprinting (Nova pattern)
+  const shuffledHosts = [...cleanIPs.length ? cleanIPs.map(ip => ip.split(':')[0]) : [host]];
+  for (let i = shuffledHosts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledHosts[i], shuffledHosts[j]] = [shuffledHosts[j], shuffledHosts[i]];
+  }
+
   // Generate links for each config
   const links: string[] = [];
-  for (const config of configs.results) {
+  const protoCycle = ['vless', 'trojan', 'ss'];
+  for (let i = 0; i < configs.results.length; i++) {
+    const config = configs.results[i];
     const settings = JSON.parse(config.settings_json || '{}');
-    const template = config.template_json;
+
+    // Mixed mode: cycle through protocols
+    const effectiveProtoId = isMixedMode ? protoCycle[i % 3] : config.proto_id;
+
+    // Per-node host randomization (Nova pattern)
+    const nodeHost = shuffledHosts[i % shuffledHosts.length] || host;
+    const port = config.port || 443;
 
     // Replace template variables
-    let processedTemplate = template;
+    let processedTemplate = config.template_json;
     const templateData = { ...settings, uuid: user.uuid };
     for (const [key, value] of Object.entries(templateData)) {
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
       processedTemplate = processedTemplate.replace(regex, String(value));
     }
 
-    const port = config.port || 443;
-
     // Generate URI based on protocol
     let uri = '';
-    switch (config.proto_id) {
-      case 'vless-reality':
-      case 'vless-ws':
-      case 'vless-wss':
-        uri = `vless://${user.uuid}@${host}:${port}?encryption=none&security=${settings.security || 'tls'}&type=${settings.network || 'tcp'}&flow=${settings.flow || ''}${echParam}${tlsFragParam}#${encodeURIComponent(config.name)}`;
-        break;
-      case 'vless-grpc':
+    const protoId = effectiveProtoId;
+    const nodeLabel = `${config.name}${isMixedMode ? ' (' + protoId.toUpperCase() + ')' : ''}`;
+
+    if (protoId === 'vless' || config.proto_id.startsWith('vless')) {
+      if (config.proto_id === 'vless-grpc') {
         const grpcMode = settings.mode || 'gun';
-        uri = `vless://${user.uuid}@${host}:${port}?encryption=none&security=tls&type=grpc&mode=${grpcMode}&serviceName=${settings.serviceName || 'grpc'}&sni=${settings.sni || host}${echParam}${tlsFragParam}#${encodeURIComponent(config.name)}`;
-        break;
-      case 'vmess-ws':
-      case 'vmess-wss':
-        const vmessObj = {
-          v: '2',
-          ps: config.name,
-          add: host,
-          port: port,
-          id: user.uuid,
-          aid: 0,
-          scy: 'auto',
-          net: settings.network || 'ws',
-          type: 'none',
-          host: host,
-          path: settings.path || '/',
-          tls: settings.security === 'tls' ? 'tls' : '',
-        };
-        uri = `vmess://${btoa(JSON.stringify(vmessObj))}`;
-        break;
-      case 'trojan-ws':
-      case 'trojan-wss':
-        uri = `trojan://${settings.password || 'password'}@${host}:${port}?type=${settings.network || 'ws'}&host=${host}&path=${settings.path || '/'}&security=tls&sni=${settings.sni || host}${echParam}${tlsFragParam}#${encodeURIComponent(config.name)}`;
-        break;
-      case 'ss-ws':
-      case 'ss-wss':
-        const ssInfo = btoa(`${settings.method || 'chacha20-ietf-poly1305'}:${settings.password || 'password'}`);
-        uri = `ss://${ssInfo}@${host}:${port}?type=${settings.network || 'ws'}&path=${settings.path || '/'}#${encodeURIComponent(config.name)}`;
-        break;
-      default:
-        uri = `${config.proto_id}://${btoa(processedTemplate)}@${host}:${port}#${encodeURIComponent(config.name)}`;
+        uri = `vless://${user.uuid}@${nodeHost}:${port}?encryption=none&security=tls&type=grpc&mode=${grpcMode}&serviceName=${settings.serviceName || 'grpc'}&sni=${settings.sni || nodeHost}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
+      } else {
+        uri = `vless://${user.uuid}@${nodeHost}:${port}?encryption=none&security=${settings.security || 'tls'}&type=${settings.network || 'tcp'}&flow=${settings.flow || ''}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
+      }
+    } else if (protoId === 'trojan' || config.proto_id.startsWith('trojan')) {
+      uri = `trojan://${settings.password || 'password'}@${nodeHost}:${port}?type=${settings.network || 'ws'}&host=${nodeHost}&path=${settings.path || '/'}&security=tls&sni=${settings.sni || nodeHost}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
+    } else if (protoId === 'ss' || config.proto_id.startsWith('ss')) {
+      const ssInfo = btoa(`${settings.method || 'chacha20-ietf-poly1305'}:${settings.password || 'password'}`);
+      uri = `ss://${ssInfo}@${nodeHost}:${port}?type=${settings.network || 'ws'}&path=${settings.path || '/'}#${encodeURIComponent(nodeLabel)}`;
+    } else if (config.proto_id.startsWith('vmess')) {
+      const vmessObj = {
+        v: '2',
+        ps: nodeLabel,
+        add: nodeHost,
+        port: port,
+        id: user.uuid,
+        aid: 0,
+        scy: 'auto',
+        net: settings.network || 'ws',
+        type: 'none',
+        host: nodeHost,
+        path: settings.path || '/',
+        tls: settings.security === 'tls' ? 'tls' : '',
+      };
+      uri = `vmess://${btoa(JSON.stringify(vmessObj))}`;
+    } else {
+      uri = `${config.proto_id}://${btoa(processedTemplate)}@${nodeHost}:${port}#${encodeURIComponent(nodeLabel)}`;
     }
 
     links.push(uri);
