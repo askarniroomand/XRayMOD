@@ -48,11 +48,22 @@ mkdir -p "${INSTALLER_DIR}"
 REPO_URL="https://github.com/EvolveBeyond/XRayMOD.git"
 if [ -d "${INSTALLER_DIR}/XRayMOD" ]; then
     echo -e "${GREEN}✓${NC} Repository exists, updating..."
-    git -C "${INSTALLER_DIR}/XRayMOD" pull --quiet 2>/dev/null || true
+    if ! git -C "${INSTALLER_DIR}/XRayMOD" pull --quiet 2>/dev/null; then
+        echo -e "${YELLOW}→${NC} Pull failed, re-cloning..."
+        rm -rf "${INSTALLER_DIR}/XRayMOD"
+        git clone --depth 1 "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" 2>/dev/null
+    fi
 else
     echo -e "${YELLOW}→${NC} Cloning repository..."
     git clone --depth 1 "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" 2>/dev/null
     echo -e "${GREEN}✓${NC} Repository cloned"
+fi
+
+# Verify installer exists
+if [ ! -f "${INSTALLER_DIR}/XRayMOD/installer/__main__.py" ]; then
+    echo -e "${RED}Error: Installer files missing. Re-cloning...${NC}"
+    rm -rf "${INSTALLER_DIR}/XRayMOD"
+    git clone --depth 1 "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" 2>/dev/null
 fi
 
 # ── Step 4: Run FastAPI installer ───────────────────────────
