@@ -112,22 +112,23 @@ async def deploy_endpoint(request: Request):
             except CFApiError:
                 pass
 
-        # Deploy worker
-        d1 = create_d1(cf, account_id, d1_name)
-        worker_code = fetch_worker_code()
-        deploy_worker(cf, account_id, worker_name, worker_code, d1["id"])
-        enable_subdomain(cf, account_id, worker_name)
-        worker_url = get_worker_url(cf, account_id, worker_name)
-
         # Build and deploy frontend to Pages
         pages_name = f"{worker_name}-panel"
+        pages_url = ""
         try:
             logger.info(f"Building frontend...")
             subprocess.run(["npm", "run", "build"], cwd=str(FRONTEND_DIR), check=True, capture_output=True, timeout=120)
             logger.info(f"Deploying frontend to Pages: {pages_name}")
-            deploy_frontend(cf, account_id, pages_name, FRONTEND_DIR / ".next" / "static")
+            pages_url = deploy_frontend(cf, account_id, pages_name, FRONTEND_DIR / "out")
         except Exception as e:
             logger.warning(f"Frontend deploy failed (non-critical): {e}")
+
+        # Deploy worker with PAGES_URL binding
+        d1 = create_d1(cf, account_id, d1_name)
+        worker_code = fetch_worker_code()
+        deploy_worker(cf, account_id, worker_name, worker_code, d1["id"], pages_url)
+        enable_subdomain(cf, account_id, worker_name)
+        worker_url = get_worker_url(cf, account_id, worker_name)
 
         save({
             "access_token": access_token, "worker_name": worker_name,

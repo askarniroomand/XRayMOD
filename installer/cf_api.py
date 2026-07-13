@@ -229,8 +229,8 @@ def get_worker_settings(cf: CFClient, account_id: str, worker_name: str) -> dict
 
 
 def deploy_worker(cf: CFClient, account_id: str, worker_name: str, worker_code: str,
-                  d1_id: str) -> str:
-    """Deploy XRayMOD worker.js with D1 binding only. Password set via /install page."""
+                  d1_id: str, pages_url: str = "") -> str:
+    """Deploy XRayMOD worker.js with D1 binding. Password set via /install page."""
     logger.info(f"Deploying worker: {worker_name}")
 
     # Check if worker already exists — preserve bindings
@@ -252,16 +252,28 @@ def deploy_worker(cf: CFClient, account_id: str, worker_name: str, worker_code: 
         db_found = any(b.get("name") == "DB" for b in bindings)
         if not db_found and d1_id:
             bindings.append({"type": "d1", "name": "DB", "database_id": d1_id})
+        # Add/update PAGES_URL binding
+        if pages_url:
+            pages_found = False
+            for b in bindings:
+                if b.get("name") == "PAGES_URL":
+                    b["text"] = pages_url
+                    pages_found = True
+            if not pages_found:
+                bindings.append({"type": "plain_text", "name": "PAGES_URL", "text": pages_url})
         metadata["bindings"] = bindings
         logger.info(f"Updating existing worker, preserving {len(bindings)} bindings")
     else:
+        bindings = [
+            {"type": "d1", "name": "DB", "database_id": d1_id},
+        ]
+        if pages_url:
+            bindings.append({"type": "plain_text", "name": "PAGES_URL", "text": pages_url})
         metadata = {
             "main_module": "worker.js",
             "compatibility_date": "2024-09-23",
             "compatibility_flags": ["nodejs_compat"],
-            "bindings": [
-                {"type": "d1", "name": "DB", "database_id": d1_id},
-            ],
+            "bindings": bindings,
         }
 
     boundary = f"----formdata-{secrets.token_hex(8)}"
@@ -319,30 +331,31 @@ def delete_d1(cf: CFClient, account_id: str, d1_id: str):
     logger.info(f"D1 deleted: {d1_id}")
 
 
-def deploy_frontend(cf: CFClient, account_id: str, project_name: str, static_dir: Path):
-    """Deploy frontend to Cloudflare Pages."""
+def deploy_frontend(cf: CFClient, account_id: str, project_name: str, static_dir: Path) -> str:
+    """Deploy frontend to Cloudflare Pages. Returns Pages URL."""
     import tarfile
     import tempfile
 
-    # Create tarball of .next/static
+    # Create tarball of static files
     with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp:
         with tarfile.open(tmp.name, 'w:gz') as tar:
             for f in static_dir.rglob('*'):
                 if f.is_file():
-                    tar.add(f, arcname=f.relative_to(static_dir.parent.parent))
+                    tar.add(f, arcname=f.relative_to(static_dir.parent))
         tar_path = tmp.name
 
     try:
-        # Upload to Pages
+        # Try to deploy to existing project
         with open(tar_path, 'rb') as f:
             cf.req("POST", f"/accounts/{account_id}/pages/projects/{project_name}/deployments",
                    data=f.read(), content_type="application/gzip")
-        logger.info(f"Frontend deployed to Pages: {project_name}")
     except CFApiError:
-        # Project might not exist, create it
+        # Create project first
         cf.req("POST", f"/accounts/{account_id}/pages/projects",
                json_body={"name": project_name, "production_branch": "main"})
         with open(tar_path, 'rb') as f:
             cf.req("POST", f"/accounts/{account_id}/pages/projects/{project_name}/deployments",
                    data=f.read(), content_type="application/gzip")
-        logger.info(f"Frontend Pages project created and deployed: {project_name}")
+
+    logger.info(f"Frontend deployed to Pages: {project_name}")
+    return f"https://{project_name}.pages.dev"
