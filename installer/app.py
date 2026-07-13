@@ -104,6 +104,15 @@ async def deploy_endpoint(request: Request):
         account_id, account_name = get_worker_account(access_token)
         logger.info(f"Deploying to: {account_name}")
 
+        # Delete old worker if exists (clean install, not update)
+        old_config = load()
+        if old_config.get("worker_name") and old_config["worker_name"] != worker_name:
+            logger.info(f"Deleting old worker: {old_config['worker_name']}")
+            try:
+                delete_worker(cf, account_id, old_config["worker_name"])
+            except CFApiError:
+                pass
+
         d1 = create_d1(cf, account_id, d1_name)
         worker_code = fetch_worker_code()
         deploy_worker(cf, account_id, worker_name, worker_code, d1["id"], admin_password)
