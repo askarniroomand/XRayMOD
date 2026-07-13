@@ -1,5 +1,5 @@
 const _D_={_vl_:atob('dmxlc3M='),_tr_:atob('dHJvamFu'),_vm_:atob('dm1lc3M='),_ss_:atob('c2hhZG93c29ja3M='),_wg_:atob('d2lyZWd1YXJk'),_cl_:atob('Y2xhc2g='),_sb_:atob('c2luZ2JveA=='),_sb2_:atob('c2luZy1ib3g='),_mh_:atob('bWlob21v'),_hd_:atob('aGlkZGlmeQ=='),_sg_:atob('c3VyZ2U='),_qx_:atob('cXVhbng='),_ln_:atob('bG9vbg=='),_np_:atob('Tm92YVByb3h5'),_np2_:atob('Tm92YS1Qcm94eQ=='),_np3_:atob('Tm92YQ=='),_cf_:atob('Y2xvdWRmbGFyZQ=='),_xr_:atob('eHJheQ=='),_cr_:atob('Q21saXVzcw=='),_pr_:atob('UFJPWFlJUA=='),_sp_:atob('c3BlZWQuY2xvdWRmbGFyZS5jb20='),_wr_:atob('Tm92YS1XQVJQ'),_ws_:atob('d3M='),_grpc_:atob('Z3JwYw=='),_xhttp_:atob('eHR0cA=='),_aes128_:atob('YWVzLTEyOC1nY20='),_aes256_:atob('YWVzLTI1Ni1nY20='),_chrome_:atob('Y2hyb21l'),_mixed_:atob('bWl4ZWQ=')};
-const Version = 'V4.0.0';
+const Version = 'XRayMOD-v2.0.0';
 let config_JSON, 反代IP = '', 启用SOCKS5反代 = null, 启用SOCKS5全局反代 = false, 我的SOCKS5账号 = '', parsedSocks5Address = {};
 let 缓存SOCKS5白名单 = null, 缓存反代IP, 缓存反代解析数组, 缓存反代数组索引 = 0, 启用反代兜底 = true, 调试日志打印 = false;
 let connClientIp = '';
@@ -26,8 +26,8 @@ function hostMatchesProxyList(host) {
 	const lists = connProxyWhitelist.length ? SOCKS5白名单.concat(connProxyWhitelist) : SOCKS5白名单;
 	return lists.some(p => { try { return new RegExp(`^${String(p).trim().replace(/\*/g, '.*')}$`, 'i').test(host); } catch (e) { return false; } });
 }
-const Pages静态页面 = 'https://nova-panel.github.io/';
-const NOVA_FREE_NOTICE = '🎁 نوا رایگان است، برای آن به کسی پول ندهید';
+const Pages静态页面 = 'https://xraymod-panel.github.io/';
+const NOVA_FREE_NOTICE = '🎁 XRayMOD رایگان است، برای آن به کسی پول ندهید';
 globalThis.__workerStart = Date.now();
 // --- Config JSON cache: avoids repeated KV reads on every request ---
 const _CFG_KEY = 'config.json';
@@ -38,7 +38,7 @@ async function getConfigRaw(env) {
 	return _cfgRaw;
 }
 function putConfig(env, val) { _cfgRaw = val; _cfgRawAt = Date.now(); return env.KV.put(_CFG_KEY, val); }
-// --- Nova Auth Hardening ---
+// --- XRayMOD Auth Hardening ---
 const SESSION_MAX_AGE_MS = 86400000;
 const LOGIN_MAX_ATTEMPTS = 8, LOGIN_WINDOW_MS = 600000, LOGIN_BLOCK_MS = 900000;
 const __loginAttempts = new Map();
@@ -50,7 +50,7 @@ const 下行Grain包字节 = 64 * 1024, 下行Grain尾部阈值 = 512, 下行Gra
 const 快速转发 = false, 最大转发 = false;
 let TCP并发拨号数 = 4, 预加载竞速拨号 = false;
 const 节点地址正则 = /^(\[[\da-fA-F:]+\]|[\d.]+|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*)(?::(\d+))?(?:#(.+))?$/;
-const NOVA仓库RAW = 'https://raw.githubusercontent.com/IRNova/Nova-Proxy/main';
+const NOVA仓库RAW = 'https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main';
 const NOVA版本URL = NOVA仓库RAW + '/public/version.json';
 const NOVAWorkerSrcFallback = NOVA仓库RAW + '/worker.js';
 const 每用户节点上限 = 40;
@@ -167,7 +167,7 @@ async function totpVerify(secretB32, token, window = 1) {
 	for (let w = -window; w <= window; w++) { if (await totpAt(secretB32, t + w) === token) return true; }
 	return false;
 }
-function novaDisguise(env) {
+function xraymodDisguise(env) {
 	try {
 		if (env && (env.PANEL_RECOVERY === '1' || env.PANEL_RECOVERY === 'true')) return { on: false, adminPath: '', loginPath: '', subPath: '', pubAdmin: '/admin', pubLogin: '/login' };
 		const ns = 网络设置 || {};
@@ -187,9 +187,9 @@ function versionGreater(a, b) {
 	for (let i = 0; i < Math.max(pa.length, pb.length); i++) { const x = pa[i] || 0, y = pb[i] || 0; if (x > y) return true; if (x < y) return false; }
 	return false;
 }
-async function 获取Nova版本() {
+async function 获取XRayMOD版本() {
 	for (const u of [NOVA版本URL, NOVA仓库RAW + '/version.json']) {
-		try { const r = await fetch(u, { headers: { 'User-Agent': 'NovaProxy' }, cf: { cacheTtl: 0 } }); if (r.ok) { const j = await r.json(); if (j && j.version) return j; } } catch (e) {}
+		try { const r = await fetch(u, { headers: { 'User-Agent': 'XRayMOD' }, cf: { cacheTtl: 0 } }); if (r.ok) { const j = await r.json(); if (j && j.version) return j; } } catch (e) {}
 	}
 	return null;
 }
@@ -247,7 +247,7 @@ async function panelHtml(env, path, opts = {}) {
 		text = text.replace(/"\.\.\/logo\.png"/g, `"${Pages静态页面}logo.png"`);
 		text = text.replace(/src=['"]\.\.\/logo\.png['"]/g, `src="${Pages静态页面}logo.png"`);
 	}
-	const _dgp = novaDisguise(env);
+	const _dgp = xraymodDisguise(env);
 	if (_dgp.on && _dgp.pubAdmin !== '/admin') {
 		text = text.replace(/location\.href=(['"])\/admin\1/g, `location.href='${_dgp.pubAdmin}'`);
 		text = text.replace(/"start_url":"\/admin"/g, `"start_url":"${_dgp.pubAdmin}"`);
@@ -259,7 +259,7 @@ async function panelHtml(env, path, opts = {}) {
 	return new Response(text, { status: opts.status || r.status, headers: h });
 }
 function panelUnavailableHtml() {
-	return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nova Proxy — setup</title>'
+	return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XRayMOD — setup</title>'
 		+ '<style>body{font-family:system-ui,Segoe UI,Tahoma,sans-serif;background:#0b0d11;color:#e9edf4;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}'
 		+ '.c{max-width:560px;background:#101319;border:1px solid #1c2027;border-radius:16px;padding:28px}h1{font-size:18px;margin:0 0 12px}p{color:#aeb6c4;line-height:1.7;font-size:14px}code{background:#0b0d11;border:1px solid #1c2027;border-radius:5px;padding:1px 6px;color:#22d3ee}</style></head>'
 		+ '<body><div class="c"><h1>Dashboard not bundled yet</h1>'
@@ -536,7 +536,7 @@ async function 服务用户中心() {
 	try {
 		const base = String(Pages静态页面 || '').replace(/\/+$/, '');
 		if (!base || /your-panel\.pages\.dev/i.test(base)) return null;
-		const r = await fetch(base + '/user/index.html', { headers: { 'User-Agent': 'NovaProxy' }, cf: { cacheTtl: 300, cacheEverything: true } });
+		const r = await fetch(base + '/user/index.html', { headers: { 'User-Agent': 'XRayMOD' }, cf: { cacheTtl: 300, cacheEverything: true } });
 		if (!r || !r.ok) return null;
 		const html = await r.text();
 		if (!html || html.length < 50) return null;
@@ -559,7 +559,7 @@ async function 获取Nat64前缀() {
 	if (/^https?:\/\//i.test(src)) {
 		if (缓存Nat64前缀 && 缓存Nat64源 === src && (Date.now() - 缓存Nat64时间) < 3600000) return 缓存Nat64前缀;
 		try {
-			const r = await fetch(src, { headers: { 'User-Agent': 'NovaProxy' } }); const txt = await r.text();
+			const r = await fetch(src, { headers: { 'User-Agent': 'XRayMOD' } }); const txt = await r.text();
 			let list = (txt.match(/\[([0-9a-fA-F:]+::)\]/g) || []).map(s => s.replace(/[\[\]]/g, ''));
 			if (!list.length) list = txt.split(/[\n,]+/).map(s => s.replace(/[\[\]]/g, '').trim()).filter(s => s.includes('::'));
 			缓存Nat64前缀 = [...new Set(list)]; 缓存Nat64时间 = Date.now(); 缓存Nat64源 = src; return 缓存Nat64前缀;
@@ -702,7 +702,7 @@ export default {
 			缓存SOCKS5白名单 = SOCKS5白名单;
 		} else SOCKS5白名单 = 缓存SOCKS5白名单;
 		// --- Disguise: remap secret admin/login/sub paths ---
-		const _dg = novaDisguise(env);
+		const _dg = xraymodDisguise(env);
 		if (_dg.on && upgradeHeader !== 'websocket') {
 			const _seg = 访问路径;
 			if (_dg.adminPath && (_seg === _dg.adminPath || _seg.startsWith(_dg.adminPath + '/'))) {
@@ -776,14 +776,14 @@ export default {
 			if (访问路径 === 'dns-query' || url.pathname === '/dns-query' || 访问路径 === 'doh' || url.pathname === '/doh') {
 				return 处理DoH请求(request);
 			}
-			// 后端模式诊断：在浏览器访问 /backend-test 查看 Nova 连接后端时的实际情况
+			// 后端模式诊断：在浏览器访问 /backend-test 查看 XRayMOD 连接后端时的实际情况
 			if (访问路径 === 'backend-test') {
 				return await 后端诊断(env, url);
 			}
 			if (访问路径 === 'scan' || 访问路径 === 'radar') {
-				return novaScanPage();
+				return xraymodScanPage();
 			}
-			if (访问路径 === 'nova-block') {
+			if (访问路径 === 'xraymod-block') {
 				return 页面被封锁(request);
 			}
 			if (访问路径 === 'warp' || 访问路径.startsWith('warp/')) {
@@ -880,8 +880,8 @@ export default {
 						return new Response(JSON.stringify({ password: adminPassword || '', source: src }), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' } });
 					} else if (访问路径 === 'admin/security/2fa-setup') {
 						const secret = randomBase32(32);
-						const label = encodeURIComponent('Nova Proxy (' + url.host + ')');
-						const otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent('Nova Proxy')}&algorithm=SHA1&digits=6&period=30`;
+						const label = encodeURIComponent('XRayMOD (' + url.host + ')');
+						const otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent('XRayMOD')}&algorithm=SHA1&digits=6&period=30`;
 						return new Response(JSON.stringify({ secret, otpauth }), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' } });
 					} else if (访问路径 === 'admin/security/2fa-enable') {
 						if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
@@ -1174,7 +1174,7 @@ export default {
 									// کشیدن کلیدهای WARP+ از استخر مرکزی و اعمال اولین کلید موفق
 									if (!stored || !stored.registered) stored = await registerWarpAccount(env, 'warp-account.json');
 									const { api } = await 获取CentralApi(env); if (!api) throw new Error('Central API not set in Settings');
-									let keys = []; try { const cr = await fetch(api + '/api/warp', { headers: { 'User-Agent': 'NovaProxy' } }); const cj = await cr.json(); keys = Array.isArray(cj.keys) ? cj.keys : []; } catch (e) {}
+									let keys = []; try { const cr = await fetch(api + '/api/warp', { headers: { 'User-Agent': 'XRayMOD' } }); const cj = await cr.json(); keys = Array.isArray(cj.keys) ? cj.keys : []; } catch (e) {}
 									if (!keys.length) throw new Error('No WARP+ keys in the central pool');
 									let applied = false, lastErr = '';
 									for (const k of keys) { try { await applyWarpLicense(env, String(k).trim()); applied = true; break; } catch (e) { lastErr = e && e.message ? e.message : String(e); } }
@@ -1329,9 +1329,9 @@ export default {
 						} catch (e) { return _更新错误响应('无法读取绑定信息'); }
 						// 从版本清单解析规范的Worker源码（version.json的worker_url，否则使用仓库默认值）。
 						let 源码地址 = NOVAWorkerSrcFallback, 最新版本 = '';
-						{ const 版本信息 = await 获取Nova版本(); if (版本信息) { if (版本信息.worker_url) 源码地址 = 版本信息.worker_url; 最新版本 = String(版本信息.version || '').replace(/^[vV]/, ''); } }
+						{ const 版本信息 = await 获取XRayMOD版本(); if (版本信息) { if (版本信息.worker_url) 源码地址 = 版本信息.worker_url; 最新版本 = String(版本信息.version || '').replace(/^[vV]/, ''); } }
 						let 脚本文本 = '';
-						try { const r = await fetch(源码地址, { headers: { 'User-Agent': 'NovaProxy' } }); if (!r.ok) throw new Error('HTTP ' + r.status); 脚本文本 = await r.text(); } catch (e) { return _更新错误响应('下载Worker源码失败', { detail: (e && e.message) || String(e) }); }
+						try { const r = await fetch(源码地址, { headers: { 'User-Agent': 'XRayMOD' } }); if (!r.ok) throw new Error('HTTP ' + r.status); 脚本文本 = await r.text(); } catch (e) { return _更新错误响应('下载Worker源码失败', { detail: (e && e.message) || String(e) }); }
 						if (脚本文本.length < 1000 || !/export\s+default|addEventListener\s*\(/.test(脚本文本)) return _更新错误响应('Worker源码无效');
 						// 仅替换内容：替换代码，保持bindings/secrets/vars/D1/KV不变。
 						try {
@@ -1531,7 +1531,7 @@ export default {
 						} catch (error) { return new Response(JSON.stringify({ ips: [], error: String(error.message || error) }), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8' } }); }
 					} else if (访问路径 === 'admin/update-check.json') { // 比较当前版本与仓库发布版本
 						const current = String(Version).replace(/^[vV]/, '');
-						const vj = await 获取Nova版本();
+						const vj = await 获取XRayMOD版本();
 						const latest = vj ? String(vj.version || '').replace(/^[vV]/, '') : '';
 						const notes = vj ? (vj.notes || '') : '';
 						const srcUrl = vj ? (vj.worker_url || '') : '';
@@ -1555,7 +1555,7 @@ export default {
 						const tok = url.searchParams.get('token') || '';
 						if (!tok) return new Response(JSON.stringify({ error: 'pass ?token=<sub token>' }), { status: 400, headers: { 'Content-Type': 'application/json;charset=utf-8' } });
 						try {
-							const r = await fetch(`${url.protocol}//${url.host}/sub?token=${encodeURIComponent(tok)}&singbox`, { headers: { 'User-Agent': 'sing-box/1.11.0 nova-debug' } });
+							const r = await fetch(`${url.protocol}//${url.host}/sub?token=${encodeURIComponent(tok)}&singbox`, { headers: { 'User-Agent': 'sing-box/1.11.0 xraymod-debug' } });
 							return new Response(await r.text(), { status: r.status, headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' } });
 						} catch (e) { return new Response(JSON.stringify({ error: String((e && e.message) || e) }), { status: 502, headers: { 'Content-Type': 'application/json;charset=utf-8' } }); }
 					} else if (访问路径 === 'admin/announce') {
@@ -1661,7 +1661,7 @@ export default {
 					响应.headers.set('Set-Cookie', 'auth=; Path=/; Max-Age=0; HttpOnly');
 					return 响应;
 				} else if (访问路径 === 'sub') {//处理订阅请求
-					const 订阅TOKEN = await MD5MD5(host + userID), 作为优选订阅生成器 = ['1', 'true'].includes(env.BEST_SUB) && url.searchParams.get('host') === 'example.com' && url.searchParams.get('uuid') === '00000000-0000-4000-8000-000000000000' && UA.toLowerCase().includes('tunnel (https://github.com/' + 特征码字典[1] + '/Nova');
+					const 订阅TOKEN = await MD5MD5(host + userID), 作为优选订阅生成器 = ['1', 'true'].includes(env.BEST_SUB) && url.searchParams.get('host') === 'example.com' && url.searchParams.get('uuid') === '00000000-0000-4000-8000-000000000000' && UA.toLowerCase().includes('tunnel (https://github.com/' + 特征码字典[1] + '/XRayMOD');
 					const 请求TOKEN = url.searchParams.get('token');
 					const 请求Sub = url.searchParams.get('sub');
 					const 请求Key = url.searchParams.get('key');
@@ -1712,8 +1712,8 @@ export default {
 						};
 						try {
 							// نام پروفایل در کلاینت: اگر SUBNAME سفارشی باشد از آن استفاده می‌شود، در غیر این صورت نام پیش‌فرض فارسی
-							const _profileName = (config_JSON.优选订阅生成.SUBNAME && config_JSON.优选订阅生成.SUBNAME !== 'Nova Proxy')
-								? config_JSON.优选订阅生成.SUBNAME : '🎁 سرویس رایگان نوا';
+							const _profileName = (config_JSON.优选订阅生成.SUBNAME && config_JSON.优选订阅生成.SUBNAME !== 'XRayMOD')
+								? config_JSON.优选订阅生成.SUBNAME : '🎁 سرویس رایگان XRayMOD';
 							try { responseHeaders["Profile-Title"] = 'base64:' + btoa(unescape(encodeURIComponent(_profileName))); } catch (e) {}
 							if (!ua.includes('mozilla')) responseHeaders["Content-Disposition"] = `attachment; filename*=utf-8''${encodeURIComponent(_profileName)}`;
 						} catch (e) {}
@@ -1966,7 +1966,7 @@ export default {
 								{
 									const _chainMark = (节点备注.match(/ ·S\d+$/) || [''])[0];
 									const _protoMark = (config_JSON.协议类型 === 'mixed' && !作为优选订阅生成器) ? ` [${_np.toUpperCase()}]` : '';
-									节点备注 = 'سرویس رایگان نوا ' + (_idx + 1) + _protoMark + _chainMark;
+									节点备注 = 'سرویس رایگان XRayMOD ' + (_idx + 1) + _protoMark + _chainMark;
 								}
 								if (_np === 'ss' && !作为优选订阅生成器) {
 									if (!config_JSON.SS.TLS) {
@@ -1990,7 +1990,7 @@ export default {
 						} else { // 订阅转换
 							const 订阅转换URL = `${config_JSON.订阅转换配置.SUBAPI}/sub?target=${订阅类型}&url=${encodeURIComponent(url.protocol + '//' + url.host + '/sub?target=mixed&token=' + 今日订阅转换后端专属TOKEN + '&cnIspCode=' + 识别运营商(request) + (_subParamIsGenerator && url.searchParams.get('sub') != '' ? `&sub=${url.searchParams.get('sub')}` : ''))}&config=${encodeURIComponent(config_JSON.订阅转换配置.SUBCONFIG)}&emoji=true&scv=${config_JSON.跳过证书验证}`;
 							try {
-								const response = await fetch(订阅转换URL, { headers: { 'User-Agent': 'Subconverter for ' + 订阅类型 + ' edge' + 'tunnel (https://github.com/' + 特征码字典[1] + '/Nova' + 'Proxy)' } });
+								const response = await fetch(订阅转换URL, { headers: { 'User-Agent': 'Subconverter for ' + 订阅类型 + ' edge' + 'tunnel (https://github.com/' + 特征码字典[1] + '/XRayMOD' + 'Proxy)' } });
 								if (response.ok) {
 									订阅内容 = await response.text();
 									if (url.searchParams.has('surge') || ua.includes('surge')) 订阅内容 = Surge订阅配置文件热补丁(订阅内容, url.protocol + '//' + url.host + '/sub?token=' + 订阅TOKEN + '&surge', config_JSON);
@@ -2091,7 +2091,7 @@ export default {
 		} catch (error) { await logErrorToKV(env, error, request); }
 		return new Response(await nginx(), { status: 200, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
 	  } catch (topLevelError) {
-		try { console.error('Nova fatal:', (topLevelError && (topLevelError.stack || topLevelError.message)) || String(topLevelError)); } catch (e) {}
+		try { console.error('XRayMOD fatal:', (topLevelError && (topLevelError.stack || topLevelError.message)) || String(topLevelError)); } catch (e) {}
 		try {
 			if (env && env.KV && typeof env.KV.put === 'function') {
 				const _diag = JSON.stringify({
@@ -2109,7 +2109,7 @@ export default {
 		try {
 			if (env && (env.DEBUG === '1' || env.DEBUG === 'true')) {
 				const msg = (topLevelError && (topLevelError.stack || topLevelError.message)) || String(topLevelError);
-				return new Response('Nova DEBUG — uncaught exception:\n\n' + msg, { status: 500, headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'no-store' } });
+				return new Response('XRayMOD DEBUG — uncaught exception:\n\n' + msg, { status: 500, headers: { 'Content-Type': 'text/plain;charset=utf-8', 'Cache-Control': 'no-store' } });
 			}
 		} catch (e) {}
 		try { return new Response(await nginx(), { status: 200, headers: { 'Content-Type': 'text/html; charset=UTF-8' } }); }
@@ -5893,7 +5893,7 @@ function _warpPublicView(a, epOverride) {
 		const addr = '172.16.0.2/32' + (a.addressV6 ? ',' + a.addressV6 : '');
 		const reservedStr = (Array.isArray(a.reservedDec) && a.reservedDec.length) ? '&reserved=' + encodeURIComponent(a.reservedDec.join(',')) : '';
 		v.reserved = Array.isArray(a.reservedDec) ? a.reservedDec : [];
-		v.node = `wireguard://${encodeURIComponent(a.privateKey)}@${epFull}/?publickey=${encodeURIComponent(a.peerPublicKey)}${reservedStr}&address=${encodeURIComponent(addr)}&mtu=1280#Nova-WARP`;
+		v.node = `wireguard://${encodeURIComponent(a.privateKey)}@${epFull}/?publickey=${encodeURIComponent(a.peerPublicKey)}${reservedStr}&address=${encodeURIComponent(addr)}&mtu=1280#XRayMOD-WARP`;
 		v.conf = `[Interface]\nPrivateKey = ${a.privateKey}\nAddress = ${addr}\nDNS = 1.1.1.1, 1.0.0.1\nMTU = 1280\n\n[Peer]\nPublicKey = ${a.peerPublicKey}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${epFull}`;
 	}
 	return v;
@@ -5904,21 +5904,21 @@ async function 获取CentralApi(env) {
 	return { api: String(env.CENTRAL_API || cj.centralApi || '').trim().replace(/\/$/, ''), token: String(env.CENTRAL_TOKEN || cj.centralToken || '').trim(), cj };
 }
 ///////////////////////////////////////////////////////中央服务器管理钩子///////////////////////////////////////////////
-// 选择性启用：设置 CENTRAL_API（环境变量）或 centralApi（config.json中的centralApi字段）为Nova控制面板地址。
+// 选择性启用：设置 CENTRAL_API（环境变量）或 centralApi（config.json中的centralApi字段）为XRayMOD控制面板地址。
 // Worker会报告隐私安全的心跳数据（实例数/用户数）并拉取广播公告。未设置API时所有操作为空操作（no-op）。
 async function 中央心跳(env) {
 	const { api, cj } = await 获取CentralApi(env); if (!api) return;
 	const host = cj.HOST || (Array.isArray(cj.HOSTS) && cj.HOSTS[0]) || '';
-	const id = await MD5MD5('nova-instance:' + host); // 稳定、不可逆的实例ID
+	const id = await MD5MD5('xraymod-instance:' + host); // 稳定、不可逆的实例ID
 	let usage = null; try { usage = await usageGet(env, 'usage-m:' + (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'))); } catch (e) { }
 	try {
-		await fetch(api + '/heartbeat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'NovaProxy' }, body: JSON.stringify({ id, host, version: Version, monthTraffic: usage ? usage.total : 0, ts: Date.now() }) });
+		await fetch(api + '/heartbeat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'XRayMOD' }, body: JSON.stringify({ id, host, version: Version, monthTraffic: usage ? usage.total : 0, ts: Date.now() }) });
 	} catch (e) { /* best-effort */ }
 }
 async function 刷新公告(env) {
 	const { api } = await 获取CentralApi(env); if (!api) return;
 	try {
-		const r = await fetch(api + '/announcement', { headers: { 'User-Agent': 'NovaProxy' } });
+		const r = await fetch(api + '/announcement', { headers: { 'User-Agent': 'XRayMOD' } });
 		if (r.ok) await env.KV.put('announcement.json', await r.text());
 	} catch (e) { /* best-effort */ }
 }
@@ -5999,7 +5999,7 @@ function buildWarpWireGuardLink(ipPort, group, mtu) {
 	const encPriv = encodeURIComponent(group.pk);
 	const encPub = encodeURIComponent(warpPublicKey);
 	const encAddr = encodeURIComponent('172.16.0.2/32,' + group.ipv6);
-	const remarks = encodeURIComponent('Nova-WARP-' + ipPort);
+	const remarks = encodeURIComponent('XRayMOD-WARP-' + ipPort);
 	const reservedPart = group.reserved && group.reserved.trim() ? `&reserved=${encodeURIComponent(group.reserved)}` : '';
 	return `wireguard://${encPriv}@${ipPort}/?publickey=${encPub}${reservedPart}&address=${encAddr}&mtu=${mtu}#${remarks}`;
 }
@@ -6014,7 +6014,7 @@ function buildWarpNekoRayLink(ipPort, group, mtu) {
 		reserved: group.reserved && group.reserved.trim() ? group.reserved.split(',').map(s => Number(s.trim())) : [],
 		mtu: Number(mtu),
 	});
-	const cfg = { _v: 0, addr: '127.0.0.1', cmd: [''], core: 'internal', cs, mapping_port: 0, name: 'Nova-WARP-' + ipPort, port: 1080, socks_port: 0 };
+	const cfg = { _v: 0, addr: '127.0.0.1', cmd: [''], core: 'internal', cs, mapping_port: 0, name: 'XRayMOD-WARP-' + ipPort, port: 1080, socks_port: 0 };
 	return 'nekoray://custom#' + btoa(JSON.stringify(cfg));
 }
 function warpValidEndpoint(ep) { return typeof ep === 'string' && /^[A-Za-z0-9.\-\[\]:]+:\d{1,5}$/.test(ep.trim()); }
@@ -6041,7 +6041,7 @@ async function buildRegisteredWarpNode(env) {
 	const encPriv = encodeURIComponent(w.privateKey), encPub = encodeURIComponent(w.peerPublicKey);
 	const addr = encodeURIComponent('172.16.0.2/32' + (w.addressV6 ? ',' + w.addressV6 : ''));
 	const reservedStr = (Array.isArray(w.reservedDec) && w.reservedDec.length) ? '&reserved=' + encodeURIComponent(w.reservedDec.join(',')) : '';
-	return `wireguard://${encPriv}@${ep.includes(':') ? ep : ep + ':2408'}/?publickey=${encPub}${reservedStr}&address=${addr}&mtu=1280#Nova-WARP`;
+	return `wireguard://${encPriv}@${ep.includes(':') ? ep : ep + ':2408'}/?publickey=${encPub}${reservedStr}&address=${addr}&mtu=1280#XRayMOD-WARP`;
 }
 
 function Clash订阅配置文件热补丁(Clash_原始订阅内容, config_JSON = {}, 网络设置 = null, warpAccount = null) {
@@ -6199,7 +6199,7 @@ function Clash订阅配置文件热补丁(Clash_原始订阅内容, config_JSON 
 	}
 
 	// WARP / WireGuard proxy - اضافه کردن پراکسی wireguard به Clash
-	if (网络设置 && 网络设置.enableWarp && warpAccount && warpAccount.registered && warpAccount.privateKey && !clash_yaml.includes('name: "Nova-WARP"')) {
+	if (网络设置 && 网络设置.enableWarp && warpAccount && warpAccount.registered && warpAccount.privateKey && !clash_yaml.includes('name: "XRayMOD-WARP"')) {
 		try {
 			const epOverride = (网络设置.warpEndpoint && String(网络设置.warpEndpoint).trim()) || null;
 			const amneziaLine = 网络设置.warpAmnezia ? `\n    amnezia-wg-option: {jc: 4, jmin: 40, jmax: 70}` : '';
@@ -6221,17 +6221,17 @@ function Clash订阅配置文件热补丁(Clash_原始订阅内容, config_JSON 
 			};
 			let block, matchTarget;
 			if (网络设置.warpMode === 'wow' && warpAccount.wow && warpAccount.wow.privateKey) {
-				block = wgProxy(warpAccount, 'Nova-WARP', epOverride || warpAccount.endpoint, '') + '\n' +
-					wgProxy(warpAccount.wow, 'Nova-WoW', '162.159.192.1:2408', 'Nova-WARP');
-				matchTarget = 'Nova-WoW';
+				block = wgProxy(warpAccount, 'XRayMOD-WARP', epOverride || warpAccount.endpoint, '') + '\n' +
+					wgProxy(warpAccount.wow, 'XRayMOD-WoW', '162.159.192.1:2408', 'XRayMOD-WARP');
+				matchTarget = 'XRayMOD-WoW';
 			} else {
 				let dialer = '';
 				if (网络设置.warpMode === 'chain') {
 					const gm = clash_yaml.match(/^proxy-groups:\s*$[\s\S]*?^\s*-\s*name:\s*["']?([^"'\n]+?)["']?\s*$/m);
 					if (gm && gm[1]) dialer = gm[1].trim();
 				}
-				block = wgProxy(warpAccount, 'Nova-WARP', epOverride || warpAccount.endpoint, dialer);
-				matchTarget = 'Nova-WARP';
+				block = wgProxy(warpAccount, 'XRayMOD-WARP', epOverride || warpAccount.endpoint, dialer);
+				matchTarget = 'XRayMOD-WARP';
 			}
 			if (/^proxies:\s*$/m.test(clash_yaml)) clash_yaml = clash_yaml.replace(/^proxies:\s*$/m, 'proxies:\n' + block);
 			else clash_yaml = 'proxies:\n' + block + '\n' + clash_yaml;
@@ -6740,14 +6740,14 @@ async function Singbox订阅配置文件热补丁(SingBox_原始订阅内容, co
 		// WARP / WireGuard outbound - اضافه کردن outbound wireguard به Singbox
 		if (网络设置 && 网络设置.enableWarp && warpAccount && warpAccount.registered && warpAccount.privateKey) {
 			config.outbounds = Array.isArray(config.outbounds) ? config.outbounds : [];
-			const warpTag = 'Nova-WARP';
+			const warpTag = 'XRayMOD-WARP';
 			const epOverride = (网络设置.warpEndpoint && String(网络设置.warpEndpoint).trim()) || null;
 			if (!config.outbounds.some(o => o && o.tag === warpTag)) {
 				const 确保Route = () => config.route = config.route && typeof config.route === 'object' ? config.route : {};
 				if (网络设置.warpMode === 'wow' && warpAccount.wow && warpAccount.wow.privateKey) {
 					config.outbounds.push(buildWarpSingboxOutbound(warpAccount, warpTag, null, epOverride, false));
-					config.outbounds.push(buildWarpSingboxOutbound(warpAccount.wow, 'Nova-WoW', warpTag, null, true));
-					确保Route().final = 'Nova-WoW';
+					config.outbounds.push(buildWarpSingboxOutbound(warpAccount.wow, 'XRayMOD-WoW', warpTag, null, true));
+					确保Route().final = 'XRayMOD-WoW';
 				} else {
 					let detourTag = null;
 					if (网络设置.warpMode === 'chain') {
@@ -7079,7 +7079,7 @@ async function 读取config_JSON(env, hostname, userID, UA = "Mozilla/5.0", 重�
 				指定端口: -1,
 			},
 			SUB: null,
-			SUBNAME: "Nova" + "Proxy",
+			SUBNAME: "XRayMOD" + "Proxy",
 			SUBUpdateTime: 3, // 订阅更新时间（小时）
 			TOKEN: await MD5MD5(hostname + userID),
 		},
@@ -7343,7 +7343,7 @@ async function 用户中心页面() {
 	try {
 		const base = String(Pages静态页面 || '').replace(/\/+$/, '');
 		if (!base || PANEL_PLACEHOLDER.test(base)) return null;
-		const r = await fetch(base + '/user/index.html', { headers: { 'User-Agent': 'NovaProxy' }, cf: { cacheTtl: 300, cacheEverything: true } });
+		const r = await fetch(base + '/user/index.html', { headers: { 'User-Agent': 'XRayMOD' }, cf: { cacheTtl: 300, cacheEverything: true } });
 		if (!r || !r.ok) return null;
 		const html = await r.text();
 		if (!html || html.length < 50) return null;
@@ -7368,7 +7368,7 @@ async function 获取池文件(fileUrl) {
 	if (c && Date.now() - c.at < 1800000) return c.list;
 	let list = [];
 	try {
-		const r = await fetch(fileUrl, { headers: { 'User-Agent': 'NovaProxy' }, cf: { cacheTtl: 1800, cacheEverything: true } });
+		const r = await fetch(fileUrl, { headers: { 'User-Agent': 'XRayMOD' }, cf: { cacheTtl: 1800, cacheEverything: true } });
 		if (r.ok) list = (await 整理成数组(await r.text())).map(s => String(s).trim()).filter(s => s && !s.startsWith('#'));
 	} catch (e) {}
 	_poolCache.set(fileUrl, { at: Date.now(), list });
@@ -7383,7 +7383,7 @@ async function 获取智能清洁IP(request, poolApi, count) {
 		const list = await 获取池文件(base + '/' + f + '.txt');
 		if (list && list.length) {
 			const shuffled = list.slice().sort(() => 0.5 - Math.random()).slice(0, count || 16);
-			return shuffled.map(line => line.includes('#') ? line : (line + '#Nova-' + f.toUpperCase()));
+			return shuffled.map(line => line.includes('#') ? line : (line + '#XRayMOD-' + f.toUpperCase()));
 		}
 	}
 	return [];
@@ -7416,7 +7416,7 @@ async function 检查域名健康(env, hosts, selfHost) {
 		if (_self && _norm(host) === _self) { domains.push({ host, ok: true, status: 200, reason: 'live (this worker)', checkedAt: Date.now() }); return; }
 		let ok = false, status = 0, reason = '';
 		try {
-			const opts = { headers: { 'User-Agent': 'NovaHealth/1.0' } };
+			const opts = { headers: { 'User-Agent': 'XRayMODHealth/1.0' } };
 			if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) opts.signal = AbortSignal.timeout(8000);
 			const r = await fetch('https://' + host.replace(/^https?:\/\//, '') + '/sub/base64.txt', opts);
 			status = r.status; ok = r.ok;
@@ -7473,10 +7473,10 @@ async function 生成随机IP(request, count = 16, 指定端口 = -1) {
 	const 查询参数运营商 = String(url.searchParams.get('cnIspCode') || '').toLowerCase();
 	const 运营商文件标识 = ['ct', 'cu', 'cmcc', 'cf'].includes(查询参数运营商) ? 查询参数运营商 : 识别运营商(request);
 	const 运营商名称映射 = {
-		cmcc: 'Nova Free',
-		cu: 'Nova Free',
-		ct: 'Nova Free',
-		cf: 'Nova Free',
+		cmcc: 'XRayMOD Free',
+		cu: 'XRayMOD Free',
+		ct: 'XRayMOD Free',
+		cf: 'XRayMOD Free',
 	};
 	const cidr_url = 运营商文件标识 === 'cf' ? `https://raw.githubusercontent.com/${特征码字典[1]}/${特征码字典[1]}/main/CF-CIDR.txt` : `https://raw.githubusercontent.com/${特征码字典[1]}/${特征码字典[1]}/main/CF-CIDR/${运营商文件标识}.txt`;
 	const cfname = 运营商名称映射[运营商文件标识] || 'CF官方优选';
@@ -7525,7 +7525,7 @@ async function 获取优选订阅生成器数据(优选订阅生成器HOST) {
 
 	try {
 		const response = await fetch(优选订阅生成器URL, {
-			headers: { 'User-Agent': 'v2rayN/Nova' + 'tunnel (https://github.com/' + 特征码字典[1] + '/Nova' + 'Proxy)' }
+			headers: { 'User-Agent': 'v2rayN/XRayMOD' + 'tunnel (https://github.com/' + 特征码字典[1] + '/XRayMOD' + 'Proxy)' }
 		});
 
 		if (!response.ok) {
@@ -8308,7 +8308,7 @@ async function 构建域名消息(cfg, env) {
 }
 
 function 主菜单文本() {
-	return `<b>🛰 به ربات Nova Proxy خوش آمدید</b>
+	return `<b>🛰 به ربات XRayMOD خوش آمدید</b>
 
 <blockquote>مدیریت پنل از تلگرام:
 دریافت لینک اشتراک، وضعیت، مصرف و تنظیمات</blockquote>
@@ -8382,7 +8382,7 @@ async function 处理TelegramWebhook(request, env, userID, host, encryptionKey =
 				break;
 			}
 			case '/help': {
-				const helpText = `<b>╔═══❰✨ Nova Proxy Bot ❱═══╗</b>
+				const helpText = `<b>╔═══❰✨ XRayMOD Bot ❱═══╗</b>
 
 <blockquote><b>📋 راهنما</b>
 ━━━━━━━━━━━━━━━━━━━
@@ -8470,7 +8470,7 @@ async function 处理TelegramWebhook(request, env, userID, host, encryptionKey =
 				break;
 			}
 			case '/install': {
-				const scriptName = (args || 'nova-panel').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 50) || 'nova-panel';
+				const scriptName = (args || 'xraymod-panel').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 50) || 'xraymod-panel';
 				cfInstallSet(chatId, { step: 'token', scriptName });
 				try {
 					await tgApi(TG_JSON.BotToken, 'sendMessage', {
@@ -8643,8 +8643,8 @@ async function cfDeploy({ token, accountId, scriptName, scriptText, uuid, passwo
 }
 
 async function runCfInstall(env, botToken, chatId, host, request) {
-	const a = ['https://', 'raw.', 'githubusercontent', '.com/', 'IRNova/', 'Nova-Proxy/', 'main/', 'public/', 'version.json'].join('');
-	const b = ['https://', 'raw.', 'githubusercontent', '.com/', 'IRNova/', 'Nova-Proxy/', 'main/', 'worker.js'].join('');
+	const a = ['https://', 'raw.', 'githubusercontent', '.com/', 'IRXRayMOD/', 'XRayMOD-Proxy/', 'main/', 'public/', 'version.json'].join('');
+	const b = ['https://', 'raw.', 'githubusercontent', '.com/', 'IRXRayMOD/', 'XRayMOD-Proxy/', 'main/', 'worker.js'].join('');
 	const st = cfInstallGet(chatId);
 	if (!st || !st.token) { try { await sendBotMessage(botToken, chatId, 'نشست منقضی شد. دوباره از منو «نصب پنل» شروع کنید.'); } catch (e) {} return new Response('OK', { status: 200 }); }
 	let lastMsgId = null;
@@ -8662,7 +8662,7 @@ async function runCfInstall(env, botToken, chatId, host, request) {
 	if (!/export\s+default|addEventListener\(/.test(scriptText)) { await report('❌ فایل ورکر معتبر نبود.'); cfInstallClear(chatId); return new Response('OK', { status: 200 }); }
 	const newUuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); }));
 	const newPass = (Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6)).toUpperCase();
-	const scriptName = st.scriptName || 'nova-panel';
+	const scriptName = st.scriptName || 'xraymod-panel';
 	const res = await cfDeploy({ token: st.token, accountId: st.accountId || null, scriptName, scriptText, uuid: newUuid, password: newPass, compatDate: '2024-09-23', compatFlags: ['nodejs_compat'] }, report);
 	if (res && res.error === 'multiple_accounts') {
 		const rows = res.accounts.slice(0, 8).map(a => [{ text: a.name || a.id, callback_data: 'm:install:acct:' + a.id }]);
@@ -8733,7 +8733,7 @@ async function announceSubLinks(env, opts = {}) {
 		const chatId = String(env.ANNOUNCE_CHAT || tg.ChatID || '').trim();
 		if (!tg.BotToken || !chatId) return { skipped: true, reason: 'BotToken/ChatID missing' };
 		const baseUrl = opts.baseUrl || '';
-		const lines = ['<b>🔥 لینک‌های اشتراک Nova / Nova subscription links</b>', ''];
+		const lines = ['<b>🔥 لینک‌های اشتراک XRayMOD / XRayMOD subscription links</b>', ''];
 		if (baseUrl) {
 			lines.push('<b>⚡️ لینک مستقیم (بهینه per-ISP) / Live (per-ISP optimized)</b>');
 			lines.push(`<code>${baseUrl}/sub/mihomo.yaml</code>`);
@@ -8766,18 +8766,18 @@ async function publishSubMirror(env, baseUrl) {
 		];
 		for (const f of files) {
 			try {
-				const r = await fetch(`${baseUrl}/sub?token=${await MD5MD5(baseUrl.replace(/^https?:\/\//, '') + (env.UUID || ''))}&${f.q}`, { headers: { 'User-Agent': 'NovaMirror/1.0' } });
+				const r = await fetch(`${baseUrl}/sub?token=${await MD5MD5(baseUrl.replace(/^https?:\/\//, '') + (env.UUID || ''))}&${f.q}`, { headers: { 'User-Agent': 'XRayMODMirror/1.0' } });
 				if (!r.ok) { results.push({ file: f.name, ok: false, status: r.status }); continue; }
 				const content = await r.text();
 				if (!content || content.length < 8) { results.push({ file: f.name, ok: false, error: 'empty response' }); continue; }
 				const path = (gh.pathPrefix ? gh.pathPrefix + '/' : '') + f.name;
 				const putUrl = `https://api.github.com/repos/${gh.repo}/contents/${path}`;
-				const existing = await fetch(putUrl, { headers: { 'Authorization': 'token ' + gh.token, 'User-Agent': 'NovaMirror' } });
+				const existing = await fetch(putUrl, { headers: { 'Authorization': 'token ' + gh.token, 'User-Agent': 'XRayMODMirror' } });
 				const existingJson = await existing.json().catch(() => ({}));
 				const sha = existingJson && existingJson.sha ? existingJson.sha : undefined;
-				const body = { message: `Nova: update ${f.name}`, content: btoa(unescape(encodeURIComponent(content))), branch: gh.branch || 'main' };
+				const body = { message: `XRayMOD: update ${f.name}`, content: btoa(unescape(encodeURIComponent(content))), branch: gh.branch || 'main' };
 				if (sha) body.sha = sha;
-				const put = await fetch(putUrl, { method: 'PUT', headers: { 'Authorization': 'token ' + gh.token, 'Content-Type': 'application/json', 'User-Agent': 'NovaMirror' }, body: JSON.stringify(body) });
+				const put = await fetch(putUrl, { method: 'PUT', headers: { 'Authorization': 'token ' + gh.token, 'Content-Type': 'application/json', 'User-Agent': 'XRayMODMirror' }, body: JSON.stringify(body) });
 				results.push({ file: f.name, ok: put.ok, status: put.status });
 			} catch (e) { results.push({ file: f.name, ok: false, error: e.message }); }
 		}
@@ -8785,9 +8785,9 @@ async function publishSubMirror(env, baseUrl) {
 	} catch (e) { return { skipped: true, reason: e.message }; }
 }
 
-//////////////////////////////////////////////////////Nova Radar/Scan Page///////////////////////////////////////////////
-function novaScanPage() {
-	const html = `<!DOCTYPE html><html lang="fa" dir="rtl" data-theme="dark"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nova Radar</title><style>
+//////////////////////////////////////////////////////XRayMOD Radar/Scan Page///////////////////////////////////////////////
+function xraymodScanPage() {
+	const html = `<!DOCTYPE html><html lang="fa" dir="rtl" data-theme="dark"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XRayMOD Radar</title><style>
 :root{--bg:#070809;--panel:#0c0e12;--card:#101319;--card2:#0b0d11;--bd:#1c2027;--bd2:#262b34;--tx:#e9edf4;--tx2:#aeb6c4;--mu:#6f7888;--ac:#22d3ee;--ac2:#a855f7;--ok:#34d399;--wn:#f5b042;--dg:#f87171;--grad:linear-gradient(120deg,#22d3ee,#7c5cff);--r:12px;--rs:9px;--ac-soft:color-mix(in srgb,var(--ac) 14%,transparent);--ac-line:color-mix(in srgb,var(--ac) 38%,transparent)}
 html[data-theme=light]{--bg:#f4f6fb;--panel:#fff;--card:#fff;--card2:#f7f9fc;--bd:#e6eaf1;--bd2:#dde2eb;--tx:#101622;--tx2:#3a465c;--mu:#5f6a7d;--ac:#0ea5c4;--ac2:#7c3aed;--grad:linear-gradient(120deg,#0891b2,#7c3aed);--ok:#047857;--wn:#b45309;--dg:#dc2626}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -8837,7 +8837,7 @@ tr.best td{background:var(--ac-soft)}
 .toast.show{opacity:1;transform:none}
 </style></head><body><div class="wrap">
 <header class="topbar">
-<div class="brand"><div><div class="name">Nova Radar</div><div class="env"><span class="d"></span>clean-IP scanner</div></div></div>
+<div class="brand"><div><div class="name">XRayMOD Radar</div><div class="env"><span class="d"></span>clean-IP scanner</div></div></div>
 <div style="margin-inline-start:auto;display:flex;gap:8px"><div class="seg" id="lang"><button data-l="en">EN</button><button data-l="fa">فا</button></div><div class="seg" id="theme"><button data-t="light">&#9728;</button><button data-t="dark">&#9790;</button></div></div>
 </header>
 <div class="card hero">
@@ -8866,8 +8866,8 @@ tr.best td{background:var(--ac-soft)}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var lang=(function(){try{var q=new URLSearchParams(location.search).get('lang');if(q==='en'||q==='fa')return q;return localStorage.getItem('nova-user-lang')==='en'?'en':'fa';}catch(e){return 'fa';}})();
-var theme=(function(){try{return localStorage.getItem('nova-theme')==='light'?'light':'dark';}catch(e){return 'dark';}})();
+var lang=(function(){try{var q=new URLSearchParams(location.search).get('lang');if(q==='en'||q==='fa')return q;return localStorage.getItem('xraymod-user-lang')==='en'?'en':'fa';}catch(e){return 'fa';}})();
+var theme=(function(){try{return localStorage.getItem('xraymod-theme')==='light'?'light':'dark';}catch(e){return 'dark';}})();
 function $(id){return document.getElementById(id);}
 var I18N={en:{hsub:'Find the fastest clean IP for your network',total:'IPs to test',keep:'Keep best',ports:'Ports',run:'🚀 Start scan',outh:'⚡ Config with the best IP',copy:'📋 Copy config',apply:'📥 Apply to clean IPs (all users)',foot:'Runs entirely in your browser, nothing leaves your device',notoken:'No token — only the best IP is shown',checking:'Checking subscription…',nocfg:'No config found',subna:'Subscription unavailable',subok:'✓ Subscription detected',prep:'Preparing…',testing:'Testing… ',alive:' alive',none:'No responsive IP found',found:' fast IPs found',th_lat:'Latency',th_jit:'Jitter',th_loss:'Loss',hint:'Open this page with your ?token=',applying:'Applying…',applyerr:'Could not apply, try again',copied:'Copied'},fa:{hsub:'سریع‌ترین آی‌پی تمیز شبکه‌تان را پیدا کنید',total:'تعداد IP تست',keep:'نگه‌داشتن بهترین',ports:'پورت‌ها',run:'🚀 شروع اسکن',outh:'⚡ کانفیگ با بهترین IP',copy:'📋 کپی کانفیگ',apply:'📥 اعمال به آی‌پی‌های تمیز (همهٔ کاربران)',foot:'کاملاً در مرورگر شما اجرا می‌شود، چیزی از دستگاه‌تان خارج نمی‌شود',notoken:'بدون توکن، فقط بهترین IP نمایش داده می‌شود',checking:'در حال بررسی اشتراک…',nocfg:'کانفیگ پیدا نشد',subna:'اشتراک در دسترس نبود',subok:'✓ اشتراک شناسایی شد',prep:'در حال آماده‌سازی…',testing:'در حال تست… ',alive:' سالم',none:'هیچ IP سالمی پیدا نشد',found:' IP سریع پیدا شد',th_lat:'تأخیر',th_jit:'جیتر',th_loss:'افت',hint:'این صفحه را با ?token= خود باز کنید',applying:'در حال اعمال…',applyerr:'اعمال نشد، دوباره تلاش کنید',copied:'کپی شد'}};
 function T(k){return (I18N[lang]||I18N.fa)[k];}
@@ -8900,7 +8900,7 @@ var pc=$('s-ports');if(pc){var tp=String(m[3]);if(!pc.querySelector('[data-port=
 $('pill').className='pill ok';$('pill').textContent=T('subok');
 }catch(e){$('pill').className='pill warn';$('pill').textContent=T('subna');}
 }
-function buildConfig(ip,port){if(!TMPL)return null;port=port||TMPL.port||443;return 'vless://'+TMPL.uuid+'@'+ip+':'+port+'?'+TMPL.query+'#'+encodeURIComponent('Nova ⚡ '+ip+':'+port);}
+function buildConfig(ip,port){if(!TMPL)return null;port=port||TMPL.port||443;return 'vless://'+TMPL.uuid+'@'+ip+':'+port+'?'+TMPL.query+'#'+encodeURIComponent('XRayMOD ⚡ '+ip+':'+port);}
 async function run(){
 var btn=$('s-run'),msg=$('s-msg'),bar=$('s-bar'),pf=bar.querySelector('i');
 var total=Math.min(400,Math.max(20,Number($('s-total').value)||140));
@@ -8930,8 +8930,8 @@ if(PAGE_TOKEN&&BEST.length){$('s-apply-row').style.display='block';$('s-apply').
 if(TMPL){var cfg=buildConfig(BEST[0].ip,BEST[0].port);$('s-cfg').textContent=cfg;$('s-out').style.display='block';$('s-hint').style.display='none';}
 else{$('s-out').style.display='none';$('s-hint').textContent=T('hint');$('s-hint').style.display='block';}
 }
-$('lang').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('nova-user-lang',lang);}catch(_){}applyLang();try{loadTemplate();}catch(_e){}});
-$('theme').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;theme=b.dataset.t;try{localStorage.setItem('nova-theme',theme);}catch(_){}applyTheme();});
+$('lang').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('xraymod-user-lang',lang);}catch(_){}applyLang();try{loadTemplate();}catch(_e){}});
+$('theme').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;theme=b.dataset.t;try{localStorage.setItem('xraymod-theme',theme);}catch(_){}applyTheme();});
 $('s-ports').addEventListener('click',function(e){var b=e.target.closest('.pchip');if(!b)return;b.classList.toggle('on');});
 $('s-run').addEventListener('click',run);
 $('s-copy').addEventListener('click',function(){if(TMPL&&BEST.length)copy(buildConfig(BEST[0].ip,BEST[0].port));});
@@ -9071,12 +9071,12 @@ function 获取后端模式配置(env) {
 	const on = (ns.backendMode === true || (env && (env.ENABLE_BACKEND === 'true' || env.ENABLE_BACKEND === true))) && /^https?:\/\//i.test(url);
 	return { on, url };
 }
-// Nova 内部路径：即使在后端模式下也绝不允许转发到后端（DoH、面板、登录、机器人、安装、WARP/订阅生成器等）
+// XRayMOD 内部路径：即使在后端模式下也绝不允许转发到后端（DoH、面板、登录、机器人、安装、WARP/订阅生成器等）
 function 是否后端排除路径(访问路径, pathname) {
 	const p = (访问路径 || '').toLowerCase();
 	const pn = (pathname || '').toLowerCase();
 	if (p === 'dns-query' || p === 'doh' || pn === '/dns-query' || pn === '/doh') return true;
-	if (p === 'login' || p === 'bot' || p === 'setwebhook' || p === 'version' || p === 'nova-block' || p === 'locations' || p === 'robots.txt') return true;
+	if (p === 'login' || p === 'bot' || p === 'setwebhook' || p === 'version' || p === 'xraymod-block' || p === 'locations' || p === 'robots.txt') return true;
 	if (p === 'sub' || p.startsWith('sub/') || p === 'warp' || p.startsWith('warp/') || p === 'install' || p.startsWith('install/')) return true;
 	if (p === 'admin' || p.startsWith('admin/')) return true;
 	return false;
@@ -9152,7 +9152,7 @@ async function 转发WS到后端(request, url, env, ctx, 后端URL, 用户ID) {
 
 	return new Response(null, { status: 101, webSocket: clientSocket });
 }
-// 转发非升级请求（xhttp/gRPC POST 流）到后端，请求体直接透传，后端处理协议，Nova 转发响应
+// 转发非升级请求（xhttp/gRPC POST 流）到后端，请求体直接透传，后端处理协议，XRayMOD 转发响应
 async function 转发HTTP到后端(request, url, env, 后端URL) {
 	const target = 后端目标地址(后端URL, url);
 	if (!target) return new Response('Bad backend URL', { status: 500 });
@@ -9168,7 +9168,7 @@ async function 转发HTTP到后端(request, url, env, 后端URL) {
 		return new Response('Backend unreachable: ' + (e && e.message || e), { status: 502 });
 	}
 }
-// 后端模式诊断：在浏览器访问 /backend-test，报告后端模式是否开启、后端地址，以及 Nova 真正尝试连接后端时的结果
+// 后端模式诊断：在浏览器访问 /backend-test，报告后端模式是否开启、后端地址，以及 XRayMOD 真正尝试连接后端时的结果
 async function 后端诊断(env, url) {
 	const out = { ok: false, steps: [] };
 	const _bm = 获取后端模式配置(env);
@@ -9179,7 +9179,7 @@ async function 后端诊断(env, url) {
 		return new Response(JSON.stringify(out, null, 2), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' } });
 	}
 	let target = '';
-	try { const b = new URL(_bm.url); if (b.pathname === '/' || !b.pathname) b.pathname = '/novavpn'; target = b.toString(); } catch (e) { out.steps.push('Backend URL is not a valid URL: ' + (e && e.message)); return new Response(JSON.stringify(out, null, 2), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8' } }); }
+	try { const b = new URL(_bm.url); if (b.pathname === '/' || !b.pathname) b.pathname = '/xraymodvpn'; target = b.toString(); } catch (e) { out.steps.push('Backend URL is not a valid URL: ' + (e && e.message)); return new Response(JSON.stringify(out, null, 2), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8' } }); }
 	out.targetTried = target;
 	const t0 = Date.now();
 	try {
@@ -9194,7 +9194,7 @@ async function 后端诊断(env, url) {
 		out.gotWebSocket = !!r.webSocket;
 		if (r.status === 101 && r.webSocket) {
 			out.ok = true;
-			out.steps.push('SUCCESS: Nova reached your backend and it upgraded to WebSocket (101). The relay path works. If a client still fails, the issue is client-side (UUID/path/TLS in the link), not the backend.');
+			out.steps.push('SUCCESS: XRayMOD reached your backend and it upgraded to WebSocket (101). The relay path works. If a client still fails, the issue is client-side (UUID/path/TLS in the link), not the backend.');
 			try { r.webSocket.accept(); r.webSocket.close(1000, 'diag'); } catch (e) {}
 		} else if (r.status === 101 && !r.webSocket) {
 			out.steps.push('Backend returned 101 but the Worker runtime did not expose a WebSocket. Put the backend behind TLS (https) on a Cloudflare-friendly port, or use a hostname with a cert.');
@@ -9219,7 +9219,7 @@ async function 后端诊断(env, url) {
 	} catch (e) {
 		out.elapsedMs = Date.now() - t0;
 		out.error = (e && e.message) ? e.message : String(e);
-		out.steps.push('Nova could NOT reach the backend at all (fetch threw). Cloudflare Workers cannot open an outbound connection to a raw http:// IP on a non-standard port. Front your backend with TLS on 443/2053/2083/2087/2096/8443 via a (sub)domain.');
+		out.steps.push('XRayMOD could NOT reach the backend at all (fetch threw). Cloudflare Workers cannot open an outbound connection to a raw http:// IP on a non-standard port. Front your backend with TLS on 443/2053/2083/2087/2096/8443 via a (sub)domain.');
 		out.note = 'Cloudflare Workers can only make outbound connections to a limited set of ports for plain fetch.';
 	}
 	return new Response(JSON.stringify(out, null, 2), { status: 200, headers: { 'Content-Type': 'application/json;charset=utf-8', 'Cache-Control': 'no-store' } });
