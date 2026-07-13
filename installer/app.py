@@ -124,8 +124,7 @@ async def deploy_endpoint(request: Request):
 
         return {
             "success": True, "worker_name": worker_name, "worker_url": worker_url,
-            "d1_database": d1_name, "d1_id": d1["id"],
-            "admin_password": admin_password, "account_name": account_name,
+            "d1_database": d1_name, "d1_id": d1["id"], "account_name": account_name,
         }
     except CFApiError as e:
         return JSONResponse({"error": str(e)}, 500)
