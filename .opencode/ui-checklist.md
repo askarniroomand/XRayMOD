@@ -80,11 +80,17 @@
 ## Phase 2: Advanced Features (P1)
 
 ### Subscriptions
-- [ ] Subscription preview (all formats)
+- [x] Subscription preview (all formats) — in Config page
+- [x] Copy link button — in Config & Users pages
 - [ ] Clash YAML preview
 - [ ] sing-box JSON preview
-- [ ] Copy link button
 - [ ] QR code generation
+
+### Protocols
+- [x] Protocol cards with transport info
+- [x] Protocol status toggle
+- [x] Protocol reference section
+- [x] Copy subscription link
 
 ### WARP
 - [ ] Account registration
@@ -115,6 +121,13 @@
 - [x] Self-update check
 
 ---
+
+## Installer Updates
+- [x] Frontend build step
+- [x] Frontend deploy to CF Pages
+- [x] OAuth token persistence
+- [x] Delete/Update functionality
+- [ ] Personal server mode
 
 ## Phase 3: Extended Features (P2)
 
