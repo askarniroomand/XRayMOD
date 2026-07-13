@@ -98,14 +98,21 @@ async function deploy() {
       renderProgress(['Verify account', 'Create D1', 'Download Nova worker', 'Deploy worker', 'Enable subdomain'], 5);
       setTimeout(() => {
         const installUrl = data.worker_url + '/install';
-        showResult('Deployment Complete!', 'Open the link below to set your panel password.', `
+        showResult('Deployment Complete!', 'Follow the steps below to set up your panel.', `
           <div class="result-card highlight">
-            <div class="result-label-big">Step 1: Open this URL to set your password</div>
+            <div class="result-label-big">Step 1: Set your password</div>
             <div class="result-row"><code class="result-value url">${installUrl}</code><button class="copy-btn" onclick="navigator.clipboard.writeText('${installUrl}')">Copy</button></div>
+            <a href="${installUrl}" target="_blank" class="btn-primary" style="display:block;text-align:center;text-decoration:none;margin-top:.75rem">Open Setup Page</a>
           </div>
           <div class="result-card">
-            <div class="result-label-big">Step 2: After setting password, use this URL</div>
+            <div class="result-label-big">Step 2: Panel URL (after setup)</div>
             <div class="result-row"><code class="result-value url">${data.worker_url}</code><button class="copy-btn" onclick="navigator.clipboard.writeText('${data.worker_url}')">Copy</button></div>
+          </div>
+          <div class="result-card">
+            <div class="result-label-big">Account</div>
+            <div class="result-row"><span class="result-label">Name</span><code class="result-value">${data.account_name || ''}</code></div>
+            <div class="result-row"><span class="result-label">Worker</span><code class="result-value">${data.worker_name}</code></div>
+            <div class="result-row"><span class="result-label">Database</span><code class="result-value">${data.d1_database}</code></div>
           </div>
         `);
       }, 500);
