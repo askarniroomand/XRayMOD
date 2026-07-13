@@ -9,11 +9,16 @@
 ## Phase 1: Core Pages (P0)
 
 ### Dashboard
-- [ ] Server status card (uptime, version)
-- [ ] Traffic overview (daily/monthly)
-- [ ] Active connections count
-- [ ] Quick actions (pause/resume, copy subscription)
+- [x] Server status card (uptime, version)
+- [x] Traffic overview (daily/monthly)
+- [x] Active connections count
+- [x] Quick actions grid
 - [ ] Announcement banner
+
+### Components Created
+- [x] StatCard, StatusBadge, ProgressBar
+- [x] Card, CardHeader, Button, Input
+- [x] DataTable, Toggle, EmptyState
 
 ### Config
 - [ ] Protocol selection (VLESS/Trojan/SS)
