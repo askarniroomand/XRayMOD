@@ -60,11 +60,14 @@
 - [x] Custom routing rules editor
 
 ### Clean IP
-- [ ] Radar scanner SPA
-- [ ] IP pool management
-- [ ] Health status indicators
-- [ ] Apply best IP button
-- [ ] Port selection
+- [x] IP Scanner with port selection
+- [x] Real-time scan progress (latency/jitter/loss)
+- [x] Best IP detection with scoring
+- [x] Apply best IP to pool
+- [x] IP pool management (view/copy/remove)
+- [x] Stop scan button
+- [x] Results table with datacenter info
+- [x] Empty state
 
 ### Security
 - [ ] Change password form
