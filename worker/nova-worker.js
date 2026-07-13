@@ -212,6 +212,44 @@ const PANEL_PLACEHOLDER = /your-panel\.pages\.dev/i;
 function panelHasAssets(env) { return !!(env && env.ASSETS && typeof env.ASSETS.fetch === 'function'); }
 async function panelFetch(env, path) {
 	const p = path.startsWith('/') ? path : '/' + path;
+
+	// XRayMOD install page — embedded, not fetched
+	if (p === '/install/' || p === '/install') {
+		return new Response(`<!DOCTYPE html>
+<html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>XRayMOD — Setup</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#09090b;color:#fafafa;display:grid;place-items:center;min-height:100vh;padding:1rem}
+.card{background:#18181b;border:1px solid #27272a;border-radius:1rem;padding:2rem;max-width:440px;width:100%}
+.logo{width:56px;height:56px;background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.75rem;color:#000;margin:0 auto 1.5rem}
+h1{font-size:1.5rem;font-weight:800;text-align:center;margin-bottom:.5rem}
+.sub{color:#a1a1aa;font-size:.875rem;text-align:center;margin-bottom:1.5rem;line-height:1.5}
+.form-group{margin-bottom:1rem}label{display:block;font-size:.75rem;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem}
+input{width:100%;padding:.75rem 1rem;background:#09090b;border:1px solid #27272a;border-radius:.75rem;color:#fafafa;font-size:.875rem;transition:border-color .2s}input:focus{outline:none;border-color:#10b981}
+.btn{width:100%;padding:.875rem;background:#10b981;color:#000;border:none;border-radius:.75rem;font-weight:700;font-size:.875rem;cursor:pointer;transition:background .2s;margin-top:1rem}.btn:hover{background:#34d399}.btn:disabled{background:#27272a;color:#52525b;cursor:not-allowed}
+.msg{font-size:.8rem;padding:.75rem;border-radius:.75rem;margin-bottom:1rem;display:none}.msg.ok{display:block;background:#052e16;border:1px solid #166534;color:#4ade80}.msg.err{display:block;background:#450a0a;border:1px solid #991b1b;color:#fca5a5}
+.footer{text-align:center;margin-top:1.5rem;font-size:.75rem;color:#3f3f46}</style></head>
+<body><div class="card"><div class="logo">X</div><h1>XRayMOD Setup</h1>
+<p class="sub">Set your admin password to get started.</p>
+<div id="status" class="msg"></div>
+<form id="form"><div class="form-group"><label>Admin Password</label>
+<input type="password" id="pass" placeholder="Minimum 6 characters" required minlength="6"></div>
+<div class="form-group"><label>Confirm Password</label>
+<input type="password" id="pass2" placeholder="Confirm password" required minlength="6"></div>
+<button type="submit" class="btn" id="btn">Set Password</button></form>
+<div class="footer">XRayMOD v2.0.0</div></div>
+<script>
+document.getElementById('form').onsubmit=async e=>{e.preventDefault();
+const p=document.getElementById('pass').value,p2=document.getElementById('pass2').value,s=document.getElementById('status');
+if(p!==p2){s.className='msg err';s.textContent='Passwords do not match';s.style.display='block';return}
+if(p.length<6){s.className='msg err';s.textContent='Minimum 6 characters';s.style.display='block';return}
+document.getElementById('btn').disabled=true;document.getElementById('btn').textContent='Setting up...';
+try{const r=await fetch('/install/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p})});
+const d=await r.json();if(d.success){s.className='msg ok';s.textContent='Done! Redirecting...';s.style.display='block';setTimeout(()=>location.href='/admin',2000);}
+else{s.className='msg err';s.textContent=d.error||'Failed';s.style.display='block';document.getElementById('btn').disabled=false;document.getElementById('btn').textContent='Set Password';}
+}catch(err){s.className='msg err';s.textContent='Network error';s.style.display='block';document.getElementById('btn').disabled=false;document.getElementById('btn').textContent='Set Password';}};
+</script></body></html>`, { status: 200, headers: { 'Content-Type': 'text/html;charset=utf-8', 'Cache-Control': 'no-store' } });
+	}
+
 	if (panelHasAssets(env)) {
 		let pn = p.split('?')[0];
 		if (!/\.[a-z0-9]{2,5}$/i.test(pn) && !pn.endsWith('/')) pn += '/';
