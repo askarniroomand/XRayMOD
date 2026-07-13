@@ -41,8 +41,8 @@
 - [x] Reset user quota
 - [x] Enable/disable toggle
 - [x] Copy subscription link
-- [ ] Edit user dialog
-- [ ] Per-user speed limit
+- [x] Edit user modal (full form)
+- [x] Per-user speed limit (KB/s)
 
 ### Network
 - [ ] Routing rules toggle
