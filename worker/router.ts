@@ -9,6 +9,7 @@ import { detectIntent, processIntent } from './intent';
 import { getDisguiseConfig, getDecoyResponse } from './disguise';
 import { isGrpcRequest } from './proxy/grpc';
 import { isXHTTPRequest } from './proxy/xhttp';
+import { createKV } from './lib/kv';
 
 // Register all processors (side effect — adds to registry)
 import './processors';
@@ -48,6 +49,9 @@ export async function handleRequest(
     // Ensure DB schema
     await ensureSchema(env.DB);
 
+    // KV helper with in-memory cache
+    const kv = createKV(env);
+
     const url = new URL(request.url);
     let pathname = url.pathname;
 
@@ -77,13 +81,9 @@ export async function handleRequest(
     }
 
     // ══════════════════════════════════════════════════════════
-    // STEP 3: UUID-based panel access
+    // STEP 3: UUID-based panel access (cached)
     // ══════════════════════════════════════════════════════════
-    const panelUUID = await env.DB.prepare(
-      'SELECT v FROM kvstore WHERE k = ?'
-    ).bind('panel.access_uuid').first<{ v: string }>();
-
-    const accessUuid = panelUUID?.v;
+    const accessUuid = await kv.get('panel.access_uuid');
 
     if (accessUuid && !bypassUUID) {
       const segments = pathname.split('/').filter(Boolean);
@@ -91,11 +91,9 @@ export async function handleRequest(
       // No UUID in path → check disguise
       if (segments.length === 0 || segments[0] !== accessUuid) {
         // Check if not configured yet → redirect to /install
-        const configured = await env.DB.prepare(
-          'SELECT v FROM kvstore WHERE k = ?'
-        ).bind('panel.password_hash').first<{ v: string }>();
+        const passwordHash = await kv.get('panel.password_hash');
 
-        if (!configured || !configured.v) {
+        if (!passwordHash) {
           return new Response(null, {
             status: 302,
             headers: { Location: '/install' },
@@ -117,11 +115,8 @@ export async function handleRequest(
     // ══════════════════════════════════════════════════════════
     if (!bypassUUID && !accessUuid) {
       try {
-        const configured = await env.DB.prepare(
-          'SELECT v FROM kvstore WHERE k = ?'
-        ).bind('panel.password_hash').first<{ v: string }>();
-
-        if (!configured || !configured.v) {
+        const passwordHash = await kv.get('panel.password_hash');
+        if (!passwordHash) {
           return new Response(null, {
             status: 302,
             headers: { Location: '/install' },

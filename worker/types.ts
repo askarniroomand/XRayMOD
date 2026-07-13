@@ -1,5 +1,6 @@
 export interface Env {
   DB: D1Database;
+  KV?: KVNamespace;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
   ENABLE_TELEGRAM: string;
   ENABLE_TON_WALLET: string;
