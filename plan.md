@@ -1,217 +1,106 @@
-# XRayMOD v2 — Development Plan
+# XRayMOD v2 — Development Plan (Updated)
 
 **تاریخ:** 2026-07-13
 **وضعیت:** در حال توسعه
 
 ---
 
-## هدف
+## ویژیون نهایی
 
-ترکیب بهترین تکنیک‌های cfnew و Nova در یک پنل مدرن فول‌استک با UI یکپارچه Next.js.
-
----
-
-## Phase 1: Stealth Worker (فارسی)
-
-### ۱.۱ Safe Socket Bootstrap
-**جایگزینی `new WebSocket()` با `request.fetcher.connect()`**
-
-```typescript
-// قبل (کار نمیکنه):
-const targetWs = new WebSocket(`wss://${host}:${port}`);
-
-// بعد (مثل Nova):
-function getConnection(request: Request) {
-  const fetcher = (request as any)?.fetcher;
-  if (!fetcher?.connect) throw new Error('fetcher.connect unavailable');
-  return fetcher.connect;
-}
-```
-
-### ۱.۲ Obfuscation (browser-no-eval)
-- String Array با RC4 encoding
-- Mangled identifiers
-- **بدون** `eval()` (باعث Error 1101 میشه)
-- **بدون** control-flow flattening (CPU free-tier limit)
-- ابزار: `javascript-obfuscator` v5
-
-### ۱.۳ استتار فارسی
-- نام متغیرها: `توکن_احراز` به جای `authToken`
-- کامنت‌ها: فارسی
-- رشته‌ها: Base64 (مثل cfnew)
-- نتیجه: اسکنر انگلیسی چیزی نمی‌فهمه
-
-### ۱.۴ UUID Gate (مثل cfnew)
-- هر درخواست بدون UUID → 404
-- صفحه اصلی `/`: سایت جعلی قانونی
-- WebSocket: bypass UUID (proxy traffic)
-- `/api/*`: bypass UUID (نیاز به auth)
-
-### ۱.۵ Dynamic Source Fetch
-- کد پروکسی از GitHub دانلود بشه
-- ریپو فقط deployer باشه
-- Cache-busting با timestamp
-
-### ۱.۶ Random Worker Names
-- `edge-{random8}` در زمان deploy
-- حذف نام `xraymod` از everywhere
+پنل مدرن Cloudflare + سرور شخصی. کاربران با اتصال سرور شخصی خود به Cloudflare، کانفیگ‌هایی با کیفیت CF ولی بدون محدودیت‌های اون تولید می‌کنن. کانفیگ‌ها قابل فروش هستن.
 
 ---
 
-## Phase 2: Installer Improvements
+## Phase 1: Nova Worker Base + Custom Installer
 
-### ۲.۱ OAuth Token Persistence
-- ✅ انجام شد: توکن در `~/.xraymod/config.json` ذخیره میشه
-- ✅ انجام شد: `/api/check-token` endpoint
+### ۱.۱ Nova Worker.js
+- استفاده از `worker.js` Nova-Proxy به عنوان بیس
+- Nova 1101 رو حل کرده، VLESS/Trojan/SS داره، obfuscation داره
+- فایل: `.references/Nova-Proxy/worker.js`
 
-### ۲.۲ Delete/Update
-- ✅ انجام شد: بخش حذف و آپدیت در نصاب
+### ۱.۲ Custom Installer
+- OAuth2 PKCE (مثل Nova-Wizard)
+- WebUI مدرن
+- Deploy ورکر Nova + D1
+- نمایش آدرس نهایی پنل
+- بخش Update و Delete
+- فایل: `installer/app.py`
 
-### ۲.۳ Binding Preservation
-- ✅ انجام شد: قبل از آپدیت، settings فعلی ورکر خوانده میشه
-
-### ۲.۴ KV Integration
-- ذخیره تنظیمات در KV (نه فقط D1)
-- Config cache با TTL کوتاه
-- Migrate KV → D1 (مثل Nova)
-
----
-
-## Phase 3: Next.js Frontend
-
-### ۳.۱ Setup
-```
-frontend/
-├── app/
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── panel/
-│   │   ├── page.tsx          # Dashboard
-│   │   ├── users/page.tsx    # مدیریت کاربران
-│   │   ├── nodes/page.tsx    # مدیریت نودها
-│   │   ├── cleanip/page.tsx  # IP تمیز
-│   │   ├── protocols/page.tsx
-│   │   ├── settings/page.tsx
-│   │   └── wallet/page.tsx
-│   └── api/
-│       ├── [...path]/route.ts  # Catch-all API
-│       └── health/route.ts
-├── components/
-│   ├── ui/                    # shadcn/ui
-│   ├── layout/
-│   │   ├── sidebar.tsx
-│   │   ├── header.tsx
-│   │   └── mobile-nav.tsx
-│   └── dashboard/
-│       ├── stats.tsx
-│       ├── traffic-chart.tsx
-│       └── quick-actions.tsx
-├── lib/
-│   ├── cf.ts                  # KV/D1 helpers
-│   ├── auth.ts                # Session management
-│   └── protocol-utils.ts
-└── next.config.ts
-```
-
-### ۳.۲ Build Pipeline
-- `next build` → Cloudflare Pages
-- `_worker.js` برای API routes
-- Static assets برای UI
-
-### ۳.۳ Auth Flow
-- SHA-256 password hash
-- Session cookie
-- UUID-gated URLs
+### ۱.۳ Frontend (Next.js)
+- Dashboard با آمار زنده
+- مدیریت کاربران (افزودن/ویرایش/حذف)
+- مدیریت پروتکل‌ها
+- IP تمیز + اسکنر
+- تنظیمات پنل
+- فایل: `frontend/app/`
 
 ---
 
-## Phase 4: Backend Integration
+## Phase 2: Personal Server Mode
 
-### ۴.۱ D1 Schema
-```sql
--- کاربران
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY,
-  uuid TEXT UNIQUE,
-  username TEXT,
-  password_hash TEXT,
-  role TEXT DEFAULT 'user',
-  traffic_limit INTEGER DEFAULT 0,
-  traffic_used INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'active',
-  expiry_date TEXT,
-  created_at INTEGER
-);
+### ۲.۱ FastAPI Backend
+- اتصال سرور شخصی به CF Worker
+- API سازگار با Worker
+- SQLite/PostgreSQL
+- فایل: `backend/main.py`
 
--- تنظیمات پنل
-CREATE TABLE kvstore (
-  k TEXT PRIMARY KEY,
-  v TEXT,
-  updated INTEGER
-);
-
--- پروتکل‌ها
-CREATE TABLE protocols (
-  id INTEGER PRIMARY KEY,
-  name TEXT,
-  type TEXT,
-  template_json TEXT,
-  enabled INTEGER DEFAULT 1
-);
-
--- کانفیگ‌ها
-CREATE TABLE configs (
-  id INTEGER PRIMARY KEY,
-  user_id INTEGER,
-  protocol_id INTEGER,
-  path TEXT UNIQUE,
-  settings_json TEXT,
-  created_at INTEGER
-);
+### ۲.۲ Worker ↔ Server Bridge
+```
+CF Worker (Proxy) ←→ VPS Backend (Management)
+     ↓                      ↓
+  Proxy Traffic         Config Generation
+  (Edge Network)        (High Quality)
 ```
 
-### ۴.۲ API Routes (Next.js)
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET/POST /api/users`
-- `GET/POST /api/nodes`
-- `GET/POST /api/configs`
-- `GET/POST /api/protocols`
-- `GET/POST /api/settings`
-- `GET /api/health`
-- `POST /api/cleanip`
+### ۲.۳ Config Generation
+- کانفیگ‌های CF-quality بدون محدودیت CF
+- قابل فروش
+- VLESS/Trojan/SS با Clean IP
 
 ---
 
-## Phase 5: Deploy & Testing
+## Phase 3: Telegram Bot
 
-### ۵.۱ Build
-```bash
-# Worker (stealth)
-npx javascript-obfuscator worker.js --target browser-no-eval --compact true
+### ۳.۱ Bot API
+- Webhook pattern
+- Inline keyboards
+- HMAC login tokens
 
-# Frontend
-cd frontend && npm run build
+### ۳.۲ Mini App UI
+- Responsive panel inside Telegram
+- `tg.ready()`, `tg.expand()`
+- Safe area CSS
+- Dark theme
 
-# Deploy
-npx wrangler deploy
-```
+### ۳.۳ Sync with Panel
+- تغییرات در پنل → آپدیت در ربات
+- تغییرات در ربات → آپدیت در پنل
 
-### ۵.۲ Testing
-- [ ] Proxy traffic flows correctly
-- [ ] Error 1101 does not appear
-- [ ] UUID gate works
-- [ ] Stealth homepage shows
-- [ ] OAuth flow works
-- [ ] Deploy/Update/Delete work
-- [ ] UI is responsive on mobile
-- [ ] All API routes respond
+---
+
+## Phase 4: Polish & Deploy
+
+### ۴.۱ Obfuscation
+- `browser-no-eval` target
+- RC4 string encoding
+- No `node:` imports
+- No `eval()`
+
+### ۴.۲ Testing
+- Worker build + deploy
+- Installer flow
+- Frontend responsiveness
+- Bot functionality
+
+### ۴.۳ Documentation
+- `.opencode/` structure
+- README update
+- API docs
 
 ---
 
 ## Research Sources
 
-- **cfnew**: `.references/cfnew-deployer/` — UUID gate, dynamic source, Chinese obfuscation
-- **Nova**: `.references/Nova-Proxy/` — `request.fetcher.connect()`, D1-as-source-of-truth, obfuscation
+- **Nova-Proxy**: `.references/Nova-Proxy/` — Worker base (1101 solved)
 - **Nova-Wizard**: `.references/Nova-Wizard/` — OAuth2 PKCE installer
-- **IOP Paradigm**: Global memory — Intent-Oriented Programming
+- **cfnew**: `.references/cfnew-deployer/` — Stealth techniques
