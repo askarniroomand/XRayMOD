@@ -5,16 +5,16 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard, Server, Users, Shield, Settings, Radar,
-  LogOut, Zap, Menu, X
+  LogOut, Zap, Menu, X, Globe, Wifi
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
 const NAV_ITEMS = [
   { href: '/panel', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/panel/nodes', label: 'Nodes', icon: Server },
+  { href: '/panel/config', label: 'Config', icon: Shield },
   { href: '/panel/users', label: 'Users', icon: Users },
   { href: '/panel/cleanip', label: 'Clean IP', icon: Radar },
-  { href: '/panel/protocols', label: 'Protocols', icon: Shield },
+  { href: '/panel/network', label: 'Network', icon: Wifi },
   { href: '/panel/settings', label: 'Settings', icon: Settings },
 ];
 
