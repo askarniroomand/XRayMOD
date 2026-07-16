@@ -3,16 +3,19 @@ setlocal EnableExtensions
 chcp 65001 >nul 2>&1
 
 REM ═══════════════════════════════════════════════════════════════
-REM  XrayMOD — Windows one-command bootstrap (always latest)
+REM  XrayMOD — Windows bootstrap
 REM
-REM  CMD / PowerShell:
-REM    powershell -ExecutionPolicy Bypass -Command "$r=irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))))"
+REM  PowerShell (prompt starts with PS):
+REM    irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex
+REM
+REM  CMD:
+REM    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex"
 REM
 REM  Support: https://t.me/MRROBOT_DT
 REM ═══════════════════════════════════════════════════════════════
 
 echo.
-echo  XrayMOD - automatic installer (latest from GitHub API)
+echo  XrayMOD - automatic installer
 echo  Support: https://t.me/MRROBOT_DT
 echo.
 
@@ -22,7 +25,5 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM GitHub API = always latest (bypasses raw CDN cache that can show old install.ps1)
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$r = Invoke-RestMethod 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; $s = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))); Invoke-Expression $s"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex"
 exit /b %ERRORLEVEL%

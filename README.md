@@ -42,18 +42,19 @@
 
 ### ⚡ یک دستور · نصب کاملاً خودکار
 
-| سیستم | فقط همین یک خط |
-|:------|:---------------|
-| **🪟 Windows** (CMD / PowerShell) | `powershell -ExecutionPolicy Bypass -Command "$r=irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))))"` |
-| **🐧 Linux / 🍎 macOS / WSL** | `bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)` |
-
-**Windows — کپی/پیست در CMD یا PowerShell:**
+**🪟 Windows — داخل PowerShell (`PS C:\...`):**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "$r=irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))))"
+irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex
 ```
 
-**Linux / macOS / WSL:**
+**🪟 Windows — داخل CMD:**
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex"
+```
+
+**🐧 Linux / 🍎 macOS / WSL:**
 
 ```bash
 bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
@@ -162,7 +163,7 @@ Works with **Hiddify · v2rayNG · Streisand · NekoBox · Clash · sing-box**.
 **Windows (CMD / PowerShell)** — auto-installs Node & Python if missing:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "$r=irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))))"
+irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex
 ```
 
 **Linux / macOS / WSL:**
@@ -257,7 +258,7 @@ Save the **panel URL** and **subscription URL** from the response. Never share t
 **ویندوز (CMD / PowerShell)** — Node و Python را در صورت نبود خودش نصب می‌کند:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "$r=irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))))"
+irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex
 ```
 
 **لینوکس / مک / WSL:**

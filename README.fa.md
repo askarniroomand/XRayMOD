@@ -34,10 +34,16 @@
 
 ## ⚡ یک دستور · کاملاً خودکار
 
-### 🪟 ویندوز (CMD یا PowerShell) — همین را کپی کن
+### 🪟 ویندوز — اگر داخل PowerShell هستی (`PS C:\...`)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "$r=irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))))"
+irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex
+```
+
+### 🪟 ویندوز — اگر داخل CMD هستی (مشکی بدون `PS`)
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex"
 ```
 
 ### 🐧 لینوکس / 🍎 مک / WSL
