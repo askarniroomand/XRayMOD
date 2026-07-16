@@ -1,5 +1,5 @@
-# Template — the installer rewrites database_id automatically.
-# For manual deploy: run `npx wrangler d1 create xraymod-db` and paste the id below.
+# Template — install.sh rewrites this automatically.
+# Manual: npx wrangler d1 create xraymod-db  → paste id below
 
 name = "xraymod"
 main = "worker/index.ts"
@@ -15,8 +15,8 @@ run_worker_first = true
 [[d1_databases]]
 binding = "DB"
 database_name = "xraymod-db"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
-preview_database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "00000000-0000-0000-0000-000000000000"
+preview_database_id = "00000000-0000-0000-0000-000000000000"
 
 [vars]
 ENABLE_TELEGRAM = "false"

@@ -4,7 +4,7 @@ frontend/node_modules/
 .venv/
 venv/
 
-# Build / deploy artifacts (built by installer)
+# Build outputs (installer builds these)
 build/
 dist/
 frontend/out/
@@ -16,19 +16,23 @@ dist-worker/
 worker.js
 *.map
 
-# Reference / research clones
+# Local / personal
 .references/
-
-# Database
+.opencode/
+.mimocode/
+.xraymod/
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 
-# Secrets & local config
+# Secrets
 .env
 .env.*
 !.env.example
 wrangler.toml.bak
-.xraymod/
+*.pem
+*.key
 
 # OS / IDE
 .DS_Store
@@ -48,9 +52,8 @@ __pycache__/
 *.pyo
 .pytest_cache/
 uv.lock
+.Python
 
-# Session / agent junk
-.mimocode/
-.claude/
+# Temp
 tmp/
 temp/
