@@ -5,8 +5,8 @@ chcp 65001 >nul 2>&1
 REM ═══════════════════════════════════════════════════════════════
 REM  XrayMOD — One-command Windows bootstrap
 REM
-REM  Prefer this single command in CMD or PowerShell:
-REM    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
+REM  CMD / PowerShell (copy-paste):
+REM    powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
 REM
 REM  Support: https://t.me/MRROBOT_DT
 REM ═══════════════════════════════════════════════════════════════
@@ -22,8 +22,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM Use /main/ path (not refs/heads/main — that URL can stick on CDN cache)
-REM Cache-bust query so Windows never reuses an old install.ps1
+REM Prefer jsDelivr (not stuck on GitHub raw CDN). Fallback: GitHub API (always latest).
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$u='https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1?t='+[DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); iex (irm $u)"
+  "try { iex (irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1') } catch { $r = irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s','')))) }"
 exit /b %ERRORLEVEL%

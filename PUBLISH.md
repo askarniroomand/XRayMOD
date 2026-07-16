@@ -10,10 +10,10 @@
 
 ```bash
 # Linux / macOS / Git Bash / WSL
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
 
 # Windows CMD / PowerShell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
 
 ```
 
@@ -76,10 +76,10 @@ git push -u origin main
 ```bash
 # تست روی یک ماشین تمیز / ترمینال جدید:
 # Linux / macOS / Git Bash / WSL
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
 
 # Windows CMD / PowerShell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
 
 ```
 
@@ -89,7 +89,7 @@ powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.c
 # مثال فورک شخصی:
 export XRAYMOD_REPO=https://github.com/YOUR_USER/XRayMOD.git
 export XRAYMOD_BRANCH=main
-bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/XRayMOD/main/install.sh)
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/YOUR_USER/XRayMOD@main/install.sh)
 ```
 
 > `install.sh` داخلش `REPO_URL` را از `XRAYMOD_REPO` می‌خواند؛ پیش‌فرض `askarniroomand/XRayMOD` است.

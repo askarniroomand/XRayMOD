@@ -44,19 +44,19 @@
 
 | سیستم | فقط همین یک خط |
 |:------|:---------------|
-| **🪟 Windows** (CMD / PowerShell) | `powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 \| iex"` |
-| **🐧 Linux / 🍎 macOS / WSL** | `bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)` |
+| **🪟 Windows** (CMD / PowerShell) | `powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 \| iex"` |
+| **🐧 Linux / 🍎 macOS / WSL** | `bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)` |
 
 **Windows — کپی/پیست در CMD یا PowerShell:**
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
 ```
 
 **Linux / macOS / WSL:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
 ```
 
 اسکریپت **خودش** Node و Python/uv را (در صورت نبود) نصب می‌کند، سورس را از GitHub می‌گیرد و دیپلوی می‌کند.  
@@ -162,13 +162,13 @@ Works with **Hiddify · v2rayNG · Streisand · NekoBox · Clash · sing-box**.
 **Windows (CMD / PowerShell)** — auto-installs Node & Python if missing:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
 ```
 
 **Linux / macOS / WSL:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
 ```
 
 You only type: **Cloudflare token** · **username** · **password**.
@@ -257,13 +257,13 @@ Save the **panel URL** and **subscription URL** from the response. Never share t
 **ویندوز (CMD / PowerShell)** — Node و Python را در صورت نبود خودش نصب می‌کند:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
 ```
 
 **لینوکس / مک / WSL:**
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
 ```
 
 فقط ۳ تا ورودی: **توکن Cloudflare** · **نام کاربری** · **رمز**

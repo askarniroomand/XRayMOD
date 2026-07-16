@@ -37,13 +37,13 @@
 ### 🪟 ویندوز (CMD یا PowerShell) — همین را کپی کن
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
 ```
 
 ### 🐧 لینوکس / 🍎 مک / WSL
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
 ```
 
 اسکریپت **خودش** ابزارها (Node، Python/uv) را نصب می‌کند، سورس را از GitHub می‌گیرد و پنل را می‌سازد.  

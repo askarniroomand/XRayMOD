@@ -1,9 +1,9 @@
 # ═══════════════════════════════════════════════════════════════
 #  XrayMOD — Fully Automatic Installer (Windows)
-#  Version: 2026.07.16-auto3
+#  Version: 2026.07.16-auto4
 #
 #  ONE COMMAND (CMD or PowerShell):
-#    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
+#    powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
 #
 #  Auto: Node · Python/uv · source ZIP · deploy  (git NOT required)
 #  You only enter: Cloudflare token · username · password
@@ -12,7 +12,7 @@
 # ═══════════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Stop"
-$XrayModInstallerVersion = "2026.07.16-auto3"
+$XrayModInstallerVersion = "2026.07.16-auto4"
 
 $RepoUrl = if ($env:XRAYMOD_REPO) { $env:XRAYMOD_REPO } else { "https://github.com/askarniroomand/XRayMOD.git" }
 $Branch  = if ($env:XRAYMOD_BRANCH) { $env:XRAYMOD_BRANCH } else { "main" }
