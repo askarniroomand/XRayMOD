@@ -24,7 +24,7 @@ DIM='\033[2m'
 NC='\033[0m'
 
 INSTALLER_DIR="${HOME}/.xraymod"
-REPO_URL="${XRAYMOD_REPO:-https://github.com/EvolveBeyond/XRayMOD.git}"
+REPO_URL="${XRAYMOD_REPO:-https://github.com/askarniroomand/XRayMOD.git}"
 BRANCH="${XRAYMOD_BRANCH:-main}"
 
 clear 2>/dev/null || true

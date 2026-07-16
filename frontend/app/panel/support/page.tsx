@@ -74,7 +74,7 @@ export default function SupportPage() {
           }
         />
         <code className="block text-xs sm:text-sm font-mono text-emerald-400 bg-zinc-950 border border-zinc-800 rounded-xl p-4 overflow-x-auto">
-          bash &lt;(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
+          bash &lt;(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
         </code>
       </Card>
     </div>

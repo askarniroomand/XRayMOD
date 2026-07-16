@@ -35,7 +35,7 @@
 روی **macOS / Linux / WSL / Termux** (با Node.js 18+):
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
 #### کاربر فقط این‌ها را وارد می‌کند:
@@ -95,7 +95,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/he
 ### توسعه از سورس
 
 ```bash
-git clone https://github.com/EvolveBeyond/XRayMOD.git
+git clone https://github.com/askarniroomand/XRayMOD.git
 cd XRayMOD
 npm run setup
 npm run build:ui
@@ -137,7 +137,7 @@ Cloudflare CDN → Worker (API + Proxy + Disguise + UI Assets) → D1
 ### One-line install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
 You only enter: **API Token → username → password**. Everything else is automated.

@@ -9,7 +9,7 @@
 کاربر فقط این را می‌زند:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
 و فقط وارد می‌کند:
@@ -24,7 +24,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/he
 
 ## پیش‌نیاز تو (ناشر)
 
-- اکانت GitHub (ریپو: `EvolveBeyond/XRayMOD` یا فورک خودت)
+- اکانت GitHub (ریپو: `askarniroomand/XRayMOD` یا فورک خودت)
 - `git` روی سیستم
 - دسترسی push به ریپو
 
@@ -56,7 +56,7 @@ git push -u origin main
 اگر ریپو جدید ساختی:
 
 ```bash
-gh repo create EvolveBeyond/XRayMOD --public --source=. --remote=origin --push
+gh repo create askarniroomand/XRayMOD --public --source=. --remote=origin --push
 # یا
 git remote add origin https://github.com/YOUR_USER/XRayMOD.git
 git push -u origin main
@@ -70,7 +70,7 @@ git push -u origin main
 
 ```bash
 # تست روی یک ماشین تمیز / ترمینال جدید:
-bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
 اگر ریپو یا برنچت فرق دارد:
@@ -82,7 +82,7 @@ export XRAYMOD_BRANCH=main
 bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/XRayMOD/refs/heads/main/install.sh)
 ```
 
-> `install.sh` داخلش `REPO_URL` را از `XRAYMOD_REPO` می‌خواند؛ پیش‌فرض `EvolveBeyond/XRayMOD` است.
+> `install.sh` داخلش `REPO_URL` را از `XRAYMOD_REPO` می‌خواند؛ پیش‌فرض `askarniroomand/XRayMOD` است.
 
 ---
 
@@ -107,7 +107,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/XRayMOD/refs/heads
 |-----|--------|
 | پشتیبانی تلگرام | `https://t.me/MRROBOT_DT` — در `install.sh`, `installer/cli_deploy.py`, پنل `support` |
 | آدرس نصب | README + همین `install.sh` |
-| نام ریپو | `EvolveBeyond/XRayMOD` |
+| نام ریپو | `askarniroomand/XRayMOD` |
 
 اگر یوزرنیم گیت‌هاب عوض شد، هر سه جای URL را عوض کن:
 

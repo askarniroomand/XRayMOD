@@ -3,7 +3,7 @@
 ## نصب برای همه (فقط یک دستور)
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
 ### چی از کاربر می‌پرسد؟
