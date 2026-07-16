@@ -1,118 +1,76 @@
-<div align="center">
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="XrayMOD" width="100%"/>
+</p>
 
-# XrayMOD — راهنمای کامل فارسی
+<p align="center">
+  <b>پنل مخفی مدیریت پروکسی روی Cloudflare Workers</b><br/>
+  اوپن‌سورس · سرورلس · فارسی
+</p>
 
-**پنل مخفی مدیریت پروکسی روی Cloudflare Workers**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
-[![Telegram](https://img.shields.io/badge/پشتیبانی-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram)](https://t.me/MRROBOT_DT)
-
-[English README](README.md) · [گیت‌هاب](https://github.com/askarniroomand/XRayMOD)
-
-</div>
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="MIT"/></a>
+  <a href="https://t.me/MRROBOT_DT"><img src="https://img.shields.io/badge/پشتیبانی-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram" alt="TG"/></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/English-README-0ea5e9?style=for-the-badge" alt="EN"/></a>
+</p>
 
 ---
 
 ## XrayMOD چیست؟
 
-یک پنل **اوپن‌سورس** و **سرورلس** برای ساخت و مدیریت کانفیگ پروکسی (VLESS و …) روی **Cloudflare Workers + D1**.
+پنل **self-hosted** برای ساخت و مدیریت کانفیگ پروکسی روی **Cloudflare Workers + D1**:
 
-- بدون نیاز اجباری به VPS  
-- پنل پشت **UUID مخفی**  
-- UI **فارسی** (پیش‌فرض) + انگلیسی  
-- ساب چندفرمت + کانفیگ پیشنهادی آماده  
-- پشتیبانی: [@MRROBOT_DT](https://t.me/MRROBOT_DT)
+| | |
+|:--|:--|
+| 🥷 | پنل پشت **UUID مخفی** — بقیه Error 1101 می‌بینند |
+| ☁️ | بدون VPS اجباری |
+| 🇮🇷 | UI **فارسی** پیش‌فرض + انگلیسی |
+| 📡 | ساب Base64 / Raw / Clash / HTML |
+| ⚡ | نصب با **یک دستور** |
 
 ---
 
-## 🚀 نصب یک‌خطی (ساده‌ترین راه)
+## ⚡ نصب یک‌خطی (توصیه)
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
-### فقط این ۳ تا را وارد کن
+### فقط ۳ تا ورودی
 
-| # | ورودی |
-|---|--------|
-| 1 | توکن Cloudflare |
-| 2 | نام کاربری پنل |
-| 3 | رمز عبور پنل |
+| مرحله | ورودی |
+|:-----:|:------|
+| ۱ | 🔑 توکن Cloudflare |
+| ۲ | 👤 نام کاربری |
+| ۳ | 🔒 رمز عبور |
 
-اسکریپت بقیه را **خودکار** انجام می‌دهد و در پایان می‌دهد:
+بقیه خودکار: D1 · UI · Worker · کانفیگ · لینک‌ها
 
-- لینک ورود پنل  
-- Access UUID  
-- لینک سابسکریپشن  
-- کانفیگ پیشنهادی VLESS+WS  
+### توکن
 
-### توکن چطور بسازم؟
-
-1. [API Tokens](https://dash.cloudflare.com/profile/api-tokens)  
-2. Create Token → **Edit Cloudflare Workers**  
-3. ساخت → کپی → paste در ترمینال  
+[ساخت API Token](https://dash.cloudflare.com/profile/api-tokens) → قالب **Edit Cloudflare Workers**
 
 ---
 
-## 🛠 نصب دستی (گام‌به‌گام)
+## 🛠 نصب دستی
 
-### پیش‌نیاز
-Node.js 18+ · npm · git · curl · اکانت Cloudflare
+<details>
+<summary><b>گام‌به‌گام کامل</b></summary>
 
-### ۱) کلون
+<br/>
 
 ```bash
 git clone https://github.com/askarniroomand/XRayMOD.git
 cd XRayMOD
-```
-
-### ۲) وابستگی‌ها
-
-```bash
 npm install
 npm install --prefix frontend
-```
-
-### ۳) بیلد UI
-
-```bash
 npm run build:ui
-```
-
-### ۴) دیتابیس D1
-
-```bash
 npx wrangler login
 npx wrangler d1 create xraymod-db
-```
-
-`database_id` را کپی کن.
-
-### ۵) `wrangler.toml`
-
-```toml
-[[d1_databases]]
-binding = "DB"
-database_name = "xraymod-db"
-database_id = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
-preview_database_id = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
-```
-
-### ۶) دیپلوی
-
-```bash
+# database_id را در wrangler.toml بگذار
 npx wrangler deploy
 ```
 
-### ۷) راه‌اندازی پنل
-
-مرورگر:
-
-```text
-https://WORKER.workers.dev/install
-```
-
-یا:
+راه‌اندازی:
 
 ```bash
 curl -X POST "https://WORKER.workers.dev/install" \
@@ -120,59 +78,45 @@ curl -X POST "https://WORKER.workers.dev/install" \
   -d '{"username":"admin","password":"YourStrongPass123"}'
 ```
 
-### ۸) ورود
+ورود:
 
 ```text
 https://WORKER.workers.dev/<ACCESS_UUID>/login
 ```
 
-### ۹) ساب
+ساب:
 
 ```text
 https://WORKER.workers.dev/sub/<USER_UUID>
 https://WORKER.workers.dev/sub/<USER_UUID>?format=html
 ```
 
-### آپدیت دستی
-
-```bash
-git pull
-npm install && npm install --prefix frontend
-npm run build:ui
-npx wrangler deploy
-```
+</details>
 
 ---
 
 ## بهترین کانفیگ
 
 | مورد | مقدار |
-|------|--------|
-| پروتکل | VLESS |
-| Transport | WebSocket |
-| Security | TLS |
-| Port | 443 |
+|:-----|:------|
+| پروتکل | **VLESS** |
+| Transport | **WebSocket** |
+| Security | **TLS** |
+| Port | **443** |
 | Fingerprint | chrome |
 
-کلاینت‌های پیشنهادی: **Hiddify · v2rayNG · Streisand · NekoBox**
-
----
-
-## امنیت
-
-- لینک پنل (با UUID) را عمومی نکن  
-- توکن API را در چت نفرست  
-- رمز قوی انتخاب کن  
+کلاینت: Hiddify · v2rayNG · Streisand · NekoBox
 
 ---
 
 ## پشتیبانی
 
-- تلگرام: **[@MRROBOT_DT](https://t.me/MRROBOT_DT)**  
-- Issue: [GitHub Issues](https://github.com/askarniroomand/XRayMOD/issues)  
+<p align="center">
+  <a href="https://t.me/MRROBOT_DT"><img src="https://img.shields.io/badge/تلگرام-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram" alt="Telegram"/></a>
+</p>
 
 ---
 
 ## لایسنس
 
-[MIT](LICENSE)
+[MIT](LICENSE) · راهنمای انگلیسی کامل: [README.md](README.md)

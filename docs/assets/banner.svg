@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="480" viewBox="0 0 1600 480" role="img" aria-label="XrayMOD">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050506"/>
+      <stop offset="45%" stop-color="#0a0f0d"/>
+      <stop offset="100%" stop-color="#071410"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="orb" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#34d399" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1600" height="480" fill="url(#bg)"/>
+  <rect width="1600" height="480" fill="url(#grid)"/>
+  <circle cx="1280" cy="120" r="220" fill="url(#orb)" filter="url(#soft)"/>
+  <circle cx="280" cy="400" r="180" fill="url(#orb)" filter="url(#soft)"/>
+
+  <!-- left accent bar -->
+  <rect x="0" y="0" width="8" height="480" fill="url(#accent)"/>
+
+  <!-- logo tile -->
+  <rect x="96" y="150" width="96" height="96" rx="24" fill="url(#accent)"/>
+  <text x="144" y="218" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="52" font-weight="900" fill="#052e1c">X</text>
+
+  <!-- title -->
+  <text x="230" y="200" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="72" font-weight="900" fill="#fafafa" letter-spacing="-2">XrayMOD</text>
+  <text x="230" y="250" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="26" font-weight="600" fill="#a1a1aa">Stealth proxy panel on Cloudflare Workers</text>
+
+  <!-- pills -->
+  <rect x="230" y="290" width="150" height="40" rx="20" fill="#18181b" stroke="#27272a"/>
+  <text x="305" y="316" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#34d399">Serverless</text>
+
+  <rect x="396" y="290" width="130" height="40" rx="20" fill="#18181b" stroke="#27272a"/>
+  <text x="461" y="316" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#60a5fa">Stealth</text>
+
+  <rect x="542" y="290" width="170" height="40" rx="20" fill="#18181b" stroke="#27272a"/>
+  <text x="627" y="316" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#fbbf24">One-line install</text>
+
+  <rect x="728" y="290" width="120" height="40" rx="20" fill="#18181b" stroke="#27272a"/>
+  <text x="788" y="316" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700" fill="#e4e4e7">FA + EN</text>
+
+  <!-- right terminal card -->
+  <rect x="980" y="110" width="540" height="260" rx="20" fill="#0c0c0e" stroke="#27272a"/>
+  <circle cx="1012" cy="140" r="7" fill="#f43f5e"/>
+  <circle cx="1036" cy="140" r="7" fill="#fbbf24"/>
+  <circle cx="1060" cy="140" r="7" fill="#22c55e"/>
+  <text x="1010" y="190" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#71717a">$</text>
+  <text x="1030" y="190" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" fill="#34d399">bash &lt;(curl -fsSL …/install.sh)</text>
+  <text x="1010" y="230" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" fill="#a1a1aa">→ Cloudflare API Token</text>
+  <text x="1010" y="260" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" fill="#a1a1aa">→ Username</text>
+  <text x="1010" y="290" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" fill="#a1a1aa">→ Password</text>
+  <text x="1010" y="330" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" font-weight="700" fill="#34d399">✓ Panel ready · Sub ready · Stealth on</text>
+
+  <!-- bottom glow line -->
+  <rect x="0" y="472" width="1600" height="8" fill="url(#accent)"/>
+</svg>
