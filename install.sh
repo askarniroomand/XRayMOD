@@ -39,7 +39,7 @@ BRANCH="${XRAYMOD_BRANCH:-main}"
 clear 2>/dev/null || true
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║${BOLD}   XrayMOD  ·  نصب خودکار پنل Cloudflare        ${NC}${GREEN}║${NC}"
+echo -e "${GREEN}║${BOLD}   XrayMOD  ·  نصب کاملاً خودکار                 ${NC}${GREEN}║${NC}"
 echo -e "${GREEN}║${DIM}   فقط توکن · یوزر · رمز  →  پنل آماده         ${NC}${GREEN}║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
@@ -50,18 +50,49 @@ die() { echo -e "${RED}✗${NC} $*" >&2; exit 1; }
 step() { echo -e "${YELLOW}→${NC} $*"; }
 ok() { echo -e "${GREEN}✓${NC} $*"; }
 
-# ── prerequisites ───────────────────────────────────────────
+# ── prerequisites (auto where possible) ─────────────────────
 command -v curl >/dev/null || die "curl لازم است"
 
-if ! command -v node >/dev/null; then
-  die "Node.js لازم است — از https://nodejs.org نسخه LTS را نصب کن و دوباره همین دستور را بزن"
-fi
-NODE_MAJOR="$(node -v | sed 's/v//' | cut -d. -f1)"
-if [ "${NODE_MAJOR}" -lt 18 ]; then
-  die "Node.js 18+ لازم است (الان: $(node -v))"
-fi
-ok "Node $(node -v)"
+ensure_node() {
+  if command -v node >/dev/null; then
+    local major
+    major="$(node -v | sed 's/v//' | cut -d. -f1)"
+    if [ "${major}" -ge 18 ] 2>/dev/null; then
+      ok "Node $(node -v)"
+      return 0
+    fi
+  fi
 
+  step "نصب خودکار Node.js..."
+  if command -v brew >/dev/null; then
+    brew install node@20 >/dev/null 2>&1 || brew install node >/dev/null 2>&1 || true
+  elif command -v apt-get >/dev/null && [ "$(id -u)" -eq 0 ]; then
+    apt-get update -qq && apt-get install -y -qq nodejs npm >/dev/null 2>&1 || true
+  elif command -v dnf >/dev/null && [ "$(id -u)" -eq 0 ]; then
+    dnf install -y nodejs npm >/dev/null 2>&1 || true
+  elif command -v pacman >/dev/null && [ "$(id -u)" -eq 0 ]; then
+    pacman -Sy --noconfirm nodejs npm >/dev/null 2>&1 || true
+  fi
+
+  # nvm fallback
+  if ! command -v node >/dev/null; then
+    export NVM_DIR="${HOME}/.nvm"
+    if [ ! -s "${NVM_DIR}/nvm.sh" ]; then
+      curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash >/dev/null 2>&1 || true
+    fi
+    # shellcheck disable=SC1091
+    [ -s "${NVM_DIR}/nvm.sh" ] && . "${NVM_DIR}/nvm.sh"
+    command -v nvm >/dev/null 2>&1 && nvm install --lts >/dev/null 2>&1 || true
+  fi
+
+  command -v node >/dev/null || die "Node.js 18+ لازم است — از https://nodejs.org نصب کن و دوباره همین دستور را بزن"
+  local major
+  major="$(node -v | sed 's/v//' | cut -d. -f1)"
+  [ "${major}" -ge 18 ] 2>/dev/null || die "Node.js 18+ لازم است (الان: $(node -v))"
+  ok "Node $(node -v)"
+}
+
+ensure_node
 command -v npm >/dev/null || die "npm پیدا نشد"
 
 HAS_GIT=0

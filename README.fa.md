@@ -32,34 +32,22 @@
 
 ---
 
-## ⚡ نصب یک‌خطی (توصیه)
+## ⚡ یک دستور · کاملاً خودکار
 
-**لینوکس / مک / Git Bash / WSL**
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
-```
-
-**ویندوز (CMD یا PowerShell)**
+### 🪟 ویندوز (CMD یا PowerShell) — همین را کپی کن
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
 ```
 
-<details>
-<summary><b>روش‌های دیگر ویندوز</b></summary>
+### 🐧 لینوکس / 🍎 مک / WSL
 
-<br/>
-
-دانلود و اجرای `install.cmd`:
-
-```cmd
-curl -fsSL -o %TEMP%\xraymod-install.cmd https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.cmd && %TEMP%\xraymod-install.cmd
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
-</details>
-
-### فقط ۳ تا ورودی
+اسکریپت **خودش** ابزارها (Node، Python/uv) را نصب می‌کند، سورس را از GitHub می‌گیرد و پنل را می‌سازد.  
+**git لازم نیست.** فقط ۳ ورودی از تو:
 
 | مرحله | ورودی |
 |:-----:|:------|

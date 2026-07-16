@@ -40,38 +40,27 @@
 
 <div align="center">
 
-### ⚡ One command. Full panel.
+### ⚡ یک دستور · نصب کاملاً خودکار
 
-**Linux / macOS / Git Bash / WSL**
+| سیستم | فقط همین یک خط |
+|:------|:---------------|
+| **🪟 Windows** (CMD / PowerShell) | `powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 \| iex"` |
+| **🐧 Linux / 🍎 macOS / WSL** | `bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)` |
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
-```
-
-**Windows (CMD or PowerShell)**
+**Windows — کپی/پیست در CMD یا PowerShell:**
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
 ```
 
-<details>
-<summary><b>Windows alternatives</b></summary>
+**Linux / macOS / WSL:**
 
-<br/>
-
-CMD (same as above works):
-
-```cmd
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
-Or download & run bootstrap:
-
-```cmd
-curl -fsSL -o %TEMP%\xraymod-install.cmd https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.cmd && %TEMP%\xraymod-install.cmd
-```
-
-</details>
+اسکریپت **خودش** Node و Python/uv را (در صورت نبود) نصب می‌کند، سورس را از GitHub می‌گیرد و دیپلوی می‌کند.  
+تو فقط وارد می‌کنی: **توکن Cloudflare** · **یوزر** · **رمز**.
 
 <table>
 <tr>
@@ -85,7 +74,7 @@ curl -fsSL -o %TEMP%\xraymod-install.cmd https://raw.githubusercontent.com/askar
 </tr>
 </table>
 
-<sub>Node.js 18+ · git · Python 3.10+ (or uv) · Cloudflare account (free plan works)</sub>
+<sub>Cloudflare free plan works · Windows auto-installs Node/Python when needed · no git required</sub>
 
 <br/>
 
@@ -168,19 +157,21 @@ Works with **Hiddify · v2rayNG · Streisand · NekoBox · Clash · sing-box**.
 | Port | **443** (also tries CF edge ports automatically) |
 | Fingerprint | **chrome** |
 
-### One-line install
+### One-line install (fully automatic)
 
-**Linux / macOS / Git Bash / WSL**
+**Windows (CMD / PowerShell)** — auto-installs Node & Python if missing:
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+```
+
+**Linux / macOS / WSL:**
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
-**Windows (CMD / PowerShell)**
-
-```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
-```
+You only type: **Cloudflare token** · **username** · **password**.
 
 **Cloudflare token:** [Create API Token](https://dash.cloudflare.com/profile/api-tokens) → template **Edit Cloudflare Workers**
 
@@ -261,18 +252,18 @@ Save the **panel URL** and **subscription URL** from the response. Never share t
 | `/me/<UUID_کاربر>` | صفحه کاربر: حجم، روز، QR، کپی کانفیگ |
 | `?format=clash` / `singbox` / `html` | فرمت‌های مختلف همان ساب |
 
-### نصب یک‌خطی
+### نصب یک‌خطی (کاملاً خودکار)
 
-**لینوکس / مک / Git Bash / WSL**
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
-```
-
-**ویندوز (CMD یا PowerShell)**
+**ویندوز (CMD / PowerShell)** — Node و Python را در صورت نبود خودش نصب می‌کند:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+```
+
+**لینوکس / مک / WSL:**
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
 
 فقط ۳ تا ورودی: **توکن Cloudflare** · **نام کاربری** · **رمز**
