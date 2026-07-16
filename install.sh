@@ -52,7 +52,6 @@ ok() { echo -e "${GREEN}✓${NC} $*"; }
 
 # ── prerequisites ───────────────────────────────────────────
 command -v curl >/dev/null || die "curl لازم است"
-command -v git  >/dev/null || die "git لازم است"
 
 if ! command -v node >/dev/null; then
   die "Node.js لازم است — از https://nodejs.org نسخه LTS را نصب کن و دوباره همین دستور را بزن"
@@ -65,6 +64,14 @@ ok "Node $(node -v)"
 
 command -v npm >/dev/null || die "npm پیدا نشد"
 
+HAS_GIT=0
+if command -v git >/dev/null; then
+  HAS_GIT=1
+  ok "git پیدا شد"
+else
+  echo -e "  ${DIM}git نیست — از دانلود ZIP استفاده می‌شود${NC}"
+fi
+
 # Python runner
 export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
 if ! command -v uv >/dev/null; then
@@ -73,20 +80,64 @@ if ! command -v uv >/dev/null; then
   export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
 fi
 
+github_zip_url() {
+  # https://github.com/owner/repo.git → archive zip
+  local url="$1" branch="$2"
+  if [[ "$url" =~ github\.com[:/]([^/]+)/([^/.]+) ]]; then
+    local owner="${BASH_REMATCH[1]}"
+    local repo="${BASH_REMATCH[2]%.git}"
+    echo "https://github.com/${owner}/${repo}/archive/refs/heads/${branch}.zip"
+    return 0
+  fi
+  return 1
+}
+
+fetch_zip() {
+  local zip_url
+  zip_url="$(github_zip_url "${REPO_URL}" "${BRANCH}")" \
+    || die "بدون git فقط ریپوهای GitHub پشتیبانی می‌شوند — git را نصب کن"
+  step "دانلود سورس (بدون git)..."
+  local zip_path="${INSTALLER_DIR}/xraymod-src.zip"
+  local extract_dir="${INSTALLER_DIR}/_extract"
+  rm -rf "${extract_dir}" "${INSTALLER_DIR}/XRayMOD"
+  mkdir -p "${extract_dir}"
+  curl -fsSL -o "${zip_path}" "${zip_url}" \
+    || die "دانلود ZIP ناموفق — اینترنت / فیلتر GitHub را چک کن"
+  if command -v unzip >/dev/null; then
+    unzip -q "${zip_path}" -d "${extract_dir}"
+  elif command -v tar >/dev/null; then
+    # bsdtar / GNU tar with libarchive can open zip
+    tar -xf "${zip_path}" -C "${extract_dir}" 2>/dev/null \
+      || die "unzip لازم است (apt install unzip / brew install unzip)"
+  else
+    die "unzip لازم است"
+  fi
+  rm -f "${zip_path}"
+  local inner
+  inner="$(find "${extract_dir}" -mindepth 1 -maxdepth 1 -type d | head -1)"
+  [ -n "${inner}" ] || die "استخراج ZIP خالی بود"
+  mv "${inner}" "${INSTALLER_DIR}/XRayMOD"
+  rm -rf "${extract_dir}"
+}
+
 # ── fetch source ────────────────────────────────────────────
 mkdir -p "${INSTALLER_DIR}"
-if [ -d "${INSTALLER_DIR}/XRayMOD/.git" ]; then
+if [ "${HAS_GIT}" -eq 1 ] && [ -d "${INSTALLER_DIR}/XRayMOD/.git" ]; then
   step "به‌روزرسانی مخزن..."
   git -C "${INSTALLER_DIR}/XRayMOD" remote set-url origin "${REPO_URL}" 2>/dev/null || true
   git -C "${INSTALLER_DIR}/XRayMOD" fetch --depth 1 origin "${BRANCH}" --quiet 2>/dev/null || true
   git -C "${INSTALLER_DIR}/XRayMOD" checkout -f "${BRANCH}" --quiet 2>/dev/null || true
   git -C "${INSTALLER_DIR}/XRayMOD" reset --hard "origin/${BRANCH}" --quiet 2>/dev/null || \
     git -C "${INSTALLER_DIR}/XRayMOD" pull --ff-only --quiet 2>/dev/null || true
-else
+elif [ "${HAS_GIT}" -eq 1 ]; then
   step "دانلود XrayMOD..."
   rm -rf "${INSTALLER_DIR}/XRayMOD"
-  git clone --depth 1 -b "${BRANCH}" "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" \
-    || die "کلون مخزن ناموفق — اینترنت / آدرس گیت‌هاب را چک کن"
+  if ! git clone --depth 1 -b "${BRANCH}" "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" 2>/dev/null; then
+    echo -e "  ${DIM}git clone ناموفق — سوییچ به ZIP...${NC}"
+    fetch_zip
+  fi
+else
+  fetch_zip
 fi
 
 cd "${INSTALLER_DIR}/XRayMOD"
