@@ -2,7 +2,11 @@
 # ═══════════════════════════════════════════════════════════════
 #  XrayMOD — One-Click Open Source Installer
 #
-#  bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
+#  Linux / macOS / Git Bash / WSL:
+#    bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
+#
+#  Windows CMD / PowerShell:
+#    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
 #
 #  Flow for end users:
 #    1) Cloudflare API Token
@@ -14,6 +18,11 @@
 #  Support: https://t.me/MRROBOT_DT
 # ═══════════════════════════════════════════════════════════════
 set -euo pipefail
+
+# Windows Git Bash / MSYS: ensure common Node/Git paths
+if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* || -n "${MSYSTEM:-}" ]]; then
+  export PATH="/c/Program Files/nodejs:/c/Program Files/Git/cmd:${PATH}"
+fi
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

@@ -33,6 +33,33 @@ SUPPORT_TG = "https://t.me/MRROBOT_DT"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = Path.home() / ".xraymod"
 CONFIG_FILE = CONFIG_DIR / "config.json"
+IS_WIN = sys.platform == "win32"
+
+
+def _enable_windows_console() -> None:
+    """UTF-8 + ANSI colors on Windows consoles (CMD / PowerShell)."""
+    if not IS_WIN:
+        return
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        handle = kernel32.GetStdHandle(-11)
+        mode = ctypes.c_uint32()
+        if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            kernel32.SetConsoleMode(handle, mode.value | 0x0004)
+    except Exception:
+        pass
+
+
+_enable_windows_console()
 
 # Colors
 G = "\033[0;32m"
@@ -119,20 +146,45 @@ def load_config() -> dict:
     return {}
 
 
+def _which(name: str) -> str | None:
+    """Resolve executables on Windows (npm.cmd / npx.cmd / node.exe)."""
+    found = shutil.which(name)
+    if found:
+        return found
+    if IS_WIN:
+        for ext in (".cmd", ".exe", ".bat"):
+            found = shutil.which(name + ext)
+            if found:
+                return found
+    return None
+
+
 def ensure_tools() -> None:
     info("بررسی ابزارها...")
-    if not shutil.which("node"):
+    if not _which("node"):
         err("Node.js لازم است: https://nodejs.org")
         sys.exit(1)
-    if not shutil.which("npm"):
+    if not _which("npm"):
         err("npm پیدا نشد")
         sys.exit(1)
-    ok(f"Node {subprocess.check_output(['node', '-v'], text=True).strip()}")
+    node = _which("node") or "node"
+    ok(f"Node {subprocess.check_output([node, '-v'], text=True).strip()}")
 
 
 def run(cmd: list[str], cwd: Path | None = None, env: dict | None = None) -> None:
     full_env = {**os.environ, **(env or {})}
-    p = subprocess.run(cmd, cwd=cwd or REPO_ROOT, env=full_env)
+    resolved = list(cmd)
+    exe = _which(resolved[0])
+    if exe:
+        resolved[0] = exe
+    # npm/npx are batch wrappers on Windows; shell=True is required for .cmd
+    use_shell = IS_WIN and resolved[0].lower().endswith((".cmd", ".bat"))
+    p = subprocess.run(
+        resolved if not use_shell else subprocess.list2cmdline(resolved),
+        cwd=str(cwd or REPO_ROOT),
+        env=full_env,
+        shell=use_shell,
+    )
     if p.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(cmd)}")
 
@@ -153,7 +205,6 @@ def build_ui() -> None:
     if not (REPO_ROOT / "frontend" / "out" / "index.html").exists():
         raise RuntimeError("frontend/out ساخته نشد")
     ok("UI build شد")
-
 
 def create_or_get_d1(token: str, account_id: str, name: str) -> str:
     try:

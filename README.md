@@ -42,9 +42,36 @@
 
 ### ⚡ One command. Full panel.
 
+**Linux / macOS / Git Bash / WSL**
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 ```
+
+**Windows (CMD or PowerShell)**
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+```
+
+<details>
+<summary><b>Windows alternatives</b></summary>
+
+<br/>
+
+CMD (same as above works):
+
+```cmd
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+```
+
+Or download & run bootstrap:
+
+```cmd
+curl -fsSL -o %TEMP%\xraymod-install.cmd https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.cmd && %TEMP%\xraymod-install.cmd
+```
+
+</details>
 
 <table>
 <tr>
@@ -58,7 +85,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/
 </tr>
 </table>
 
-<sub>Node.js 18+ · git · curl · Cloudflare account (free plan works)</sub>
+<sub>Node.js 18+ · git · Python 3.10+ (or uv) · Cloudflare account (free plan works)</sub>
 
 <br/>
 
@@ -143,8 +170,16 @@ Works with **Hiddify · v2rayNG · Streisand · NekoBox · Clash · sing-box**.
 
 ### One-line install
 
+**Linux / macOS / Git Bash / WSL**
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
+```
+
+**Windows (CMD / PowerShell)**
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
 ```
 
 **Cloudflare token:** [Create API Token](https://dash.cloudflare.com/profile/api-tokens) → template **Edit Cloudflare Workers**
@@ -228,8 +263,16 @@ Save the **panel URL** and **subscription URL** from the response. Never share t
 
 ### نصب یک‌خطی
 
+**لینوکس / مک / Git Bash / WSL**
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
+```
+
+**ویندوز (CMD یا PowerShell)**
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
 ```
 
 فقط ۳ تا ورودی: **توکن Cloudflare** · **نام کاربری** · **رمز**

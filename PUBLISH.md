@@ -9,7 +9,12 @@
 کاربر فقط این را می‌زند:
 
 ```bash
+# Linux / macOS / Git Bash / WSL
 bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
+
+# Windows CMD / PowerShell
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+
 ```
 
 و فقط وارد می‌کند:
@@ -35,7 +40,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/
 - هیچ توکن Cloudflare داخل فایل‌ها نباشد  
 - `wrangler.toml` فقط placeholder داشته باشد (`REPLACE_WITH_YOUR_D1_ID`)  
 - `frontend/out` و `node_modules` در `.gitignore` باشند  
-- `LICENSE` و `README.md` و `install.sh` موجود باشند  
+- `LICENSE` و `README.md` و `install.sh` و `install.ps1` و `install.cmd` موجود باشند  
 
 ---
 
@@ -70,7 +75,12 @@ git push -u origin main
 
 ```bash
 # تست روی یک ماشین تمیز / ترمینال جدید:
+# Linux / macOS / Git Bash / WSL
 bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
+
+# Windows CMD / PowerShell
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+
 ```
 
 اگر ریپو یا برنچت فرق دارد:
@@ -105,13 +115,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/XRayMOD/refs/heads
 
 | چیز | کجاست |
 |-----|--------|
-| پشتیبانی تلگرام | `https://t.me/MRROBOT_DT` — در `install.sh`, `installer/cli_deploy.py`, پنل `support` |
-| آدرس نصب | README + همین `install.sh` |
+| پشتیبانی تلگرام | `https://t.me/MRROBOT_DT` — در `install.sh`, `install.ps1`, `installer/cli_deploy.py`, پنل `support` |
+| آدرس نصب | README + `install.sh` (یونیکس) + `install.ps1` / `install.cmd` (ویندوز) |
 | نام ریپو | `askarniroomand/XRayMOD` |
 
 اگر یوزرنیم گیت‌هاب عوض شد، هر سه جای URL را عوض کن:
 
-- `install.sh` → `REPO_URL`
+- `install.sh` / `install.ps1` → `REPO_URL` / `XRAYMOD_REPO`
 - `README.md` / `README.fa.md`
 - این فایل `PUBLISH.md`
 
@@ -127,6 +137,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/XRayMOD/refs/heads
 
 - [ ] `git push origin main` موفق  
 - [ ] `curl -fsSL .../install.sh` بدون 404  
+- [ ] `install.ps1` و `install.cmd` بدون 404 (ویندوز)  
 - [ ] تست کامل نصب با یک توکن تست  
 - [ ] لینک تلگرام پشتیبانی درست است  
 - [ ] توکن واقعی / پسورد واقعی داخل git نیست  
@@ -137,7 +148,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USER/XRayMOD/refs/heads
 
 | مشکل | راه حل |
 |------|--------|
-| `404` روی install.sh | push نشده یا نام برنچ/ریپو اشتباه |
+| `404` روی install.sh / install.ps1 | push نشده یا نام برنچ/ریپو اشتباه |
 | Node error | Node 18+ نصب شود |
 | Token invalid | قالب Edit Cloudflare Workers |
 | workers.dev 1101 | اکانت CF / subdomain؛ پشتیبانی بده |
