@@ -2126,10 +2126,10 @@ function UserView({
               <p className="text-xs text-zinc-500 mb-3">Run this command on your Ubuntu/Debian VPS to install Xray-core:</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 p-3 bg-zinc-950 rounded-lg text-xs text-emerald-400 font-mono overflow-x-auto whitespace-nowrap">
-                  bash &lt;(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main/installer/backend-install.sh) {window.location.origin} YOUR_UUID
+                  bash &lt;(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/installer/backend-install.sh) {window.location.origin} YOUR_UUID
                 </code>
                 <Button variant="outline" className="border-zinc-800" onClick={() => {
-                  navigator.clipboard.writeText(`bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main/installer/backend-install.sh) ${window.location.origin} YOUR_UUID`);
+                  navigator.clipboard.writeText(`bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/installer/backend-install.sh) ${window.location.origin} YOUR_UUID`);
                   toast.success('Copied!');
                 }}><Copy size={14} /></Button>
               </div>

@@ -11,7 +11,7 @@ from . import cf_api
 from .config import load, save, get_cache_path
 
 # Fallback: published obfuscated worker (when local bundle unavailable)
-WORKER_BUNDLE_URL = "https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main/worker.js"
+WORKER_BUNDLE_URL = "https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/README.md"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 

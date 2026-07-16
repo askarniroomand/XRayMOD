@@ -2,7 +2,7 @@
 # ═══════════════════════════════════════════════════════════════
 #  XrayMOD — One-Click Open Source Installer
 #
-#  bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
+#  bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.sh)
 #
 #  Flow for end users:
 #    1) Cloudflare API Token
