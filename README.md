@@ -1,10 +1,11 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="XrayMOD — Stealth proxy panel on Cloudflare Workers" width="100%"/>
+  <img src="docs/assets/banner.svg" alt="XrayMOD — Open source VLESS Trojan VMess proxy panel on Cloudflare Workers for v2rayNG Hiddify" width="100%"/>
 </p>
 
 <p align="center">
   <strong>Open-source · Serverless · Stealth</strong><br/>
-  Modular proxy management panel on <b>Cloudflare Workers</b>
+  <b>VLESS / Trojan / VMess</b> proxy management panel on <b>Cloudflare Workers + D1</b><br/>
+  <sub>subscription · v2rayNG · Hiddify · one-line install · Persian UI</sub>
 </p>
 
 <p align="center">
@@ -420,6 +421,14 @@ XRayMOD/
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+## Keywords / Topics
+
+`xraymod` · `cloudflare-workers` · `vless` · `trojan` · `vmess` · `v2ray` · `xray` · `proxy-panel` · `vpn-panel` · `subscription` · `v2rayng` · `hiddify` · `serverless` · `d1` · `stealth-panel` · `anti-censorship` · `workers-proxy` · `persian-panel`
+
+Search tips (GitHub): `vless cloudflare panel`, `workers proxy subscription`, `xraymod`
 
 ---
 

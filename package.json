@@ -2,6 +2,39 @@
   "name": "xraymod",
   "private": true,
   "version": "2.0.0",
+  "description": "Open-source VLESS/Trojan/VMess proxy management panel on Cloudflare Workers with stealth UUID, D1, subscription (v2rayNG/Hiddify), and one-line install",
+  "keywords": [
+    "xraymod",
+    "cloudflare-workers",
+    "cloudflare",
+    "vless",
+    "trojan",
+    "vmess",
+    "v2ray",
+    "xray",
+    "proxy",
+    "vpn",
+    "panel",
+    "subscription",
+    "v2rayng",
+    "hiddify",
+    "serverless",
+    "d1",
+    "stealth",
+    "anti-censorship",
+    "shadowsocks",
+    "nextjs"
+  ],
+  "homepage": "https://github.com/askarniroomand/XRayMOD",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/askarniroomand/XRayMOD.git"
+  },
+  "bugs": {
+    "url": "https://github.com/askarniroomand/XRayMOD/issues"
+  },
+  "author": "XrayMOD",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "npm run build:ui && wrangler dev --local",

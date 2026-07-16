@@ -120,3 +120,9 @@ https://WORKER.workers.dev/sub/<USER_UUID>?format=html
 ## لایسنس
 
 [MIT](LICENSE) · راهنمای انگلیسی کامل: [README.md](README.md)
+
+---
+
+## کلمات کلیدی (برای سرچ)
+
+`xraymod` · `cloudflare workers` · `vless` · `trojan` · `v2ray` · `پنل پروکسی` · `سابسکریپشن` · `v2rayng` · `hiddify` · `بدون سرور` · `d1`
