@@ -37,7 +37,7 @@
 ### 🪟 ویندوز (CMD یا PowerShell) — همین را کپی کن
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "$r=irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))))"
 ```
 
 ### 🐧 لینوکس / 🍎 مک / WSL

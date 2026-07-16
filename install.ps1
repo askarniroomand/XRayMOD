@@ -3,7 +3,7 @@
 #  Version: 2026.07.16-auto4
 #
 #  ONE COMMAND (CMD or PowerShell):
-#    powershell -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1 | iex"
+#    powershell -ExecutionPolicy Bypass -Command "$r=irm 'https://api.github.com/repos/askarniroomand/XRayMOD/contents/install.ps1?ref=main'; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($r.content -replace '\s',''))))"
 #
 #  Auto: Node · Python/uv · source ZIP · deploy  (git NOT required)
 #  You only enter: Cloudflare token · username · password
