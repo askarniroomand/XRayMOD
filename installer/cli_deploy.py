@@ -322,25 +322,215 @@ def deploy_worker(token: str, worker_name: str) -> str:
     return url
 
 
-def bootstrap_remote(worker_url: str, username: str, password: str, retries: int = 12) -> dict:
+def _bootstrap_via_httpx(url: str, body: dict, verify: bool) -> dict:
+    with httpx.Client(
+        timeout=httpx.Timeout(60.0, connect=30.0),
+        verify=verify,
+        http2=False,
+        follow_redirects=True,
+        headers={
+            "User-Agent": "XrayMOD-Installer/1.0",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+    ) as client:
+        r = client.post(url, json=body)
+        return {"status": r.status_code, "text": r.text, "json": _safe_json(r.text)}
+
+
+def _bootstrap_via_urllib(url: str, body: dict, verify: bool) -> dict:
+    import ssl
+    import urllib.error
+    import urllib.request
+
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "User-Agent": "XrayMOD-Installer/1.0",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+    )
+    ctx = ssl.create_default_context()
+    if not verify:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    try:
+        # Prefer TLS 1.2+ when available (avoids some SSLv3 handshake failures)
+        if hasattr(ssl, "TLSVersion"):
+            ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    except Exception:
+        pass
+    try:
+        with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+            text = resp.read().decode("utf-8", errors="replace")
+            return {"status": resp.status, "text": text, "json": _safe_json(text)}
+    except urllib.error.HTTPError as e:
+        text = e.read().decode("utf-8", errors="replace") if e.fp else str(e)
+        return {"status": e.code, "text": text, "json": _safe_json(text)}
+
+
+def _bootstrap_via_curl(url: str, body: dict, verify: bool) -> dict | None:
+    curl = _which("curl")
+    if not curl:
+        return None
+    cmd = [
+        curl,
+        "-sS",
+        "-X",
+        "POST",
+        url,
+        "-H",
+        "Content-Type: application/json",
+        "-H",
+        "Accept: application/json",
+        "-H",
+        "User-Agent: XrayMOD-Installer/1.0",
+        "--connect-timeout",
+        "30",
+        "--max-time",
+        "60",
+        "-d",
+        json.dumps(body),
+        "-w",
+        "\n__HTTP_STATUS__:%{http_code}",
+    ]
+    if not verify:
+        cmd.insert(1, "-k")
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    out = (p.stdout or "") + (p.stderr or "")
+    if p.returncode != 0 and "__HTTP_STATUS__:" not in out:
+        raise RuntimeError(out.strip()[:300] or f"curl exit {p.returncode}")
+    status = 0
+    text = out
+    if "__HTTP_STATUS__:" in out:
+        text, _, tail = out.rpartition("__HTTP_STATUS__:")
+        try:
+            status = int(tail.strip().split()[0])
+        except Exception:
+            status = 0
+        text = text.strip()
+    return {"status": status, "text": text, "json": _safe_json(text)}
+
+
+def _bootstrap_via_powershell(url: str, body: dict) -> dict | None:
+    if not IS_WIN or not _which("powershell"):
+        return None
+    import base64
+
+    # Windows PowerShell uses Schannel — often works when OpenSSL handshake fails
+    b64 = base64.b64encode(json.dumps(body).encode("utf-8")).decode("ascii")
+    ps = f"""
+$ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+$raw = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{b64}'))
+try {{
+  $r = Invoke-RestMethod -Uri '{url}' -Method Post -Body $raw -ContentType 'application/json; charset=utf-8' -TimeoutSec 60
+  $r | ConvertTo-Json -Depth 10 -Compress
+}} catch {{
+  if ($_.Exception.Response) {{
+    $resp = $_.Exception.Response
+    $stream = $resp.GetResponseStream()
+    $reader = New-Object System.IO.StreamReader($stream)
+    $reader.ReadToEnd()
+  }} else {{
+    throw $_.Exception.Message
+  }}
+}}
+"""
+    p = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps],
+        capture_output=True,
+        text=True,
+    )
+    text = (p.stdout or "").strip() or (p.stderr or "").strip()
+    if p.returncode != 0 and not text:
+        raise RuntimeError(f"powershell bootstrap failed ({p.returncode})")
+    data = _safe_json(text)
+    if data is None and p.returncode != 0:
+        raise RuntimeError(text[:300])
+    return {"status": 200 if data else 0, "text": text, "json": data}
+
+
+def _safe_json(text: str) -> dict | None:
+    try:
+        val = json.loads(text)
+        return val if isinstance(val, dict) else None
+    except Exception:
+        return None
+
+
+def _post_install(worker_url: str, username: str, password: str) -> dict:
+    """POST /install using several transports (SSL-friendly fallbacks)."""
+    url = f"{worker_url.rstrip('/')}/install"
+    body = {"username": username, "password": password, "auto": False}
+    errors: list[str] = []
+
+    transports = [
+        ("httpx", lambda: _bootstrap_via_httpx(url, body, verify=True)),
+        ("urllib", lambda: _bootstrap_via_urllib(url, body, verify=True)),
+        ("curl", lambda: _bootstrap_via_curl(url, body, verify=True)),
+        ("powershell", lambda: _bootstrap_via_powershell(url, body)),
+        # Last resort: some networks/AV break cert chain to workers.dev
+        ("httpx-insecure", lambda: _bootstrap_via_httpx(url, body, verify=False)),
+        ("urllib-insecure", lambda: _bootstrap_via_urllib(url, body, verify=False)),
+        ("curl-insecure", lambda: _bootstrap_via_curl(url, body, verify=False)),
+    ]
+
+    for name, fn in transports:
+        try:
+            result = fn()
+            if result is None:
+                continue
+            data = result.get("json")
+            if data and data.get("success"):
+                if "insecure" in name:
+                    info("اتصال با حالت سازگار SSL برقرار شد")
+                return data
+            if data and data.get("error"):
+                # Logical API error (not transport) — stop early for some cases
+                err_msg = str(data.get("error"))
+                if "already" in err_msg.lower() or "configured" in err_msg.lower():
+                    return data
+                errors.append(f"{name}: {err_msg}")
+                continue
+            status = result.get("status") or 0
+            snippet = (result.get("text") or "")[:160]
+            errors.append(f"{name}: HTTP {status} {snippet}")
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+    raise RuntimeError(" | ".join(errors[-4:]) if errors else "no transport worked")
+
+
+def bootstrap_remote(worker_url: str, username: str, password: str, retries: int = 18) -> dict:
     info("راه‌اندازی پنل (bootstrap)...")
+    info(f"هدف: {worker_url}/install")
     last_err = ""
+    # workers.dev SSL / DNS can lag a bit after first deploy
+    time.sleep(5)
     for i in range(retries):
         try:
-            r = httpx.post(
-                f"{worker_url.rstrip('/')}/install",
-                json={"username": username, "password": password, "auto": False},
-                timeout=45,
-            )
-            data = r.json()
+            data = _post_install(worker_url, username, password)
             if data.get("success"):
                 ok("پنل آماده شد")
                 return data
-            last_err = data.get("error") or r.text[:200]
+            last_err = data.get("error") or json.dumps(data, ensure_ascii=False)[:200]
+            # already installed — surface clearly
+            if last_err and "already" in str(last_err).lower():
+                raise RuntimeError(last_err)
         except Exception as e:
             last_err = str(e)
-        time.sleep(2 + i * 0.5)
-    raise RuntimeError(f"Bootstrap failed: {last_err}")
+            if i == 0 or i % 3 == 0:
+                info(f"تلاش {i + 1}/{retries} — منتظر edge/SSL...")
+        time.sleep(min(2 + i * 0.4, 8))
+    raise RuntimeError(
+        f"Bootstrap failed: {last_err}\n"
+        f"  Worker URL: {worker_url}\n"
+        f"  اگر Worker در مرورگر باز می‌شود، یک‌بار دیگر نصب را بزن یا از VPN/شبکه دیگر امتحان کن."
+    )
 
 
 def print_success(data: dict, worker_url: str) -> None:
@@ -446,8 +636,9 @@ def main() -> None:
         ensure_workers_subdomain(token, account_id)
         write_wrangler(d1_id, worker_name)
         worker_url = deploy_worker(token, worker_name)
-        # wait for edge
-        time.sleep(3)
+        # wait for workers.dev DNS + TLS to settle
+        info("منتظر آماده‌شدن edge (چند ثانیه)...")
+        time.sleep(8)
         data = bootstrap_remote(worker_url, username, password)
         save_config(
             {
