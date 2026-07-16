@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  <strong>Open-source · Serverless · Stealth-first</strong><br/>
+  <strong>⚡ Open-source · Serverless · Stealth-first</strong><br/>
   Modern <b>VLESS / Trojan / VMess</b> panel on <b>Cloudflare Workers + D1</b><br/>
-  <sub>User status portal · Top-10 smart sub · Clean IP · Persian UI</sub>
+  <sub>User status portal · Top-10 smart sub · Clean IP · Persian UI · One-line install</sub>
 </p>
 
 <p align="center">
@@ -14,6 +14,7 @@
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TS"/></a>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-15-000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next"/></a>
   <a href="https://github.com/askarniroomand/XRayMOD/stargazers"><img src="https://img.shields.io/github/stars/askarniroomand/XRayMOD?style=for-the-badge&color=eab308" alt="Stars"/></a>
+  <a href="https://github.com/askarniroomand/XRayMOD/network/members"><img src="https://img.shields.io/github/forks/askarniroomand/XRayMOD?style=for-the-badge&color=38bdf8" alt="Forks"/></a>
   <a href="https://t.me/MRROBOT_DT"><img src="https://img.shields.io/badge/Telegram-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="TG"/></a>
 </p>
 
@@ -22,14 +23,18 @@
   ·
   <a href="#-english"><b>🇬🇧 English</b></a>
   ·
-  <a href="#-one-line-install"><b>⚡ Install</b></a>
+  <a href="#-quick-start"><b>⚡ Install</b></a>
   ·
-  <a href="#-whats-new"><b>✨ What's new</b></a>
+  <a href="#-features"><b>✨ Features</b></a>
   ·
   <a href="https://t.me/MRROBOT_DT"><b>💬 Community</b></a>
+  ·
+  <a href="https://github.com/askarniroomand"><b>👤 Author</b></a>
 </p>
 
 ---
+
+<a id="-quick-start"></a>
 
 <br/>
 
@@ -49,27 +54,38 @@ bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/
 <td align="center">→</td>
 <td align="center"><b>🔒 Password</b><br/><sub>Your choice</sub></td>
 <td align="center">→</td>
-<td align="center"><b>✨ Live panel</b><br/><sub>UUID + Sub + Status</sub></td>
+<td align="center"><b>✨ Live</b><br/><sub>Panel · Sub · /me</sub></td>
 </tr>
 </table>
 
 <sub>Node.js 18+ · git · curl · Cloudflare account (free plan works)</sub>
 
+<br/>
+
+⭐ **Star the repo** if it helps you — it keeps the project visible.
+
 </div>
 
 ---
 
-## ✨ What's new
+<a id="-features"></a>
 
-| Feature | Why you'll like it |
-|:--------|:-------------------|
-| **User status portal** `/me/<uuid>` | Every user gets a beautiful page: traffic used, remaining, expiry, QR, copy buttons |
-| **Top-10 smart subscription** | Auto builds up to 10 best configs: Direct + clean IPs + CF ports + fingerprints |
-| **Stealth skins** | Fake pages: CF 1101, nginx, GitHub 404, WordPress, Access Denied, blank |
-| **Canary traps** | Paths like `wp-admin` log scanners and serve a decoy |
-| **Backup & audit** | Export/import settings (no secrets) + admin action log |
-| **ISP-aware clean IPs** | Prefer IPs tuned for Iranian carriers when available |
-| **Kill switch & monthly cap** | Pause proxy only — panel stays open |
+## ✨ Features that feel modern
+
+| | Feature | Why it hits different |
+|:--:|:--------|:---------------------|
+| 📊 | **User status portal** `/me/<uuid>` | Traffic, days left, QR, copy — no login needed for the user |
+| 🎯 | **Top-10 smart subscription** | Direct + clean IPs + CF ports + fingerprints — auto |
+| 🥷 | **Stealth skins** | CF 1101 · nginx · GitHub 404 · WordPress · Access Denied · blank |
+| 🕳 | **Canary traps** | Fake paths log scanners · never leak the panel |
+| 💾 | **Backup & audit** | Safe export/import · admin action history |
+| 📡 | **ISP-aware clean IPs** | Better picks for Iranian carriers when available |
+| 🛑 | **Kill switch & monthly cap** | Pause proxy only · panel stays open |
+| 🔐 | **2FA + rate limit** | Safer admin login on the edge |
+
+<p align="center">
+  <img src="docs/assets/social-card.svg" alt="XrayMOD social card" width="85%"/>
+</p>
 
 ---
 

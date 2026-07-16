@@ -4,13 +4,15 @@
 
 <p align="center">
   <b>پنل مخفی و مدرن مدیریت پروکسی روی Cloudflare Workers</b><br/>
-  اوپن‌سورس · سرورلس · دوستانه · فارسی
+  اوپن‌سورس · سرورلس · صفحه وضعیت کاربر · ساب هوشمند · فارسی
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="MIT"/></a>
+  <a href="https://github.com/askarniroomand/XRayMOD/stargazers"><img src="https://img.shields.io/github/stars/askarniroomand/XRayMOD?style=for-the-badge&color=eab308" alt="Stars"/></a>
   <a href="https://t.me/MRROBOT_DT"><img src="https://img.shields.io/badge/پشتیبانی-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram" alt="TG"/></a>
   <a href="README.md"><img src="https://img.shields.io/badge/English-README-0ea5e9?style=for-the-badge" alt="EN"/></a>
+  <a href="https://github.com/askarniroomand"><img src="https://img.shields.io/badge/Author-askarniroomand-181717?style=for-the-badge&logo=github" alt="Author"/></a>
 </p>
 
 ---
