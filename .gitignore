@@ -1,52 +1,56 @@
 # Dependencies
 node_modules/
+frontend/node_modules/
+.venv/
+venv/
 
-# Build output
+# Build / deploy artifacts (built by installer)
 build/
 dist/
+frontend/out/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
 .wrangler/
+.wrangler-dist/
 dist-worker/
+worker.js
+*.map
 
-# Reference projects (cloned for research)
+# Reference / research clones
 .references/
 
-# Database files
+# Database
 *.db
 *.db-journal
 
-# Environment files
-.env*
+# Secrets & local config
+.env
+.env.*
 !.env.example
+wrangler.toml.bak
+.xraymod/
 
-# OS files
+# OS / IDE
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # Logs
 *.log
 npm-debug.log*
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*.kate-swp
-
-# Temporary files
-tmp/
-temp/
-
 # Python
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
 uv.lock
 
-# Build scripts (generated)
-build-worker.mjs
-index.js
-index.js.map
-
-# Session memory
+# Session / agent junk
 .mimocode/
-frontend/.next/
+.claude/
+tmp/
+temp/

@@ -39,16 +39,28 @@ export default function CleanIPPage() {
 
   const loadCleanIPs = async () => {
     try {
-      const data = await api.get('/admin/ADD.txt');
-      if (typeof data === 'string') {
-        const ips = data.split('\n').filter(l => l.trim() && !l.startsWith('#')).map(line => {
-          const [ipPort, label] = line.split('#');
-          const [ip, port] = (ipPort || '').split(':');
-          return { ip: ip || '', port: Number(port) || 443, label: label?.trim() || '' };
-        }).filter(x => x.ip);
-        setCleanIPs(ips);
-      }
-    } catch { setCleanIPs([]); }
+      const data = await api.get('/api/cleanip/list');
+      const raw = data?.data?.ips || data?.data || data?.ips || [];
+      const list = Array.isArray(raw) ? raw : [];
+      setCleanIPs(
+        list.map((item: string | CleanIP) => {
+          if (typeof item === 'string') {
+            const [ipPort, label] = item.split('#');
+            const [ip, port] = (ipPort || '').split(':');
+            return { ip: ip || '', port: Number(port) || 443, label: label?.trim() || '' };
+          }
+          return {
+            ip: item.ip || '',
+            port: item.port || 443,
+            label: item.label || '',
+            score: item.score,
+            latency: item.latency,
+          };
+        }).filter((x: CleanIP) => x.ip)
+      );
+    } catch {
+      setCleanIPs([]);
+    }
   };
 
   const scanIPs = async () => {
@@ -125,16 +137,21 @@ export default function CleanIPPage() {
   const applyBestIP = async () => {
     if (!bestIP) return;
     try {
-      await api.post('/admin/ADD.txt', { action: 'add', ip: bestIP.ip, port: bestIP.port, label: `XRayMOD-${bestIP.datacenter}` });
+      const existing = cleanIPs.map((c) => `${c.ip}:${c.port}`);
+      const next = [...new Set([...existing, `${bestIP.ip}:${bestIP.port}`])];
+      await api.post('/api/cleanip/apply', { ips: next });
       loadCleanIPs();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const removeCleanIP = async (ip: string) => {
     try {
-      await api.post('/admin/ADD.txt', { action: 'remove', ip });
+      const next = cleanIPs
+        .filter((c) => c.ip !== ip)
+        .map((c) => `${c.ip}:${c.port}`);
+      await api.post('/api/cleanip/apply', { ips: next });
       loadCleanIPs();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const copyIP = (ip: string, port: number) => {
@@ -145,8 +162,8 @@ export default function CleanIPPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-black">Clean IP</h1>
-        <p className="text-zinc-500 text-sm mt-1">Scan and manage optimized Cloudflare IPs.</p>
+        <h1 className="text-3xl font-black">آی‌پی تمیز</h1>
+        <p className="text-zinc-500 text-sm mt-1">اسکن و مدیریت آی‌پی‌های بهینه کلودفلر</p>
       </div>
 
       {/* Scanner */}
@@ -156,9 +173,9 @@ export default function CleanIPPage() {
           description="Find the fastest Cloudflare IPs for your network"
           action={
             scanning ? (
-              <Button variant="danger" onClick={stopScan}><Square size={14} /> Stop</Button>
+              <Button variant="danger" onClick={stopScan}><Square size={14} /> توقف</Button>
             ) : (
-              <Button onClick={scanIPs}><Play size={14} /> Start Scan</Button>
+              <Button onClick={scanIPs}><Play size={14} /> شروع اسکن</Button>
             )
           }
         />
@@ -250,7 +267,7 @@ export default function CleanIPPage() {
         )}
 
         {!scanning && scanResults.length === 0 && (
-          <p className="text-sm text-zinc-500 text-center py-4">Click "Start Scan" to find the fastest IPs for your network.</p>
+          <p className="text-sm text-zinc-500 text-center py-4">Click "شروع اسکن" to find the fastest IPs for your network.</p>
         )}
       </Card>
 

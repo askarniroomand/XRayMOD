@@ -1,16 +1,23 @@
 {
   "name": "xraymod",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "dev:ui": "vite",
-    "build": "vite build",
-    "deploy": "vite build && wrangler deploy",
-    "preview": "vite preview",
-    "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "dev": "npm run build:ui && wrangler dev --local",
+    "dev:worker": "wrangler dev --local",
+    "dev:ui": "npm run --prefix frontend dev",
+    "build:ui": "npm run --prefix frontend build",
+    "build": "npm run build:ui && npm run lint",
+    "build:legacy": "vite build",
+    "deploy": "npm run build:ui && wrangler deploy",
+    "deploy:dry": "npm run build:ui && wrangler deploy --dry-run --outdir=.wrangler-dist",
+    "preview": "npm run build:ui && wrangler dev --local",
+    "clean": "rm -rf dist frontend/out .wrangler-dist",
+    "lint": "tsc --noEmit",
+    "test": "node scripts/smoke-test.mjs",
+    "test:e2e": "node scripts/e2e-local.mjs",
+    "setup": "npm install && npm install --prefix frontend"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

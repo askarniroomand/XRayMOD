@@ -1,0 +1,420 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["httpx"]
+# ///
+"""
+XrayMOD CLI Installer — interactive one-shot deploy.
+
+Flow:
+  1. Cloudflare API Token
+  2. Verify account
+  3. Admin username
+  4. Admin password
+  5. Deploy Worker + D1 + UI
+  6. Bootstrap panel + print credentials
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import httpx
+
+CF_API = "https://api.cloudflare.com/client/v4"
+SUPPORT_TG = "https://t.me/MRROBOT_DT"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_DIR = Path.home() / ".xraymod"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+
+# Colors
+G = "\033[0;32m"
+Y = "\033[1;33m"
+R = "\033[0;31m"
+C = "\033[0;36m"
+B = "\033[1m"
+N = "\033[0m"
+DIM = "\033[2m"
+
+
+def banner() -> None:
+    print(
+        f"""
+{G}╔══════════════════════════════════════════════════╗
+║{B}   XrayMOD  ·  نصب خودکار اوپن‌سورس             {N}{G}║
+║{DIM}   فقط ۳ ورودی: توکن → یوزر → رمز              {N}{G}║
+║{DIM}   پشتیبانی: t.me/MRROBOT_DT                     {N}{G}║
+╚══════════════════════════════════════════════════╝{N}
+"""
+    )
+
+
+def ok(msg: str) -> None:
+    print(f"  {G}✓{N} {msg}")
+
+
+def info(msg: str) -> None:
+    print(f"  {Y}→{N} {msg}")
+
+
+def err(msg: str) -> None:
+    print(f"  {R}✗{N} {msg}")
+
+
+def ask(prompt: str, default: str = "", secret: bool = False) -> str:
+    suffix = f" [{default}]" if default else ""
+    try:
+        if secret and sys.stdin.isatty():
+            import getpass
+
+            val = getpass.getpass(f"  {prompt}{suffix}: ")
+        else:
+            val = input(f"  {prompt}{suffix}: ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        sys.exit(1)
+    val = (val or "").strip()
+    return val or default
+
+
+def cf(token: str, path: str, method: str = "GET", body: dict | None = None) -> dict:
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+    }
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    r = httpx.request(
+        method,
+        f"{CF_API}{path}",
+        headers=headers,
+        json=body,
+        timeout=60,
+    )
+    data = r.json()
+    if not data.get("success"):
+        errors = [e.get("message", str(e)) for e in data.get("errors", [])]
+        raise RuntimeError("; ".join(errors) or r.text[:300])
+    return data
+
+
+def save_config(cfg: dict) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
+
+
+def load_config() -> dict:
+    if CONFIG_FILE.exists():
+        try:
+            return json.loads(CONFIG_FILE.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def ensure_tools() -> None:
+    info("بررسی ابزارها...")
+    if not shutil.which("node"):
+        err("Node.js لازم است: https://nodejs.org")
+        sys.exit(1)
+    if not shutil.which("npm"):
+        err("npm پیدا نشد")
+        sys.exit(1)
+    ok(f"Node {subprocess.check_output(['node', '-v'], text=True).strip()}")
+
+
+def run(cmd: list[str], cwd: Path | None = None, env: dict | None = None) -> None:
+    full_env = {**os.environ, **(env or {})}
+    p = subprocess.run(cmd, cwd=cwd or REPO_ROOT, env=full_env)
+    if p.returncode != 0:
+        raise RuntimeError(f"Command failed: {' '.join(cmd)}")
+
+
+def ensure_deps() -> None:
+    info("نصب وابستگی‌ها (npm)...")
+    if not (REPO_ROOT / "node_modules").exists():
+        run(["npm", "install", "--no-fund", "--no-audit"])
+    fe = REPO_ROOT / "frontend" / "node_modules"
+    if not fe.exists():
+        run(["npm", "install", "--prefix", "frontend", "--no-fund", "--no-audit"])
+    ok("Dependencies آماده")
+
+
+def build_ui() -> None:
+    info("ساخت رابط کاربری...")
+    run(["npm", "run", "build:ui"])
+    if not (REPO_ROOT / "frontend" / "out" / "index.html").exists():
+        raise RuntimeError("frontend/out ساخته نشد")
+    ok("UI build شد")
+
+
+def create_or_get_d1(token: str, account_id: str, name: str) -> str:
+    try:
+        d = cf(token, f"/accounts/{account_id}/d1/database", "POST", {"name": name})
+        d1_id = d["result"].get("uuid") or d["result"].get("id")
+        ok(f"D1 ساخته شد: {name}")
+        return d1_id
+    except RuntimeError:
+        listing = cf(token, f"/accounts/{account_id}/d1/database")
+        for item in listing.get("result") or []:
+            if item.get("name") == name:
+                d1_id = item.get("uuid") or item.get("id")
+                ok(f"D1 موجود: {name}")
+                return d1_id
+        raise
+
+
+def ensure_workers_subdomain(token: str, account_id: str) -> str:
+    try:
+        r = httpx.get(
+            f"{CF_API}/accounts/{account_id}/workers/subdomain",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30,
+        )
+        data = r.json()
+        if data.get("success") and data.get("result", {}).get("subdomain"):
+            return data["result"]["subdomain"]
+    except Exception:
+        pass
+
+    # try create
+    for name in ("xraymod", f"xrm{secrets.token_hex(3)}"):
+        r = httpx.put(
+            f"{CF_API}/accounts/{account_id}/workers/subdomain",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json={"subdomain": name},
+            timeout=30,
+        )
+        data = r.json()
+        if data.get("success"):
+            ok(f"workers.dev subdomain: {name}")
+            return name
+        # already has one
+        if any(e.get("code") == 10036 for e in data.get("errors", [])):
+            r2 = httpx.get(
+                f"{CF_API}/accounts/{account_id}/workers/subdomain",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30,
+            )
+            d2 = r2.json()
+            if d2.get("result", {}).get("subdomain"):
+                return d2["result"]["subdomain"]
+    return "workers"
+
+
+def write_wrangler(d1_id: str, worker_name: str) -> None:
+    content = f'''name = "{worker_name}"
+main = "worker/index.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+preview_urls = true
+
+[assets]
+directory = "./frontend/out"
+binding = "ASSETS"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "xraymod-db"
+database_id = "{d1_id}"
+preview_database_id = "{d1_id}"
+
+[vars]
+ENABLE_TELEGRAM = "false"
+ENABLE_TON_WALLET = "false"
+EXTERNAL_SERVER_URL = ""
+DISGUISE_PAGE = "1101"
+PANEL_RECOVERY = "false"
+TG_BOT_TOKEN = ""
+CRYPTO_KEY = ""
+'''
+    (REPO_ROOT / "wrangler.toml").write_text(content)
+    ok("wrangler.toml به‌روز شد")
+
+
+def deploy_worker(token: str, worker_name: str) -> str:
+    info("دیپلوی Worker...")
+    env = {"CLOUDFLARE_API_TOKEN": token}
+    # npx wrangler deploy
+    run(["npx", "wrangler", "deploy"], env=env)
+
+    # enable workers.dev on script
+    try:
+        accounts = cf(token, "/accounts?per_page=1")
+        account_id = accounts["result"][0]["id"]
+        httpx.post(
+            f"{CF_API}/accounts/{account_id}/workers/scripts/{worker_name}/subdomain",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json={"enabled": True, "previews_enabled": True},
+            timeout=30,
+        )
+    except Exception:
+        pass
+
+    subdomain = ensure_workers_subdomain(token, cf(token, "/accounts?per_page=1")["result"][0]["id"])
+    url = f"https://{worker_name}.{subdomain}.workers.dev"
+    ok(f"Worker: {url}")
+    return url
+
+
+def bootstrap_remote(worker_url: str, username: str, password: str, retries: int = 12) -> dict:
+    info("راه‌اندازی پنل (bootstrap)...")
+    last_err = ""
+    for i in range(retries):
+        try:
+            r = httpx.post(
+                f"{worker_url.rstrip('/')}/install",
+                json={"username": username, "password": password, "auto": False},
+                timeout=45,
+            )
+            data = r.json()
+            if data.get("success"):
+                ok("پنل آماده شد")
+                return data
+            last_err = data.get("error") or r.text[:200]
+        except Exception as e:
+            last_err = str(e)
+        time.sleep(2 + i * 0.5)
+    raise RuntimeError(f"Bootstrap failed: {last_err}")
+
+
+def print_success(data: dict, worker_url: str) -> None:
+    print(
+        f"""
+{G}╔══════════════════════════════════════════════╗
+║{B}            نصب با موفقیت انجام شد           {N}{G}║
+╚══════════════════════════════════════════════╝{N}
+
+  {B}نام کاربری:{N}  {data.get('username')}
+  {B}رمز عبور:{N}    {data.get('password')}
+  {B}Access UUID:{N} {data.get('accessUUID')}
+
+  {C}لینک ورود:{N}
+  {data.get('loginUrl') or worker_url + '/' + data.get('accessUUID','') + '/login'}
+
+  {C}لینک پنل:{N}
+  {data.get('panelUrl')}
+
+  {C}سابسکریپشن:{N}
+  {data.get('subscriptionUrl')}
+
+  {C}کانفیگ پیشنهادی:{N}
+  {data.get('configLink','')[:80]}...
+
+  {Y}پشتیبانی تلگرام:{N} {SUPPORT_TG}
+
+  {DIM}این اطلاعات را ذخیره کن — لینک پنل مخفی است.{N}
+"""
+    )
+
+
+def main() -> None:
+    banner()
+    ensure_tools()
+
+    cfg = load_config()
+    print(f"  {B}[۱/۳] Cloudflare API Token{N}")
+    print(f"  {DIM}بساز از:{N} {C}https://dash.cloudflare.com/profile/api-tokens{N}")
+    print(f"  {DIM}قالب پیشنهادی: Edit Cloudflare Workers{N}\n")
+
+    token = ask("توکن را اینجا بچسبان", "")
+    if not token or len(token) < 20:
+        err("توکن معتبر نیست")
+        sys.exit(1)
+
+    info("در حال بررسی توکن...")
+    try:
+        accounts = cf(token, "/accounts?per_page=5")
+    except Exception as e:
+        err(f"توکن رد شد: {e}")
+        print(f"  {DIM}Permission لازم: Account Read + Workers Edit + D1 Edit{N}")
+        sys.exit(1)
+
+    results = accounts.get("result") or []
+    if not results:
+        err("هیچ اکانت Cloudflare پیدا نشد")
+        sys.exit(1)
+
+    if len(results) == 1:
+        account = results[0]
+    else:
+        print("\n  اکانت‌های پیدا شده:")
+        for i, a in enumerate(results, 1):
+            print(f"    {i}) {a.get('name')}")
+        idx = ask("شماره اکانت را انتخاب کن", "1")
+        try:
+            account = results[int(idx) - 1]
+        except Exception:
+            account = results[0]
+
+    account_id = account["id"]
+    ok(f"متصل به اکانت: {account.get('name')}")
+
+    print()
+    print(f"  {B}[۲/۳] نام کاربری پنل{N}")
+    username = ask("نام کاربری", "admin")
+    if not re.match(r"^[\w.-]{3,32}$", username):
+        err("نام کاربری نامعتبر (۳–۳۲ کاراکتر لاتین/عدد)")
+        sys.exit(1)
+
+    print()
+    print(f"  {B}[۳/۳] رمز عبور پنل{N}")
+    password = ask("رمز عبور (Enter = ساخت خودکار)", "", secret=True)
+    if password and len(password) < 6:
+        err("رمز حداقل ۶ کاراکتر")
+        sys.exit(1)
+    if not password:
+        password = secrets.token_urlsafe(12)
+        ok(f"رمز خودکار: {password}")
+
+    # Defaults for open-source simplicity — no extra questions
+    worker_name = re.sub(r"[^a-z0-9-]", "-", (cfg.get("worker_name") or "xraymod").lower())[:40] or "xraymod"
+    d1_name = "xraymod-db"
+    print()
+    info(f"Worker: {worker_name} · D1: {d1_name}")
+    info("در حال ساخت پنل... (ممکن است چند دقیقه طول بکشد)")
+
+    try:
+        ensure_deps()
+        build_ui()
+        d1_id = create_or_get_d1(token, account_id, d1_name)
+        ensure_workers_subdomain(token, account_id)
+        write_wrangler(d1_id, worker_name)
+        worker_url = deploy_worker(token, worker_name)
+        # wait for edge
+        time.sleep(3)
+        data = bootstrap_remote(worker_url, username, password)
+        save_config(
+            {
+                "api_token": token,
+                "account_id": account_id,
+                "worker_name": worker_name,
+                "d1_id": d1_id,
+                "worker_url": worker_url,
+                "panel_url": data.get("panelUrl"),
+                "username": username,
+            }
+        )
+        print_success(data, worker_url)
+    except Exception as e:
+        err(str(e))
+        print(f"\n  {Y}پشتیبانی:{N} {SUPPORT_TG}\n")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

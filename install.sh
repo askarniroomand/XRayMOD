@@ -1,76 +1,99 @@
 #!/usr/bin/env bash
-# XRayMOD Installer — Stage 1 (Bash)
-# Downloads and runs the FastAPI installer via uv.
+# ═══════════════════════════════════════════════════════════════
+#  XrayMOD — One-Click Open Source Installer
 #
-# Usage:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
+#  bash <(curl -fsSL https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/refs/heads/main/install.sh)
 #
+#  Flow for end users:
+#    1) Cloudflare API Token
+#    2) Account (auto if only one)
+#    3) Panel username
+#    4) Panel password
+#    5) Automatic deploy + print login / sub links
+#
+#  Support: https://t.me/MRROBOT_DT
+# ═══════════════════════════════════════════════════════════════
 set -euo pipefail
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
 
 INSTALLER_DIR="${HOME}/.xraymod"
+REPO_URL="${XRAYMOD_REPO:-https://github.com/EvolveBeyond/XRayMOD.git}"
+BRANCH="${XRAYMOD_BRANCH:-main}"
 
+clear 2>/dev/null || true
 echo ""
-echo -e "${GREEN}╔══════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║        XrayMOD Installer             ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════╝${NC}"
+echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║${BOLD}   XrayMOD  ·  نصب خودکار پنل Cloudflare        ${NC}${GREEN}║${NC}"
+echo -e "${GREEN}║${DIM}   فقط توکن · یوزر · رمز  →  پنل آماده         ${NC}${GREEN}║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "  ${CYAN}پشتیبانی:${NC} https://t.me/MRROBOT_DT"
 echo ""
 
-# ── Step 1: Check curl ──────────────────────────────────────
-if ! command -v curl &>/dev/null; then
-    echo -e "${RED}Error: curl is required but not installed.${NC}"
-    exit 1
+die() { echo -e "${RED}✗${NC} $*" >&2; exit 1; }
+step() { echo -e "${YELLOW}→${NC} $*"; }
+ok() { echo -e "${GREEN}✓${NC} $*"; }
+
+# ── prerequisites ───────────────────────────────────────────
+command -v curl >/dev/null || die "curl لازم است"
+command -v git  >/dev/null || die "git لازم است"
+
+if ! command -v node >/dev/null; then
+  die "Node.js لازم است — از https://nodejs.org نسخه LTS را نصب کن و دوباره همین دستور را بزن"
+fi
+NODE_MAJOR="$(node -v | sed 's/v//' | cut -d. -f1)"
+if [ "${NODE_MAJOR}" -lt 18 ]; then
+  die "Node.js 18+ لازم است (الان: $(node -v))"
+fi
+ok "Node $(node -v)"
+
+command -v npm >/dev/null || die "npm پیدا نشد"
+
+# Python runner
+export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
+if ! command -v uv >/dev/null; then
+  step "نصب uv (ابزار پایتون)..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null 2>&1 || true
+  export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
 fi
 
-# ── Step 2: Check/install uv ────────────────────────────────
-if command -v uv &>/dev/null; then
-    echo -e "${GREEN}✓${NC} uv found: $(uv --version)"
-else
-    echo -e "${YELLOW}→${NC} uv not found. Installing..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null
-    export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
-    if ! command -v uv &>/dev/null; then
-        echo -e "${RED}Error: uv installation failed.${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}✓${NC} uv installed: $(uv --version)"
-fi
-
-# ── Step 3: Clone repo ─────────────────────────────────────
-echo ""
-echo -e "${YELLOW}→${NC} Setting up installer..."
+# ── fetch source ────────────────────────────────────────────
 mkdir -p "${INSTALLER_DIR}"
-
-REPO_URL="https://github.com/EvolveBeyond/XRayMOD.git"
-if [ -d "${INSTALLER_DIR}/XRayMOD" ]; then
-    echo -e "${GREEN}✓${NC} Repository exists, updating..."
-    if ! git -C "${INSTALLER_DIR}/XRayMOD" pull --quiet 2>/dev/null; then
-        echo -e "${YELLOW}→${NC} Pull failed, re-cloning..."
-        rm -rf "${INSTALLER_DIR}/XRayMOD"
-        git clone --depth 1 "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" 2>/dev/null
-    fi
+if [ -d "${INSTALLER_DIR}/XRayMOD/.git" ]; then
+  step "به‌روزرسانی مخزن..."
+  git -C "${INSTALLER_DIR}/XRayMOD" remote set-url origin "${REPO_URL}" 2>/dev/null || true
+  git -C "${INSTALLER_DIR}/XRayMOD" fetch --depth 1 origin "${BRANCH}" --quiet 2>/dev/null || true
+  git -C "${INSTALLER_DIR}/XRayMOD" checkout -f "${BRANCH}" --quiet 2>/dev/null || true
+  git -C "${INSTALLER_DIR}/XRayMOD" reset --hard "origin/${BRANCH}" --quiet 2>/dev/null || \
+    git -C "${INSTALLER_DIR}/XRayMOD" pull --ff-only --quiet 2>/dev/null || true
 else
-    echo -e "${YELLOW}→${NC} Cloning repository..."
-    git clone --depth 1 "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" 2>/dev/null
-    echo -e "${GREEN}✓${NC} Repository cloned"
+  step "دانلود XrayMOD..."
+  rm -rf "${INSTALLER_DIR}/XRayMOD"
+  git clone --depth 1 -b "${BRANCH}" "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" \
+    || die "کلون مخزن ناموفق — اینترنت / آدرس گیت‌هاب را چک کن"
 fi
-
-# Verify installer exists
-if [ ! -f "${INSTALLER_DIR}/XRayMOD/installer/__main__.py" ]; then
-    echo -e "${RED}Error: Installer files missing. Re-cloning...${NC}"
-    rm -rf "${INSTALLER_DIR}/XRayMOD"
-    git clone --depth 1 "${REPO_URL}" "${INSTALLER_DIR}/XRayMOD" 2>/dev/null
-fi
-
-# ── Step 4: Run FastAPI installer ───────────────────────────
-echo ""
-echo -e "${YELLOW}→${NC} Starting installer on http://localhost:8000"
-echo -e "${YELLOW}→${NC} Press Ctrl+C to stop"
-echo ""
 
 cd "${INSTALLER_DIR}/XRayMOD"
-exec uv run python -m installer "$@"
+[ -f installer/cli_deploy.py ] || die "installer/cli_deploy.py در مخزن نیست — main را push کردی؟"
+ok "سورس آماده است"
+echo ""
+
+# ── run interactive deploy ──────────────────────────────────
+if command -v uv >/dev/null; then
+  exec uv run --with httpx python installer/cli_deploy.py "$@"
+fi
+
+# fallback: system python
+if command -v python3 >/dev/null; then
+  python3 -m pip install --user -q httpx 2>/dev/null || true
+  exec python3 installer/cli_deploy.py "$@"
+fi
+
+die "python3 یا uv لازم است"

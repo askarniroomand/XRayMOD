@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import secrets
+import subprocess
 from pathlib import Path
 
 import httpx
@@ -9,16 +10,39 @@ import httpx
 from . import cf_api
 from .config import load, save, get_cache_path
 
-# XRayMOD worker.js as base (proven, no 1101)
-NOVA_WORKER_URL = "https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main/worker.js"
+# Fallback: published obfuscated worker (when local bundle unavailable)
+WORKER_BUNDLE_URL = "https://raw.githubusercontent.com/EvolveBeyond/XRayMOD/main/worker.js"
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def fetch_worker_code() -> str:
+    """Prefer local build (worker.js or wrangler dry-run), else remote bundle."""
+    local_worker = REPO_ROOT / "worker.js"
+    if local_worker.exists() and local_worker.stat().st_size > 1000:
+        return local_worker.read_text()
+
+    # Try wrangler dry-run bundle
+    try:
+        outdir = get_cache_path("wrangler-bundle")
+        outdir.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["npx", "wrangler", "deploy", "--dry-run", f"--outdir={outdir}"],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+        bundled = outdir / "index.js"
+        if bundled.exists():
+            return bundled.read_text()
+    except Exception:
+        pass
+
     cached = get_cache_path("xraymod-worker.js")
     if cached.exists():
         return cached.read_text()
 
-    resp = httpx.get(NOVA_WORKER_URL, timeout=30, follow_redirects=True)
+    resp = httpx.get(WORKER_BUNDLE_URL, timeout=30, follow_redirects=True)
     if resp.status_code != 200:
         raise RuntimeError(f"Failed to download XRayMOD worker: HTTP {resp.status_code}")
 

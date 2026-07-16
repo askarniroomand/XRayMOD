@@ -1,19 +1,8 @@
 /**
- * Processor registry — registers all intent processors.
- * Add new processors here. Each is independent.
+ * @deprecated IOP processor pipeline is NOT used by the live Worker.
+ * Active entrypoint: worker/router.ts (flat route table).
+ * These files remain as reference for the FastAPI IOP middleware parity only.
+ * Do not register this module from worker/index.ts.
  */
-import { registerProcessor } from '../intent';
-import { proxyProcessor } from './proxy';
-import { apiProcessor } from './api';
-import { subscriptionProcessor } from './subscription';
-import { installProcessor } from './install';
-import { telegramProcessor } from './telegram';
-import { staticProcessor } from './static';
 
-// Register processors in order of priority
-registerProcessor('proxy', proxyProcessor);
-registerProcessor('install', installProcessor);
-registerProcessor('telegram', telegramProcessor);
-registerProcessor('subscription', subscriptionProcessor);
-registerProcessor('api', apiProcessor);
-registerProcessor('static', staticProcessor);
+export const PROCESSORS_DEPRECATED = true as const;

@@ -49,9 +49,9 @@ export function createKV(env: any): KVStore {
       }
 
       // خواندن از D1
-      const row = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?')
+      const row = (await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?')
         .bind(key)
-        .first<{ v: string }>();
+        .first()) as { v: string } | null;
 
       const value = row?.v ?? null;
 
@@ -92,11 +92,12 @@ export function createKV(env: any): KVStore {
         params.push(`${prefix}%`);
       }
 
-      const rows = await env.DB.prepare(query)
-        .bind(...params)
-        .all<{ k: string }>();
-
-      return rows.results.map((r) => r.k);
+      const stmt = env.DB.prepare(query);
+      const rows = params.length
+        ? await stmt.bind(...params).all()
+        : await stmt.all();
+      const results = (rows.results || []) as { k: string }[];
+      return results.map((r) => r.k);
     },
   };
 }

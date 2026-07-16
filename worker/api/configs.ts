@@ -1,5 +1,6 @@
 import type { Env } from '../types';
 import { requireAdmin } from '../auth';
+import { buildVlessWsLink, buildTrojanWsLink, buildVmessWsLink } from '../lib/links';
 
 function json(data: any, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -77,19 +78,58 @@ export async function handleConfigs(
       return json({ success: false, message: 'User not found' }, 404);
     }
 
-    // Generate config path
-    const configPath = `/proxy/${crypto.randomUUID().slice(0, 8)}`;
-    const port = body.settings.port || 443;
+    const origin = new URL(request.url).origin;
+    const workerHost = new URL(request.url).host;
+    const configPath =
+      body.settings.path ||
+      `/proxy/${crypto.randomUUID().slice(0, 10)}`;
+    const path = configPath.startsWith('/') ? configPath : `/${configPath}`;
+    const port = 443;
+    const name = body.name || 'XrayMOD Node';
+    const settings: Record<string, any> = {
+      ...body.settings,
+      uuid: user.uuid,
+      path,
+      host: workerHost,
+      sni: body.settings.sni || workerHost,
+      network: body.settings.network || 'ws',
+      security: 'tls',
+      fingerprint: body.settings.fingerprint || 'chrome',
+      port,
+    };
 
-    // Generate link from template
-    let template = protocol.template_json;
-    const templateData = { ...body.settings, uuid: user.uuid };
-    for (const [key, value] of Object.entries(templateData)) {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      template = template.replace(regex, String(value));
+    let link = '';
+    const pid = body.protocolId;
+    if (pid.includes('trojan')) {
+      const password = String(settings.password || user.uuid);
+      settings.password = password;
+      link = buildTrojanWsLink({
+        uuid: user.uuid,
+        password,
+        host: workerHost,
+        path,
+        name,
+        sni: settings.sni,
+      });
+    } else if (pid.includes('vmess')) {
+      link = buildVmessWsLink({
+        uuid: user.uuid,
+        host: workerHost,
+        path,
+        name,
+        sni: settings.sni,
+      });
+    } else {
+      // Default & recommended: VLESS + WS + TLS
+      link = buildVlessWsLink({
+        uuid: user.uuid,
+        host: workerHost,
+        path,
+        name,
+        sni: settings.sni,
+        fingerprint: settings.fingerprint,
+      });
     }
-
-    const link = `${body.protocolId}://${btoa(template)}@server.com:${port}?#${body.name || 'Config'}`;
 
     const result = await env.DB.prepare(
       `INSERT INTO configs (user_id, protocol_id, name, settings_json, port, path, link, node_ip, client_limit, created_at)
@@ -97,14 +137,14 @@ export async function handleConfigs(
     )
       .bind(
         body.userId,
-        body.protocolId,
-        body.name || 'Config',
-        JSON.stringify(body.settings),
+        body.protocolId.startsWith('vless') ? body.protocolId : body.protocolId,
+        name,
+        JSON.stringify(settings),
         port,
-        configPath,
+        path,
         link,
-        body.settings.host || '',
-        body.clientLimit || 1,
+        workerHost,
+        body.clientLimit || 3,
         Date.now()
       )
       .run();
@@ -114,10 +154,12 @@ export async function handleConfigs(
         success: true,
         data: {
           id: result.meta.last_row_id,
-          name: body.name,
+          name,
           protocolId: body.protocolId,
           link,
-          path: configPath,
+          path,
+          subscription: `${origin}/sub/${user.uuid}`,
+          tip: 'Best for Cloudflare Workers: VLESS + WebSocket + TLS on port 443. Import the subscription URL in v2rayNG / Hiddify / Streisand.',
         },
       },
       201

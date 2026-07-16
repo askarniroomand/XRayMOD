@@ -1,4 +1,5 @@
 import type { Env } from './types';
+import { hashPasswordFast } from './auth';
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
@@ -57,6 +58,25 @@ CREATE TABLE IF NOT EXISTS backends (
 `;
 
 const DEFAULT_PROTOCOLS = [
+  {
+    id: 'vless-ws',
+    name: 'VLESS + WebSocket (Recommended)',
+    schema_json: JSON.stringify({
+      fields: [
+        { name: 'path', label: 'WS Path', type: 'text', default: '/proxy' },
+        { name: 'sni', label: 'SNI', type: 'text' },
+        { name: 'fingerprint', label: 'Fingerprint', type: 'text', default: 'chrome' },
+      ],
+    }),
+    template_json: JSON.stringify({
+      protocol: 'vless',
+      network: 'ws',
+      security: 'tls',
+    }),
+    price: 0,
+    client_limit: 3,
+    client_price: 0,
+  },
   {
     id: 'vless-reality',
     name: 'VLESS + Reality',
@@ -238,15 +258,11 @@ const DEFAULT_SETTINGS = {
   'tls_fragment.mode': 'Shadowrocket',
   'tg.bot_token': '',
   'tg.chat_id': '',
+  'panel.started_at': '',
+  'panel.paused': 'false',
+  'protocol.mixed_mode': 'false',
+  'panel.monthly_cap_gb': '0',
 };
-
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 async function tableExists(db: D1Database, tableName: string): Promise<boolean> {
   try {
@@ -311,83 +327,119 @@ const TABLES = [
   )`,
 ];
 
+/** Per-isolate cache — avoid re-running heavy DDL/seed on every request */
+let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
+
 export async function ensureSchema(db: D1Database): Promise<void> {
-  // Create tables individually (miniflare exec() doesn't handle multi-statement)
+  if (schemaReady) return;
+  if (schemaPromise) return schemaPromise;
+  schemaPromise = ensureSchemaInner(db)
+    .then(() => {
+      schemaReady = true;
+    })
+    .catch((err) => {
+      schemaPromise = null;
+      throw err;
+    });
+  return schemaPromise;
+}
+
+async function ensureSchemaInner(db: D1Database): Promise<void> {
+  if (!db) {
+    throw new Error('D1 binding DB is missing');
+  }
+
+  // Create tables (individually — multi-statement not reliable)
   for (const sql of TABLES) {
     await db.prepare(sql).run();
   }
 
-  // Check if protocols table is empty and seed if needed
-  const protocolsExist = await tableExists(db, 'protocols');
-  if (protocolsExist) {
-    const count = await db.prepare('SELECT COUNT(*) as count FROM protocols').first<{ count: number }>();
-    if (count && count.count === 0) {
-      // Seed default protocols
-      for (const p of DEFAULT_PROTOCOLS) {
-        await db
-          .prepare(
-            'INSERT OR IGNORE INTO protocols (id, name, schema_json, template_json, price, client_limit, client_price) VALUES (?, ?, ?, ?, ?, ?, ?)'
-          )
-          .bind(p.id, p.name, p.schema_json, p.template_json, p.price, p.client_limit, p.client_price)
-          .run();
-      }
+  // Fast path: already fully seeded
+  const version = await db
+    .prepare('SELECT v FROM kvstore WHERE k = ?')
+    .bind('schema.version')
+    .first<{ v: string }>();
+  if (version?.v === '2') {
+    return;
+  }
+
+  // Protocols seed
+  const protoCount = await db
+    .prepare('SELECT COUNT(*) as count FROM protocols')
+    .first<{ count: number }>();
+  if (!protoCount || protoCount.count === 0) {
+    for (const p of DEFAULT_PROTOCOLS) {
+      await db
+        .prepare(
+          'INSERT OR IGNORE INTO protocols (id, name, schema_json, template_json, price, client_limit, client_price) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )
+        .bind(p.id, p.name, p.schema_json, p.template_json, p.price, p.client_limit, p.client_price)
+        .run();
     }
   }
 
-  // Seed default settings
+  // Settings seed (cheap INSERT OR IGNORE)
+  const now = Date.now();
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) {
+    const value = k === 'panel.started_at' && !v ? String(now) : v;
     await db
       .prepare('INSERT OR IGNORE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
-      .bind(k, v, Date.now())
+      .bind(k, value, now)
       .run();
   }
 
-  // Seed default admin user if not exists
+  // Admin seed — use fast hash (legacy SHA-256) so cold start stays under Workers CPU limit
   const adminCheck = await db
     .prepare('SELECT id FROM users WHERE username = ?')
     .bind('admin')
     .first();
   if (!adminCheck) {
-    const adminHash = await hashPassword('admin');
+    const adminHash = await hashPasswordFast('admin');
     const adminUuid = crypto.randomUUID();
     await db
       .prepare(
         'INSERT INTO users (username, password_hash, role, uuid, status, created_at) VALUES (?, ?, ?, ?, ?, ?)'
       )
-      .bind('admin', adminHash, 'admin', adminUuid, 'active', Date.now())
+      .bind('admin', adminHash, 'admin', adminUuid, 'active', now)
       .run();
-
-    // Store admin UUID in settings
     await db
-      .prepare(
-        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
-      )
-      .bind('panel.admin_uuid', adminUuid, Date.now())
+      .prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
+      .bind('panel.admin_uuid', adminUuid, now)
       .run();
   }
 
-  // Seed default user if not exists
-  const userCheck = await db
-    .prepare('SELECT id FROM users WHERE username = ?')
-    .bind('user')
-    .first();
-  if (!userCheck) {
-    const userHash = await hashPassword('user');
-    const userUuid = crypto.randomUUID();
-    await db
-      .prepare(
-        'INSERT INTO users (username, password_hash, role, uuid, status, traffic_limit, expiry_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      )
-      .bind(
-        'user',
-        userHash,
-        'user',
-        userUuid,
-        'active',
-        100,
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        Date.now()
-      )
-      .run();
+  // Demo user (optional, non-fatal)
+  try {
+    const userCheck = await db
+      .prepare('SELECT id FROM users WHERE username = ?')
+      .bind('user')
+      .first();
+    if (!userCheck) {
+      const userHash = await hashPasswordFast('user');
+      const userUuid = crypto.randomUUID();
+      await db
+        .prepare(
+          'INSERT INTO users (username, password_hash, role, uuid, status, traffic_limit, expiry_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .bind(
+          'user',
+          userHash,
+          'user',
+          userUuid,
+          'active',
+          100 * 1024 * 1024 * 1024,
+          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          now
+        )
+        .run();
+    }
+  } catch {
+    /* ignore seed user failures */
   }
+
+  await db
+    .prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
+    .bind('schema.version', '2', now)
+    .run();
 }

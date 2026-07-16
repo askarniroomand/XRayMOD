@@ -12,7 +12,7 @@ export default function NodesPage() {
   const [ip, setIp] = useState('');
 
   useEffect(() => {
-    api.get('/api/nodes').then(d => setNodes(d.data || [])).catch(() => {});
+    api.get('/api/nodes').then((d) => setNodes(d?.data || [])).catch(() => setNodes([]));
   }, []);
 
   const addNode = async () => {
@@ -33,9 +33,9 @@ export default function NodesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-black">Nodes</h2>
+        <h2 className="text-3xl font-black">سرورها</h2>
         <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-bold rounded-xl text-sm">
-          <Plus size={16} /> Add Server
+          <Plus size={16} /> افزودن سرور
         </button>
       </div>
 

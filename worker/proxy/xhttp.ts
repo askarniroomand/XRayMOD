@@ -1,15 +1,20 @@
-// XHTTP transport handler for Cloudflare Workers
-// XHTTP is an HTTP-based transport with chunked encoding
+// XHTTP transport detection for Cloudflare Workers.
+// Keep this narrow — broad Content-Type matching would steal normal API POSTs.
 
 export function isXHTTPRequest(request: Request): boolean {
+  if (request.method !== 'POST') return false;
+
+  const path = new URL(request.url).pathname.toLowerCase();
+  // Only treat as XHTTP when path looks like a proxy tunnel, not /api/*
+  if (path.startsWith('/api/') || path.startsWith('/install') || path.startsWith('/bot')) {
+    return false;
+  }
+
+  const xhttpHeader = request.headers.get('X-Session-Id') || request.headers.get('X-Padding');
+  if (xhttpHeader) return true;
+
   const referer = request.headers.get('Referer') || '';
   if (referer.includes('x_padding')) return true;
-
-  const contentType = request.headers.get('Content-Type') || '';
-  if (contentType.includes('application/octet-stream') && request.method === 'POST') {
-    // Heuristic: XHTTP often uses octet-stream with specific path patterns
-    return true;
-  }
 
   return false;
 }

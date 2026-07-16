@@ -728,6 +728,43 @@ export default function App() {
                   isAddUserDialogOpen={isAddUserDialogOpen}
                   setIsAddUserDialogOpen={setIsAddUserDialogOpen}
                   setProtocols={setProtocols}
+                  disguiseEnabled={disguiseEnabled}
+                  setDisguiseEnabled={setDisguiseEnabled}
+                  disguiseAdminPath={disguiseAdminPath}
+                  setDisguiseAdminPath={setDisguiseAdminPath}
+                  disguiseLoginPath={disguiseLoginPath}
+                  setDisguiseLoginPath={setDisguiseLoginPath}
+                  disguiseSubPath={disguiseSubPath}
+                  setDisguiseSubPath={setDisguiseSubPath}
+                  disguiseFallbackPage={disguiseFallbackPage}
+                  setDisguiseFallbackPage={setDisguiseFallbackPage}
+                  cleanIPs={cleanIPs}
+                  cleanIPScanResults={cleanIPScanResults}
+                  cleanIPISP={cleanIPISP}
+                  cleanIPScanning={cleanIPScanning}
+                  handleScanCleanIP={handleScanCleanIP}
+                  handleApplyCleanIP={handleApplyCleanIP}
+                  echEnabled={echEnabled}
+                  setEchEnabled={setEchEnabled}
+                  echSni={echSni}
+                  setEchSni={setEchSni}
+                  echDns={echDns}
+                  setEchDns={setEchDns}
+                  tlsFragEnabled={tlsFragEnabled}
+                  setTlsFragEnabled={setTlsFragEnabled}
+                  tlsFragMode={tlsFragMode}
+                  setTlsFragMode={setTlsFragMode}
+                  tgBotToken={tgBotToken}
+                  setTgBotToken={setTgBotToken}
+                  tgChatId={tgChatId}
+                  setTgChatId={setTgChatId}
+                  backends={backends}
+                  setBackends={setBackends}
+                  backendIP={backendIP}
+                  setBackendIP={setBackendIP}
+                  backendPort={backendPort}
+                  setBackendPort={setBackendPort}
+                  handleRegisterBackend={handleRegisterBackend}
                 />
               ) : (
                 <UserView 
@@ -737,6 +774,13 @@ export default function App() {
                   handleWithdraw={handleWithdraw}
                   userProfile={userProfile}
                   setUserProfile={setUserProfile}
+                  backends={backends}
+                  setBackends={setBackends}
+                  backendIP={backendIP}
+                  setBackendIP={setBackendIP}
+                  backendPort={backendPort}
+                  setBackendPort={setBackendPort}
+                  handleRegisterBackend={handleRegisterBackend}
                 />
               )}
             </AnimatePresence>
@@ -801,7 +845,44 @@ function AdminView({
   setEditingUser,
   isAddUserDialogOpen,
   setIsAddUserDialogOpen,
-  setProtocols
+  setProtocols,
+  disguiseEnabled,
+  setDisguiseEnabled,
+  disguiseAdminPath,
+  setDisguiseAdminPath,
+  disguiseLoginPath,
+  setDisguiseLoginPath,
+  disguiseSubPath,
+  setDisguiseSubPath,
+  disguiseFallbackPage,
+  setDisguiseFallbackPage,
+  cleanIPs,
+  cleanIPScanResults,
+  cleanIPISP,
+  cleanIPScanning,
+  handleScanCleanIP,
+  handleApplyCleanIP,
+  echEnabled,
+  setEchEnabled,
+  echSni,
+  setEchSni,
+  echDns,
+  setEchDns,
+  tlsFragEnabled,
+  setTlsFragEnabled,
+  tlsFragMode,
+  setTlsFragMode,
+  tgBotToken,
+  setTgBotToken,
+  tgChatId,
+  setTgChatId,
+  backends,
+  setBackends,
+  backendIP,
+  setBackendIP,
+  backendPort,
+  setBackendPort,
+  handleRegisterBackend,
 }: any) {
   return (
     <motion.div
@@ -1785,7 +1866,21 @@ function AdminView({
   );
 }
 
-function UserView({ activeTab, userConfigs, userAddress, handleWithdraw, userProfile, setUserProfile }: any) {
+function UserView({
+  activeTab,
+  userConfigs,
+  userAddress,
+  handleWithdraw,
+  userProfile,
+  setUserProfile,
+  backends,
+  setBackends,
+  backendIP,
+  setBackendIP,
+  backendPort,
+  setBackendPort,
+  handleRegisterBackend,
+}: any) {
   const [selectedConfig, setSelectedConfig] = useState<UserConfig | null>(null);
   
   // Purchase State

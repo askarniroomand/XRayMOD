@@ -1,5 +1,5 @@
 import type { Env } from './types';
-import { hashPassword } from './auth';
+import { bootstrapPanel, getStoredCredentials, type BootstrapResult } from './lib/bootstrap';
 
 export async function handleInstall(
   request: Request,
@@ -8,359 +8,215 @@ export async function handleInstall(
   _params: Record<string, string>
 ): Promise<Response> {
   const url = new URL(request.url);
+  const origin = url.origin;
 
-  // Check if already configured
-  const configured = await env.DB.prepare(
+  const accessRow = await env.DB.prepare(
+    'SELECT v FROM kvstore WHERE k = ?'
+  )
+    .bind('panel.access_uuid')
+    .first<{ v: string }>();
+
+  const pwRow = await env.DB.prepare(
     'SELECT v FROM kvstore WHERE k = ?'
   )
     .bind('panel.password_hash')
     .first<{ v: string }>();
 
-  if (configured && configured.v) {
-    // Already configured, check if we have UUID
-    const uuidRow = await env.DB.prepare(
-      'SELECT v FROM kvstore WHERE k = ?'
-    )
-      .bind('panel.access_uuid')
-      .first<{ v: string }>();
-
-    if (uuidRow && uuidRow.v) {
-      // Redirect to panel with UUID
+  // Already configured
+  if (accessRow?.v && pwRow?.v) {
+    if (request.method === 'GET' && (url.searchParams.get('creds') === '1' || url.searchParams.get('info') === '1')) {
+      const creds = await getStoredCredentials(env, origin);
+      return renderResultPage(creds);
+    }
+    if (request.method === 'GET' && !url.searchParams.has('reset')) {
       return new Response(null, {
         status: 302,
-        headers: { Location: `/${uuidRow.v}/` },
+        headers: { Location: `/${accessRow.v}/login` },
       });
     }
   }
 
-  // Auto-configure from ADMIN_PASSWORD env var (first visit)
-  if (!configured || !configured.v) {
-    const adminPassword = (env as any).ADMIN_PASSWORD as string | undefined;
-    if (adminPassword && adminPassword.length >= 4) {
-      // Set password from env var
-      const hash = await hashPassword(adminPassword);
-      await env.DB.prepare(
-        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
-      )
-        .bind('panel.password_hash', hash, Date.now())
-        .run();
-
-      // Generate random panel access UUID
-      const accessUUID = crypto.randomUUID();
-      await env.DB.prepare(
-        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
-      )
-        .bind('panel.access_uuid', accessUUID, Date.now())
-        .run();
-
-      // Generate random secret key
-      const secretKey = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
-      await env.DB.prepare(
-        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
-      )
-        .bind('panel.secret_key', secretKey, Date.now())
-        .run();
-
-      // Update admin user password
-      await env.DB.prepare(
-        'UPDATE users SET password_hash = ? WHERE role = ?'
-      )
-        .bind(hash, 'admin')
-        .run();
-
-      // Redirect to panel with UUID
-      return new Response(null, {
-        status: 302,
-        headers: { Location: `/${accessUUID}/` },
-      });
-    }
-  }
-
-  // Handle POST (manual password setup)
   if (request.method === 'POST') {
     try {
-      const body = await request.json<{ password: string }>();
-      const password = body.password;
-
-      if (!password || password.length < 4) {
-        return new Response(JSON.stringify({ error: 'Password must be at least 4 characters' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        });
+      let password: string | undefined;
+      let username: string | undefined;
+      try {
+        const body = (await request.json()) as {
+          password?: string;
+          username?: string;
+          auto?: boolean;
+        };
+        if (!body.auto && body.password) password = body.password;
+        if (body.username) username = body.username;
+      } catch {
+        /* empty body = auto */
       }
 
-      // Hash password and store
-      const hash = await hashPassword(password);
-      await env.DB.prepare(
-        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
-      )
-        .bind('panel.password_hash', hash, Date.now())
-        .run();
+      if (password && password.length < 6) {
+        return json({ success: false, error: 'Password min 6 chars' }, 400);
+      }
 
-      // Generate random panel access UUID
-      const accessUUID = crypto.randomUUID();
-      await env.DB.prepare(
-        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
-      )
-        .bind('panel.access_uuid', accessUUID, Date.now())
-        .run();
+      // If already set, return stored
+      if (accessRow?.v && pwRow?.v && !url.searchParams.has('reset')) {
+        const existing = await getStoredCredentials(env, origin);
+        if (existing) return json({ success: true, ...existing });
+      }
 
-      // Generate random secret key
-      const secretKey = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
-      await env.DB.prepare(
-        'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
-      )
-        .bind('panel.secret_key', secretKey, Date.now())
-        .run();
-
-      // Update admin user password
-      await env.DB.prepare(
-        'UPDATE users SET password_hash = ? WHERE role = ?'
-      )
-        .bind(hash, 'admin')
-        .run();
-
-      return new Response(JSON.stringify({ success: true, message: 'Password set successfully', accessUUID }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const result = await bootstrapPanel(env, origin, { password, username });
+      return json({ success: true, ...result });
     } catch (e) {
-      return new Response(JSON.stringify({ error: 'Invalid request' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.error('install failed', e);
+      return json(
+        { success: false, error: e instanceof Error ? e.message : 'Setup failed' },
+        500
+      );
     }
   }
 
-  // GET - Show install page (manual setup)
+  return renderSetupPage(origin);
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function esc(s: string): string {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;');
+}
+
+function rowHtml(label: string, value: string): string {
+  return `<div class="card"><div class="lab">${esc(label)}</div><div class="row"><div class="val">${esc(value)}</div><button type="button" class="copy" data-v="${esc(value)}">کپی</button></div></div>`;
+}
+
+function renderSetupPage(origin: string): Response {
   const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>XrayMOD — Setup</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #09090b;
-      color: #fafafa;
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-    }
-    .card {
-      background: #18181b;
-      border: 1px solid #27272a;
-      border-radius: 1rem;
-      padding: 2.5rem;
-      max-width: 440px;
-      width: 100%;
-    }
-    .logo {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, #10b981, #059669);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 1.5rem;
-      color: #000;
-      margin: 0 auto 1.5rem;
-    }
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 800;
-      text-align: center;
-      margin-bottom: 0.5rem;
-    }
-    .subtitle {
-      text-align: center;
-      color: #a1a1aa;
-      margin-bottom: 2rem;
-      font-size: 0.875rem;
-      line-height: 1.6;
-    }
-    .form-group {
-      margin-bottom: 1rem;
-    }
-    label {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: #71717a;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
-    }
-    input {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      background: #09090b;
-      border: 1px solid #27272a;
-      border-radius: 0.75rem;
-      color: #fafafa;
-      font-size: 0.875rem;
-      transition: border-color 0.2s;
-    }
-    input:focus {
-      outline: none;
-      border-color: #10b981;
-    }
-    input::placeholder { color: #52525b; }
-    .btn {
-      width: 100%;
-      padding: 0.875rem;
-      background: #10b981;
-      color: #000;
-      border: none;
-      border-radius: 0.75rem;
-      font-weight: 700;
-      font-size: 0.875rem;
-      cursor: pointer;
-      transition: background 0.2s;
-      margin-top: 1rem;
-    }
-    .btn:hover { background: #34d399; }
-    .btn:disabled { background: #27272a; color: #52525b; cursor: not-allowed; }
-    .error {
-      color: #ef4444;
-      font-size: 0.75rem;
-      margin-top: 0.5rem;
-      display: none;
-    }
-    .success {
-      color: #10b981;
-      font-size: 0.875rem;
-      margin-top: 1rem;
-      text-align: center;
-      display: none;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 1.5rem;
-      font-size: 0.75rem;
-      color: #52525b;
-    }
-  </style>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>نصب XrayMOD</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:system-ui,Tahoma,sans-serif;background:#050506;color:#fafafa;display:grid;place-items:center;padding:1.25rem}
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(16,185,129,.2),transparent 50%)}
+.card{width:100%;max-width:440px;background:rgba(18,18,22,.9);border:1px solid #27272a;border-radius:1.4rem;padding:2rem;box-shadow:0 25px 50px rgba(0,0,0,.5)}
+.logo{width:64px;height:64px;margin:0 auto 1rem;border-radius:1.1rem;display:grid;place-items:center;background:linear-gradient(145deg,#34d399,#059669);color:#000;font-weight:900;font-size:1.6rem;box-shadow:0 12px 40px rgba(16,185,129,.35)}
+h1{text-align:center;font-size:1.5rem;font-weight:900}
+h1 span{color:#10b981}
+.sub{text-align:center;color:#71717a;font-size:.875rem;margin:.5rem 0 1.5rem;line-height:1.7}
+.btn{width:100%;padding:1rem;border:0;border-radius:.9rem;background:linear-gradient(180deg,#34d399,#10b981);color:#052e1c;font-weight:800;font-size:1rem;cursor:pointer;box-shadow:0 10px 30px rgba(16,185,129,.3)}
+.btn:disabled{opacity:.6;cursor:wait}
+.hint{margin-top:1rem;font-size:.75rem;color:#52525b;text-align:center;line-height:1.6}
+.err{display:none;margin-top:1rem;padding:.75rem;border-radius:.75rem;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.25);color:#fb7185;font-size:.85rem}
+</style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">X</div>
-    <h1>Welcome to XrayMOD</h1>
-    <p class="subtitle">
-      Set up your admin password to get started.<br>
-      This is the only time you'll need to do this.
-    </p>
+<div class="card">
+  <div class="logo">X</div>
+  <h1>Xray<span>MOD</span></h1>
+  <p class="sub">با یک کلیک پنل آماده می‌شود:<br/>یوزرنیم، رمز، لینک پنل، ساب و کانفیگ پیشنهادی</p>
+  <button class="btn" id="go" type="button">🚀 نصب خودکار و نمایش اطلاعات</button>
+  <div class="err" id="err"></div>
+  <p class="hint">${esc(origin)}</p>
+</div>
+<script>
+document.getElementById('go').onclick=async function(){
+  var b=this;b.disabled=true;b.textContent='در حال نصب...';
+  try{
+    var r=await fetch('/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto:true})});
+    var d=await r.json();
+    if(!d.success) throw new Error(d.error||'fail');
+    sessionStorage.setItem('xraymod_creds',JSON.stringify(d));
+    location.href='/install?creds=1';
+  }catch(e){
+    document.getElementById('err').style.display='block';
+    document.getElementById('err').textContent=e.message||'خطا';
+    b.disabled=false;b.textContent='🚀 نصب خودکار و نمایش اطلاعات';
+  }
+};
+</script>
+</body>
+</html>`;
+  return new Response(html, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
 
-    <form id="setupForm">
-      <div class="form-group">
-        <label for="password">Admin Password</label>
-        <input
-          type="password"
-          id="password"
-          placeholder="Enter a secure password"
-          required
-          minlength="4"
-          autocomplete="new-password"
-        >
-      </div>
-      <div class="form-group">
-        <label for="confirmPassword">Confirm Password</label>
-        <input
-          type="password"
-          id="confirmPassword"
-          placeholder="Confirm your password"
-          required
-          minlength="4"
-          autocomplete="new-password"
-        >
-      </div>
-      <button type="submit" class="btn" id="submitBtn">Complete Setup</button>
-    </form>
+function renderResultPage(creds: BootstrapResult | null): Response {
+  if (!creds) {
+    return new Response(null, { status: 302, headers: { Location: '/install' } });
+  }
+  const c = creds;
+  const blocks = [
+    rowHtml('نام کاربری', c.username),
+    rowHtml('رمز عبور', c.password),
+    rowHtml('شناسه پنل (Access UUID)', c.accessUUID),
+    rowHtml('لینک ورود پنل', c.loginUrl),
+    rowHtml('لینک پنل', c.panelUrl),
+    rowHtml('لینک سابسکریپشن', c.subscriptionUrl),
+    rowHtml('ساب (متن خام)', c.subscriptionRaw),
+    rowHtml('کانفیگ پیشنهادی (VLESS+WS)', c.configLink),
+    rowHtml('Admin UUID', c.adminUuid),
+  ].join('');
 
-    <div class="error" id="error"></div>
-    <div class="success" id="success"></div>
-
-    <div class="footer">
-      Powered by XrayMOD — Cloudflare Workers
-    </div>
+  const html = `<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>اطلاعات پنل · XrayMOD</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:system-ui,Tahoma,sans-serif;background:#050506;color:#fafafa;padding:1.5rem;line-height:1.5}
+.wrap{max-width:560px;margin:0 auto}
+h1{font-size:1.35rem;font-weight:900;margin-bottom:.25rem}
+.sub{color:#71717a;font-size:.85rem;margin-bottom:1.25rem}
+.card{background:rgba(18,18,22,.92);border:1px solid #27272a;border-radius:1.1rem;padding:1.1rem 1.2rem;margin-bottom:.75rem}
+.lab{font-size:.65rem;font-weight:800;color:#71717a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem}
+.val{font-family:ui-monospace,monospace;font-size:.82rem;word-break:break-all;color:#e4e4e7;background:#09090b;padding:.65rem .75rem;border-radius:.65rem;border:1px solid #1f1f23}
+.row{display:flex;gap:.5rem;align-items:stretch}
+.row .val{flex:1}
+button.copy{flex-shrink:0;padding:0 .9rem;border:0;border-radius:.65rem;background:#27272a;color:#a1a1aa;font-size:.75rem;font-weight:700;cursor:pointer}
+button.copy:hover{background:#10b981;color:#000}
+.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);color:#fbbf24;padding:.85rem 1rem;border-radius:.85rem;font-size:.8rem;margin-bottom:1rem}
+.actions{display:flex;flex-direction:column;gap:.6rem;margin-top:1.25rem}
+.btn{display:block;text-align:center;padding:.95rem;border-radius:.9rem;font-weight:800;text-decoration:none}
+.btn-p{background:linear-gradient(180deg,#34d399,#10b981);color:#052e1c}
+.btn-s{background:#18181b;border:1px solid #27272a;color:#e4e4e7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>✅ پنل آماده است</h1>
+  <p class="sub">این اطلاعات را ذخیره کن — لینک پنل مخفی است</p>
+  <div class="warn">⚠️ رمز و لینک را جای امن نگه دار.</div>
+  ${blocks}
+  <div class="actions">
+    <a class="btn btn-p" href="${esc(c.loginUrl)}">ورود به پنل</a>
+    <a class="btn btn-s" href="${esc(c.subscriptionUrl)}" target="_blank" rel="noopener">باز کردن ساب</a>
   </div>
-
-  <script>
-    const form = document.getElementById('setupForm');
-    const error = document.getElementById('error');
-    const success = document.getElementById('success');
-    const submitBtn = document.getElementById('submitBtn');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const password = document.getElementById('password').value;
-      const confirm = document.getElementById('confirmPassword').value;
-
-      if (password !== confirm) {
-        error.textContent = 'Passwords do not match';
-        error.style.display = 'block';
-        return;
-      }
-
-      if (password.length < 4) {
-        error.textContent = 'Password must be at least 4 characters';
-        error.style.display = 'block';
-        return;
-      }
-
-      error.style.display = 'none';
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Setting up...';
-
-      try {
-        const res = await fetch('/install', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password }),
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-          success.innerHTML = 'Setup complete!<br><br>' +
-            '<b>Your Panel URL:</b><br>' +
-            '<code style="background:#18181b;padding:8px;border-radius:6px;display:block;margin-top:8px;word-break:break-all">' +
-            window.location.origin + '/' + data.accessUUID +
-            '</code><br>' +
-            '<button onclick="navigator.clipboard.writeText(\\'' + window.location.origin + '/' + data.accessUUID + '\\')" ' +
-            'style="margin-top:8px;padding:8px 16px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:700;cursor:pointer">' +
-            'Copy URL</button><br><br>' +
-            '<small style="color:#a1a1aa">Save this URL! It is the only way to access your panel.</small>' +
-            '<br><br>Redirecting to login...';
-          success.style.display = 'block';
-          setTimeout(() => {
-            window.location.href = '/' + data.accessUUID;
-          }, 10000);
-        } else {
-          error.textContent = data.error || 'Setup failed';
-          error.style.display = 'block';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Complete Setup';
-        }
-      } catch (err) {
-        error.textContent = 'Network error. Please try again.';
-        error.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Complete Setup';
-      }
+</div>
+<script>
+document.querySelectorAll('button.copy').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    var t=btn.getAttribute('data-v')||'';
+    navigator.clipboard.writeText(t).then(function(){
+      var o=btn.textContent;btn.textContent='کپی شد';
+      setTimeout(function(){btn.textContent=o},1200);
     });
-  </script>
+  });
+});
+</script>
 </body>
 </html>`;
 
   return new Response(html, {
     status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
   });
 }

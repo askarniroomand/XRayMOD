@@ -2,16 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { Users as UsersIcon, Plus, Trash2, Copy, Search, Ban, CheckCircle, Edit2, X, Zap } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, asList } from '@/lib/api';
 import { Card, CardHeader, Button, Input, StatusBadge, ProgressBar, EmptyState } from '@/components';
 
 interface User {
-  id: string;
+  id: string | number;
   username: string;
   email: string;
   uuid: string;
   traffic_limit: number;
   traffic_used: number;
+  /** GB from API */
+  used?: number;
+  limit?: number;
   status: 'active' | 'expired' | 'disabled' | 'paused';
   expiry_date: string;
   created_at: number;
@@ -52,61 +55,79 @@ export default function UsersPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const data = await api.get('/admin/users.json');
-      setUsers(Array.isArray(data) ? data : []);
-    } catch { setUsers([]); }
+      const data = await api.get('/api/users');
+      setUsers(asList<User>(data));
+    } catch {
+      setUsers([]);
+    }
     setLoading(false);
   };
 
   const addUser = async () => {
     try {
-      await api.post('/admin/users.json', { action: 'add', ...addForm });
+      await api.post('/api/users', {
+        username: addForm.username,
+        email: addForm.email,
+        limit: addForm.traffic_limit,
+        expiryDays: addForm.expiry_days,
+        enable: addForm.enable,
+      });
       setShowAdd(false);
       setAddForm({ username: '', email: '', traffic_limit: 100, expiry_days: 30, speed_limit: 0, enable: true });
       loadUsers();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const updateUser = async () => {
     if (!editingUser) return;
     try {
-      await api.post('/admin/users.json', { action: 'update', id: editingUser.id, ...editForm });
+      const expiry = new Date(Date.now() + editForm.expiry_days * 86400000).toISOString().split('T')[0];
+      await api.put(`/api/users/${editingUser.id}`, {
+        username: editForm.username,
+        email: editForm.email,
+        limit: editForm.traffic_limit,
+        expiry,
+        enable: editForm.enable,
+      });
       setEditingUser(null);
       loadUsers();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
-  const deleteUser = async (id: string) => {
-    if (!confirm('Delete this user?')) return;
+  const deleteUser = async (id: string | number) => {
+    if (!confirm('حذف این کاربر؟')) return;
     try {
-      await api.post('/admin/users.json', { action: 'delete', id });
+      await api.delete(`/api/users/${id}`);
       loadUsers();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
-  const toggleUser = async (id: string, enable: boolean) => {
+  const toggleUser = async (id: string | number, enable: boolean) => {
     try {
-      await api.post('/admin/users.json', { action: 'update', id, enable });
+      await api.put(`/api/users/${id}`, { enable });
       loadUsers();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
-  const resetQuota = async (id: string) => {
+  const resetQuota = async (id: string | number) => {
     try {
-      await api.post('/admin/user-reset', { id });
+      await api.put(`/api/users/${id}`, { used: 0 });
       loadUsers();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const openEdit = (user: User) => {
     setEditingUser(user);
+    const limitGB = user.limit ?? (user.traffic_limit ? user.traffic_limit / (1024 ** 3) : 100);
     setEditForm({
       username: user.username,
-      email: user.email,
-      traffic_limit: user.traffic_limit,
-      expiry_days: Math.ceil((new Date(user.expiry_date as any).getTime() - Date.now()) / 86400000) || 30,
+      email: user.email || '',
+      traffic_limit: Math.round(limitGB) || 100,
+      expiry_days: user.expiry_date
+        ? Math.max(1, Math.ceil((new Date(user.expiry_date).getTime() - Date.now()) / 86400000))
+        : 30,
       speed_limit: user.speed_limit || 0,
-      enable: user.enable !== false,
+      enable: user.enable !== false && user.status === 'active',
     });
   };
 
@@ -120,15 +141,21 @@ export default function UsersPage() {
     u.email?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const formatBytes = (gb: number) => {
-    if (!gb) return '0 B';
+  const usedGB = (u: User) => u.used ?? (u.traffic_used ? u.traffic_used / (1024 ** 3) : 0);
+  const limitGB = (u: User) => u.limit ?? (u.traffic_limit ? u.traffic_limit / (1024 ** 3) : 0);
+
+  const formatGB = (gb: number) => {
+    if (!gb) return '0 GB';
     if (gb >= 1024) return (gb / 1024).toFixed(1) + ' TB';
-    return gb + ' GB';
+    return (Math.round(gb * 10) / 10) + ' GB';
   };
 
-  const formatDate = (ts: number) => {
-    if (!ts) return 'N/A';
-    return new Date(ts * 1000).toLocaleDateString();
+  const formatDate = (d: string | number) => {
+    if (!d) return 'N/A';
+    if (typeof d === 'string') return d;
+    // created_at is ms epoch; expiry_date is ISO string
+    const ms = d > 1e12 ? d : d * 1000;
+    return new Date(ms).toLocaleDateString();
   };
 
   return (
@@ -136,8 +163,8 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black">Users</h1>
-          <p className="text-zinc-500 text-sm mt-1">{users.length} total users</p>
+          <h1 className="text-3xl font-black">کاربران</h1>
+          <p className="text-zinc-500 text-sm mt-1">{users.length} کاربر</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:flex-none">
@@ -145,30 +172,30 @@ export default function UsersPage() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search users..."
+              placeholder="جستجوی کاربر..."
               className="w-full sm:w-48 pl-9 pr-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
             />
           </div>
           <Button onClick={() => setShowAdd(true)}>
-            <Plus size={14} /> Add User
+            <Plus size={14} /> افزودن کاربر
           </Button>
         </div>
       </div>
 
-      {/* Add User Form */}
+      {/* افزودن کاربر Form */}
       {showAdd && (
         <Card>
-          <CardHeader title="Add New User" action={<Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}><X size={14} /></Button>} />
+          <CardHeader title="کاربر جدید" action={<Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}><X size={14} /></Button>} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Username" value={addForm.username} onChange={e => setAddForm({ ...addForm, username: e.target.value })} placeholder="e.g. ali" />
             <Input label="Email" type="email" value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} placeholder="user@example.com" />
-            <Input label="Traffic Limit (GB)" type="number" value={addForm.traffic_limit} onChange={e => setAddForm({ ...addForm, traffic_limit: Number(e.target.value) })} />
-            <Input label="Expiry (days)" type="number" value={addForm.expiry_days} onChange={e => setAddForm({ ...addForm, expiry_days: Number(e.target.value) })} />
-            <Input label="Speed Limit (KB/s, 0=unlimited)" type="number" value={addForm.speed_limit} onChange={e => setAddForm({ ...addForm, speed_limit: Number(e.target.value) })} />
+            <Input label="سقف ترافیک (GB)" type="number" value={addForm.traffic_limit} onChange={e => setAddForm({ ...addForm, traffic_limit: Number(e.target.value) })} />
+            <Input label="اعتبار (روز)" type="number" value={addForm.expiry_days} onChange={e => setAddForm({ ...addForm, expiry_days: Number(e.target.value) })} />
+            <Input label="محدودیت سرعت (KB/s، 0=آزاد)" type="number" value={addForm.speed_limit} onChange={e => setAddForm({ ...addForm, speed_limit: Number(e.target.value) })} />
           </div>
           <div className="flex gap-2 mt-4">
-            <Button onClick={addUser}>Create User</Button>
-            <Button variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button onClick={addUser}>ایجاد</Button>
+            <Button variant="secondary" onClick={() => setShowAdd(false)}>انصراف</Button>
           </div>
         </Card>
       )}
@@ -177,23 +204,23 @@ export default function UsersPage() {
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <Card className="w-full max-w-lg mx-4">
-            <CardHeader title={`Edit: ${editingUser.username}`} action={<Button variant="ghost" size="sm" onClick={() => setEditingUser(null)}><X size={14} /></Button>} />
+            <CardHeader title={`ویرایش: ${editingUser.username}`} action={<Button variant="ghost" size="sm" onClick={() => setEditingUser(null)}><X size={14} /></Button>} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input label="Username" value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} />
               <Input label="Email" type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
-              <Input label="Traffic Limit (GB)" type="number" value={editForm.traffic_limit} onChange={e => setEditForm({ ...editForm, traffic_limit: Number(e.target.value) })} />
-              <Input label="Expiry (days)" type="number" value={editForm.expiry_days} onChange={e => setEditForm({ ...editForm, expiry_days: Number(e.target.value) })} />
-              <Input label="Speed Limit (KB/s, 0=unlimited)" type="number" value={editForm.speed_limit} onChange={e => setEditForm({ ...editForm, speed_limit: Number(e.target.value) })} />
+              <Input label="سقف ترافیک (GB)" type="number" value={editForm.traffic_limit} onChange={e => setEditForm({ ...editForm, traffic_limit: Number(e.target.value) })} />
+              <Input label="اعتبار (روز)" type="number" value={editForm.expiry_days} onChange={e => setEditForm({ ...editForm, expiry_days: Number(e.target.value) })} />
+              <Input label="محدودیت سرعت (KB/s، 0=آزاد)" type="number" value={editForm.speed_limit} onChange={e => setEditForm({ ...editForm, speed_limit: Number(e.target.value) })} />
               <div className="flex items-center gap-3 pt-6">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={editForm.enable} onChange={e => setEditForm({ ...editForm, enable: e.target.checked })} className="w-4 h-4 rounded bg-zinc-800 border-zinc-700 text-emerald-500 focus:ring-emerald-500" />
-                  <span className="text-sm">Enabled</span>
+                  <span className="text-sm">فعال</span>
                 </label>
               </div>
             </div>
             <div className="flex gap-2 mt-6">
-              <Button onClick={updateUser}>Save Changes</Button>
-              <Button variant="secondary" onClick={() => setEditingUser(null)}>Cancel</Button>
+              <Button onClick={updateUser}>ذخیره</Button>
+              <Button variant="secondary" onClick={() => setEditingUser(null)}>انصراف</Button>
             </div>
           </Card>
         </div>
@@ -210,9 +237,9 @@ export default function UsersPage() {
         <Card>
           <EmptyState
             icon={UsersIcon}
-            title={search ? 'No users found' : 'No users yet'}
+            title={search ? 'کاربری پیدا نشد' : 'هنوز کاربری نیست'}
             description={search ? 'Try a different search term.' : 'Add your first user to get started.'}
-            action={!search ? <Button onClick={() => setShowAdd(true)}><Plus size={14} /> Add User</Button> : undefined}
+            action={!search ? <Button onClick={() => setShowAdd(true)}><Plus size={14} /> افزودن کاربر</Button> : undefined}
           />
         </Card>
       ) : (
@@ -249,22 +276,22 @@ export default function UsersPage() {
                     <td className="px-5 py-3">
                       <div className="w-32">
                         <div className="flex justify-between text-[10px] font-mono text-zinc-500 mb-1">
-                          <span>{formatBytes(user.traffic_used || 0)}</span>
-                          <span>{formatBytes(user.traffic_limit)}</span>
+                          <span>{formatGB(usedGB(user))}</span>
+                          <span>{formatGB(limitGB(user))}</span>
                         </div>
-                        <ProgressBar value={user.traffic_used || 0} max={user.traffic_limit || 1} size="sm" />
+                        <ProgressBar value={usedGB(user)} max={limitGB(user) || 1} size="sm" />
                       </div>
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-1.5 text-xs">
                         <Zap size={12} className={user.speed_limit > 0 ? 'text-amber-500' : 'text-zinc-600'} />
                         <span className={user.speed_limit > 0 ? 'text-amber-500 font-mono' : 'text-zinc-500'}>
-                          {user.speed_limit > 0 ? user.speed_limit + ' KB/s' : 'Unlimited'}
+                          {user.speed_limit > 0 ? user.speed_limit + ' KB/s' : 'نامحدود'}
                         </span>
                       </div>
                     </td>
                     <td className="px-5 py-3 text-xs font-mono text-zinc-400">
-                      {formatDate(user.expiry_date as any)}
+                      {formatDate(user.expiry_date)}
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">

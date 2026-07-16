@@ -1,5 +1,4 @@
 // VLESS protocol handler for Cloudflare Workers
-// Handles VLESS over WebSocket traffic
 
 export interface VlessConfig {
   uuid: string;
@@ -13,31 +12,33 @@ export function parseVlessHeader(buffer: ArrayBuffer): {
   command: number;
   address: string;
   port: number;
+  payload: ArrayBuffer;
 } | null {
   const view = new Uint8Array(buffer);
 
-  // VLESS header minimum: version(1) + uuid(16) + addons_len(1) + command(1) + port(2) + atype(1)
-  if (view.length < 22) return null;
+  // version(1) + uuid(16) + addon_len(1) minimum
+  if (view.length < 19) return null;
 
-  // Version
   const version = view[0];
   if (version !== 0) return null;
 
-  // UUID (bytes 1-16)
   const uuidBytes = view.slice(1, 17);
   const uuid = formatUuid(uuidBytes);
 
-  // Command: 1 = TCP, 2 = UDP
-  const command = view[18];
+  const addonLen = view[17];
+  let offset = 18 + addonLen;
+  if (view.length < offset + 4) return null; // cmd + port + atype
 
-  // Port (big-endian, bytes 19-20)
-  const port = (view[19] << 8) | view[20];
+  const command = view[offset];
+  offset += 1;
 
-  // Address type
-  const atype = view[21];
+  const port = (view[offset] << 8) | view[offset + 1];
+  offset += 2;
+
+  const atype = view[offset];
+  offset += 1;
+
   let address = '';
-  let offset = 22;
-
   switch (atype) {
     case 1: // IPv4
       if (view.length < offset + 4) return null;
@@ -46,28 +47,38 @@ export function parseVlessHeader(buffer: ArrayBuffer): {
       break;
     case 2: // Domain
       if (view.length < offset + 1) return null;
-      const domainLen = view[offset];
-      offset += 1;
-      if (view.length < offset + domainLen) return null;
-      address = new TextDecoder().decode(view.slice(offset, offset + domainLen));
-      offset += domainLen;
+      {
+        const domainLen = view[offset];
+        offset += 1;
+        if (view.length < offset + domainLen) return null;
+        address = new TextDecoder().decode(view.slice(offset, offset + domainLen));
+        offset += domainLen;
+      }
       break;
     case 3: // IPv6
       if (view.length < offset + 16) return null;
-      const ipv6Parts: string[] = [];
-      for (let i = 0; i < 8; i++) {
-        ipv6Parts.push(
-          ((view[offset + i * 2] << 8) | view[offset + i * 2 + 1]).toString(16)
-        );
+      {
+        const ipv6Parts: string[] = [];
+        for (let i = 0; i < 8; i++) {
+          ipv6Parts.push(
+            ((view[offset + i * 2] << 8) | view[offset + i * 2 + 1]).toString(16)
+          );
+        }
+        address = ipv6Parts.join(':');
+        offset += 16;
       }
-      address = ipv6Parts.join(':');
-      offset += 16;
       break;
     default:
       return null;
   }
 
-  return { uuid, command, address, port };
+  return {
+    uuid,
+    command,
+    address,
+    port,
+    payload: buffer.slice(offset),
+  };
 }
 
 function formatUuid(bytes: Uint8Array): string {
@@ -84,6 +95,6 @@ function formatUuid(bytes: Uint8Array): string {
 }
 
 export function buildVlessResponse(): Uint8Array {
-  // VLESS response: version(1) + response(1) + atype(1) + port(2) + addr_len(1) + addr(1)
-  return new Uint8Array([0, 0, 1, 0, 0, 0]);
+  // version(1) + addon length(1) = empty response
+  return new Uint8Array([0, 0]);
 }

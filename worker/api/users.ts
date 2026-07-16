@@ -1,11 +1,36 @@
 import type { Env, User } from '../types';
 import { requireAdmin, hashPassword } from '../auth';
+import { buildVlessWsLink } from '../lib/links';
 
-function json(data: any, status = 200): Response {
+function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+function mapUser(u: User) {
+  const limitGB = Math.round((u.traffic_limit / (1024 * 1024 * 1024)) * 10) / 10;
+  const usedGB = Math.round((u.traffic_used / (1024 * 1024 * 1024)) * 10) / 10;
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email || '',
+    uuid: u.uuid,
+    role: u.role,
+    status: u.status,
+    enable: u.status === 'active',
+    traffic_limit: u.traffic_limit,
+    traffic_used: u.traffic_used,
+    // GB aliases for SPA dashboard
+    used: usedGB,
+    limit: limitGB,
+    expiry: u.expiry_date,
+    expiry_date: u.expiry_date,
+    created_at: u.created_at,
+    speed_limit: 0,
+    sub_id: u.uuid,
+  };
 }
 
 export async function handleUsers(
@@ -24,21 +49,11 @@ export async function handleUsers(
   if (request.method === 'GET') {
     const users = await env.DB.prepare(
       'SELECT id, username, role, uuid, email, traffic_limit, traffic_used, expiry_date, status, created_at FROM users'
-    )
-      .all<User>();
+    ).all<User>();
 
     return json({
       success: true,
-      data: users.results.map((u) => ({
-        id: u.id,
-        username: u.username,
-        email: u.email,
-        used: Math.round((u.traffic_used / (1024 * 1024 * 1024)) * 10) / 10,
-        limit: Math.round((u.traffic_limit / (1024 * 1024 * 1024)) * 10) / 10,
-        status: u.status,
-        expiry: u.expiry_date,
-        role: u.role,
-      })),
+      data: users.results.map(mapUser),
     });
   }
 
@@ -47,80 +62,146 @@ export async function handleUsers(
       username: string;
       email?: string;
       limit?: number;
+      traffic_limit?: number;
       expiryDays?: number;
+      expiry_days?: number;
+      enable?: boolean;
     }>();
 
     if (!body.username) {
       return json({ success: false, message: 'Username required' }, 400);
     }
 
-    // Generate random password
     const password = crypto.randomUUID().slice(0, 12);
     const passwordHash = await hashPassword(password);
     const uuid = crypto.randomUUID();
-    const limitBytes = (body.limit || 100) * 1024 * 1024 * 1024;
-    const expiryDate = new Date(
-      Date.now() + (body.expiryDays || 30) * 24 * 60 * 60 * 1000
-    )
+    const limitGB = body.limit ?? body.traffic_limit ?? 100;
+    const limitBytes = limitGB * 1024 * 1024 * 1024;
+    const days = body.expiryDays ?? body.expiry_days ?? 30;
+    const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
       .toISOString()
       .split('T')[0];
+    const status = body.enable === false ? 'disabled' : 'active';
 
-    const result = await env.DB.prepare(
-      `INSERT INTO users (username, password_hash, role, uuid, email, traffic_limit, expiry_date, status, created_at)
-       VALUES (?, ?, 'user', ?, ?, ?, ?, 'active', ?)`
-    )
-      .bind(
-        body.username,
-        passwordHash,
-        uuid,
-        body.email || '',
-        limitBytes,
-        expiryDate,
-        Date.now()
+    try {
+      const result = await env.DB.prepare(
+        `INSERT INTO users (username, password_hash, role, uuid, email, traffic_limit, expiry_date, status, created_at)
+         VALUES (?, ?, 'user', ?, ?, ?, ?, ?, ?)`
       )
-      .run();
-
-    return json(
-      {
-        success: true,
-        data: {
-          id: result.meta.last_row_id,
-          username: body.username,
-          password,
+        .bind(
+          body.username,
+          passwordHash,
           uuid,
+          body.email || '',
+          limitBytes,
+          expiryDate,
+          status,
+          Date.now()
+        )
+        .run();
+
+      const userId = result.meta.last_row_id as number;
+
+      const workerHost = new URL(request.url).host;
+      const configPath = `/proxy/${crypto.randomUUID().slice(0, 10)}`;
+      const link = buildVlessWsLink({
+        uuid,
+        host: workerHost,
+        path: configPath,
+        name: `${body.username} · VLESS-WS`,
+        sni: workerHost,
+      });
+      const settings = {
+        port: 443,
+        uuid,
+        path: configPath,
+        host: workerHost,
+        sni: workerHost,
+        security: 'tls',
+        network: 'ws',
+        fingerprint: 'chrome',
+      };
+      await env.DB.prepare(
+        `INSERT INTO configs (user_id, protocol_id, name, settings_json, port, path, link, node_ip, client_limit, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+        .bind(
+          userId,
+          'vless-ws',
+          `${body.username} · Recommended`,
+          JSON.stringify(settings),
+          443,
+          configPath,
+          link,
+          workerHost,
+          3,
+          Date.now()
+        )
+        .run();
+
+      return json(
+        {
+          success: true,
+          data: {
+            id: userId,
+            username: body.username,
+            password,
+            uuid,
+            sub: `/sub/${uuid}`,
+          },
         },
-      },
-      201
-    );
+        201
+      );
+    } catch {
+      return json({ success: false, message: 'Username already exists' }, 409);
+    }
   }
 
   if ((request.method === 'PUT' || request.method === 'PATCH') && params.id) {
     const body = await request.json<{
       limit?: number;
+      traffic_limit?: number;
       expiry?: string;
+      expiry_date?: string;
       status?: string;
+      enable?: boolean;
       used?: number;
+      username?: string;
+      email?: string;
     }>();
 
     const userId = Number(params.id);
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
-    if (body.limit !== undefined) {
+    const limitGB = body.limit ?? body.traffic_limit;
+    if (limitGB !== undefined) {
       updates.push('traffic_limit = ?');
-      values.push(body.limit * 1024 * 1024 * 1024);
+      values.push(limitGB * 1024 * 1024 * 1024);
     }
-    if (body.expiry !== undefined) {
+    const expiry = body.expiry ?? body.expiry_date;
+    if (expiry !== undefined) {
       updates.push('expiry_date = ?');
-      values.push(body.expiry);
+      values.push(expiry);
     }
     if (body.status !== undefined) {
       updates.push('status = ?');
       values.push(body.status);
+    } else if (body.enable !== undefined) {
+      updates.push('status = ?');
+      values.push(body.enable ? 'active' : 'disabled');
     }
     if (body.used !== undefined) {
       updates.push('traffic_used = ?');
       values.push(body.used * 1024 * 1024 * 1024);
+    }
+    if (body.username !== undefined) {
+      updates.push('username = ?');
+      values.push(body.username);
+    }
+    if (body.email !== undefined) {
+      updates.push('email = ?');
+      values.push(body.email);
     }
 
     if (updates.length === 0) {
@@ -133,6 +214,18 @@ export async function handleUsers(
       .run();
 
     return json({ success: true });
+  }
+
+  if (request.method === 'DELETE' && params.id) {
+    const userId = Number(params.id);
+    await env.DB.prepare('DELETE FROM configs WHERE user_id = ?').bind(userId).run();
+    await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+    return json({ success: true });
+  }
+
+  // POST /api/users/:id/reset — reset traffic
+  if (request.method === 'POST' && params.id === 'reset') {
+    return json({ success: false, message: 'Use POST /api/users with body {action:reset,id}' }, 400);
   }
 
   return json({ success: false, message: 'Method not allowed' }, 405);

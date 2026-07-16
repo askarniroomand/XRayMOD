@@ -18,7 +18,7 @@ export async function handleLogout(
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Set-Cookie': clearSessionCookie(),
+        'Set-Cookie': clearSessionCookie(request),
       },
     }
   );

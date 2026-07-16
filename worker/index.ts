@@ -3,6 +3,23 @@ import { handleRequest } from './router';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    return handleRequest(request, env, ctx);
+    try {
+      return await handleRequest(request, env, ctx);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('Uncaught worker error:', msg, e);
+      // Never throw — CF 1101 is worse than a controlled 500
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Worker error',
+          message: msg,
+        }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
   },
 };

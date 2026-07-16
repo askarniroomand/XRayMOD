@@ -41,35 +41,32 @@ export default function ProtocolsPage() {
   const loadProtocols = async () => {
     setLoading(true);
     try {
-      const data = await api.get('/admin/config.json');
-      if (data) {
-        const p: Protocol = {
-          id: 'default',
-          name: data.subName || 'XRayMOD',
-          type: data.protocol || 'vless',
-          enabled: !data.paused,
-          config: {
-            transport: data.network || 'ws',
-            security: data.security || 'tls',
-            fingerprint: data.fingerprint || 'chrome',
-            path: data.path || '/',
-            host: data.host?.[0] || '',
-            flow: data.flow || '',
-            enableECH: data.enableECH || false,
-            enableFragment: data.enableFragment || false,
-          },
-        };
-        setProtocols([p]);
+      const res = await api.get('/api/protocols');
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      if (list.length) {
+        setProtocols(
+          list.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            type: p.id?.split('-')[0] || 'vless',
+            enabled: true,
+            config: typeof p.schema === 'object' ? p.schema : {},
+          }))
+        );
+      } else {
+        setProtocols([]);
       }
-    } catch { setProtocols([]); }
+    } catch {
+      setProtocols([]);
+    }
     setLoading(false);
   };
 
-  const toggleProtocol = async (id: string, enabled: boolean) => {
+  const toggleProtocol = async (_id: string, enabled: boolean) => {
     try {
-      await api.post('/admin/config.json', { paused: !enabled });
+      await api.put('/api/settings', { 'panel.paused': String(!enabled) });
       loadProtocols();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const copySubLink = () => {
@@ -82,11 +79,11 @@ export default function ProtocolsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black">Protocols</h1>
-          <p className="text-zinc-500 text-sm mt-1">Manage proxy protocols and transport settings.</p>
+          <h1 className="text-3xl font-black">پروتکل‌ها</h1>
+          <p className="text-zinc-500 text-sm mt-1">مدیریت پروتکل‌ها و ترنسپورت</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={copySubLink}><Copy size={14} /> Copy Sub Link</Button>
+          <Button variant="secondary" onClick={copySubLink}><Copy size={14} /> کپی لینک ساب</Button>
         </div>
       </div>
 

@@ -35,15 +35,30 @@ export default function SettingsPage() {
   const [passSuccess, setPassSuccess] = useState('');
 
   // 2FA
-  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+  const [twoFAفعال, setTwoFAفعال] = useState(false);
   const [twoFASecret, setTwoFASecret] = useState('');
+  const [twoFAOtpauth, setTwoFAOtpauth] = useState('');
   const [twoFACode, setTwoFACode] = useState('');
 
   useEffect(() => {
-    api.get('/install/status').then(d => setSystem(d)).catch(() => {});
-    api.get('/admin/security/status').then(d => {
-      setSecurity(d);
-      setTwoFAEnabled(d?.twoFA || false);
+    api.get('/api/health').then((d) => {
+      setSystem({
+        version: d.version || '2.0.0',
+        uptime: d.uptime || 'n/a',
+        configured: !!d.configured,
+        kv: d.kv !== false,
+        d1: !!d.d1,
+        store: d.d1 ? 'D1' : 'KV',
+      });
+    }).catch(() => {});
+    api.get('/api/settings').then((res) => {
+      const d = res?.data || {};
+      setTwoFAفعال(d['panel.2fa_enabled'] === 'true');
+      setSecurity({
+        password: '********',
+        passwordSource: 'panel',
+        twoFA: d['panel.2fa_enabled'] === 'true',
+      });
     }).catch(() => {});
   }, []);
 
@@ -59,83 +74,94 @@ export default function SettingsPage() {
       return;
     }
     try {
-      const res = await api.post('/admin/security/change-password', { current: currentPass, new: newPass });
-      if (res.success) {
+      const res = await api.put('/api/settings', {
+        currentPassword: currentPass,
+        newPassword: newPass,
+      });
+      if (res.success !== false) {
         setPassSuccess('Password changed successfully');
         setCurrentPass('');
         setNewPass('');
         setConfirmPass('');
       } else {
-        setPassError(res.error || 'Failed to change password');
+        setPassError(res.message || res.error || 'Failed to change password');
       }
-    } catch (e) {
+    } catch {
       setPassError('Network error');
     }
   };
 
   const setup2FA = async () => {
     try {
-      const res = await api.post('/admin/security/2fa-setup', {});
+      const res = await api.post('/api/settings', { action: '2fa-setup' });
       if (res.secret) {
         setTwoFASecret(res.secret);
+        setTwoFAOtpauth(res.otpauth || '');
       }
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const enable2FA = async () => {
     try {
-      const res = await api.post('/admin/security/2fa-enable', { code: twoFACode, secret: twoFASecret });
-      if (res.success) {
-        setTwoFAEnabled(true);
+      const res = await api.post('/api/settings', {
+        action: '2fa-enable',
+        code: twoFACode,
+        secret: twoFASecret,
+      });
+      if (res.success !== false) {
+        setTwoFAفعال(true);
         setTwoFASecret('');
+        setTwoFAOtpauth('');
         setTwoFACode('');
+      } else {
+        setPassError(res.message || 'Invalid code');
       }
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const disable2FA = async () => {
+    const code = prompt('Enter 2FA code to disable (optional if locked out leave blank):') || '';
     try {
-      await api.post('/admin/security/2fa-disable', {});
-      setTwoFAEnabled(false);
-    } catch {}
+      const res = await api.post('/api/settings', { action: '2fa-disable', code });
+      if (res.success !== false) {
+        setTwoFAفعال(false);
+      }
+    } catch { /* ignore */ }
   };
 
-  const selfUpdate = async () => {
-    if (!confirm('Update the worker to the latest version? This will restart the service.')) return;
-    try {
-      await api.post('/admin/self-update.json', {});
-      alert('Update initiated. The worker will restart shortly.');
-    } catch (e) {
-      alert('Update failed');
-    }
+  const selfبه‌روزرسانی = async () => {
+    alert('Self-update is only available via the installer (re-run install.sh / WebUI deploy).');
   };
 
   const exportConfig = async () => {
     try {
-      const config = await api.get('/admin/config.json');
-      const network = await api.get('/admin/network-settings.json');
-      const blob = new Blob([JSON.stringify({ config, network }, null, 2)], { type: 'application/json' });
+      const settings = await api.get('/api/settings');
+      const blob = new Blob([JSON.stringify({ settings: settings?.data || settings }, null, 2)], {
+        type: 'application/json',
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `xraymod-backup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const importConfig = async () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    input.onchange = async (e: any) => {
-      const file = e.target.files?.[0];
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       try {
         const text = await file.text();
         const data = JSON.parse(text);
-        if (data.config) await api.post('/admin/config.json', data.config);
-        if (data.network) await api.post('/admin/network-settings.json', data.network);
+        const flat = data.settings || data.config || data;
+        if (flat && typeof flat === 'object') {
+          await api.put('/api/settings', flat);
+        }
         alert('Config imported successfully');
         window.location.reload();
       } catch {
@@ -146,26 +172,31 @@ export default function SettingsPage() {
   };
 
   const resetConfig = async () => {
-    if (!confirm('Reset all settings to defaults? This cannot be undone.')) return;
-    if (!confirm('Are you really sure? All your configuration will be lost.')) return;
+    if (!confirm('Reset panel flags to defaults? This cannot be undone.')) return;
+    if (!confirm('Are you really sure?')) return;
     try {
-      await api.post('/admin/init', {});
+      await api.put('/api/settings', {
+        'panel.paused': 'false',
+        'protocol.mixed_mode': 'false',
+        'ech.enabled': 'false',
+        'tls_fragment.enabled': 'false',
+      });
       alert('Config reset. Reloading...');
       window.location.reload();
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-black">Settings</h1>
-        <p className="text-zinc-500 text-sm mt-1">System info, security, and maintenance.</p>
+        <h1 className="text-3xl font-black">تنظیمات</h1>
+        <p className="text-zinc-500 text-sm mt-1">اطلاعات سیستم، امنیت و نگهداری</p>
       </div>
 
       {/* System Info */}
       <Card>
-        <CardHeader title="System Information" />
+        <CardHeader title="اطلاعات سیستم" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2 border-b border-zinc-800/50">
@@ -199,13 +230,13 @@ export default function SettingsPage() {
 
       {/* Security */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Change Password */}
+        {/* تغییر رمز عبور */}
         <Card>
-          <CardHeader title="Change Password" />
+          <CardHeader title="تغییر رمز عبور" />
           <div className="space-y-3">
             <div className="relative">
               <Input
-                label="Current Password"
+                label="رمز فعلی"
                 type={showPass ? 'text' : 'password'}
                 value={currentPass}
                 onChange={e => setCurrentPass(e.target.value)}
@@ -219,14 +250,14 @@ export default function SettingsPage() {
               </button>
             </div>
             <Input
-              label="New Password"
+              label="رمز جدید"
               type={showPass ? 'text' : 'password'}
               value={newPass}
               onChange={e => setNewPass(e.target.value)}
               placeholder="Minimum 6 characters"
             />
             <Input
-              label="Confirm Password"
+              label="تکرار رمز"
               type={showPass ? 'text' : 'password'}
               value={confirmPass}
               onChange={e => setConfirmPass(e.target.value)}
@@ -234,71 +265,73 @@ export default function SettingsPage() {
             />
             {passError && <p className="text-xs text-rose-500">{passError}</p>}
             {passSuccess && <p className="text-xs text-emerald-500">{passSuccess}</p>}
-            <Button onClick={changePassword} size="sm">Change Password</Button>
+            <Button onClick={changePassword} size="sm">تغییر رمز عبور</Button>
           </div>
         </Card>
 
         {/* 2FA */}
         <Card>
-          <CardHeader title="Two-Factor Authentication" />
+          <CardHeader title="احراز هویت دو مرحله‌ای" />
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">2FA Status</p>
-                <p className="text-xs text-zinc-500">{twoFAEnabled ? 'Enabled' : 'Disabled'}</p>
+                <p className="text-sm font-medium">وضعیت 2FA</p>
+                <p className="text-xs text-zinc-500">{twoFAفعال ? 'فعال' : 'غیرفعال'}</p>
               </div>
-              <StatusBadge status={twoFAEnabled ? 'Enabled' : 'Disabled'} variant={twoFAEnabled ? 'success' : 'default'} />
+              <StatusBadge status={twoFAفعال ? 'فعال' : 'غیرفعال'} variant={twoFAفعال ? 'success' : 'default'} />
             </div>
-            {!twoFAEnabled && !twoFASecret && (
-              <Button variant="secondary" onClick={setup2FA} size="sm">Setup 2FA</Button>
+            {!twoFAفعال && !twoFASecret && (
+              <Button variant="secondary" onClick={setup2FA} size="sm">راه‌اندازی 2FA</Button>
             )}
             {twoFASecret && (
-              <div className="p-3 bg-zinc-800/50 rounded-xl">
-                <p className="text-xs text-zinc-400 mb-2">Scan this secret in your authenticator app:</p>
-                <code className="text-xs font-mono text-emerald-500 break-all">{twoFASecret}</code>
+              <div className="p-3 bg-zinc-800/50 rounded-xl space-y-2">
+                <p className="text-xs text-zinc-400">Add this secret in Google Authenticator / Aegis:</p>
+                <code className="block text-xs font-mono text-emerald-400 break-all select-all">{twoFASecret}</code>
+                {twoFAOtpauth && (
+                  <p className="text-[10px] text-zinc-600 break-all">{twoFAOtpauth}</p>
+                )}
                 <Input
                   label="Verification Code"
                   value={twoFACode}
-                  onChange={e => setTwoFACode(e.target.value)}
-                  placeholder="Enter 6-digit code"
-                  className="mt-3"
+                  onChange={e => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="6-digit code"
                 />
-                <Button onClick={enable2FA} size="sm" className="mt-2">Enable 2FA</Button>
+                <Button onClick={enable2FA} size="sm">فعال‌سازی 2FA</Button>
               </div>
             )}
-            {twoFAEnabled && (
-              <Button variant="danger" onClick={disable2FA} size="sm">Disable 2FA</Button>
+            {twoFAفعال && (
+              <Button variant="danger" onClick={disable2FA} size="sm">غیرفعال‌سازی 2FA</Button>
             )}
           </div>
         </Card>
       </div>
 
-      {/* Backup & Restore */}
+      {/* پشتیبان‌گیری و بازیابی */}
       <Card>
-        <CardHeader title="Backup & Restore" />
+        <CardHeader title="پشتیبان‌گیری و بازیابی" />
         <div className="flex flex-wrap gap-3">
           <Button variant="secondary" onClick={exportConfig}>
-            <Download size={14} /> Export Config
+            <Download size={14} /> خروجی تنظیمات
           </Button>
           <Button variant="secondary" onClick={importConfig}>
-            <Upload size={14} /> Import Config
+            <Upload size={14} /> ورود تنظیمات
           </Button>
           <Button variant="danger" onClick={resetConfig}>
-            <Trash2 size={14} /> Reset to Defaults
+            <Trash2 size={14} /> بازنشانی پیش‌فرض
           </Button>
         </div>
       </Card>
 
-      {/* Update */}
+      {/* به‌روزرسانی */}
       <Card>
-        <CardHeader title="Update" />
+        <CardHeader title="به‌روزرسانی" />
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm">Update the worker to the latest version</p>
+            <p className="text-sm">به‌روزرسانی the worker to the latest version</p>
             <p className="text-xs text-zinc-500 mt-0.5">This will restart the service briefly</p>
           </div>
-          <Button variant="secondary" onClick={selfUpdate}>
-            <RefreshCw size={14} /> Check & Update
+          <Button variant="secondary" onClick={selfبه‌روزرسانی}>
+            <RefreshCw size={14} /> Check & به‌روزرسانی
           </Button>
         </div>
       </Card>

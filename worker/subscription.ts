@@ -1,18 +1,32 @@
 import type { Env } from './types';
 import { getCleanIPs } from './utils';
+import {
+  buildVlessWsLink,
+  buildTrojanWsLink,
+  buildVmessWsLink,
+  buildRecommendedLinks,
+  toBase64Lines,
+} from './lib/links';
 
-function json(data: any, status = 200): Response {
-  return new Response(JSON.stringify(data), {
+function text(content: string, status = 200, headers: Record<string, string> = {}): Response {
+  return new Response(content, {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', ...headers },
   });
 }
 
-function text(content: string, status = 200): Response {
-  return new Response(content, {
-    status,
-    headers: { 'Content-Type': 'text/plain' },
-  });
+function subHeaders(user: any, title: string, origin: string): Record<string, string> {
+  const expire = user.expiry_date
+    ? Math.floor(new Date(user.expiry_date).getTime() / 1000)
+    : 0;
+  return {
+    'Profile-Title': 'base64:' + btoa(unescape(encodeURIComponent(title))),
+    'Profile-Update-Interval': '6',
+    'Profile-Web-Page-Url': origin,
+    'Subscription-Userinfo': `upload=0; download=${user.traffic_used || 0}; total=${user.traffic_limit || 0}; expire=${expire}`,
+    'Announce': 'base64:' + btoa(unescape(encodeURIComponent('XrayMOD · CF Edge'))),
+    'support-url': origin,
+  };
 }
 
 export async function handleSubscription(
@@ -22,32 +36,22 @@ export async function handleSubscription(
   params: Record<string, string>
 ): Promise<Response> {
   const token = params.token;
-  if (!token) {
-    return text('Invalid subscription link', 400);
-  }
+  if (!token) return text('Invalid subscription link', 400);
 
-  // Find user by UUID token
   const user = await env.DB.prepare(
     'SELECT id, username, uuid, traffic_limit, traffic_used, expiry_date, status FROM users WHERE uuid = ?'
   )
     .bind(token)
     .first<any>();
 
-  if (!user) {
-    return text('Invalid subscription', 404);
-  }
-
-  if (user.status !== 'active') {
-    return text('Account is not active', 403);
-  }
-
+  if (!user) return text('Invalid subscription', 404);
+  if (user.status !== 'active') return text('Account is not active', 403);
   if (user.expiry_date && new Date(user.expiry_date) < new Date()) {
     return text('Subscription expired', 403);
   }
 
-  // Get all configs for this user
-  const configs = await env.DB.prepare(
-    `SELECT c.*, p.id as proto_id, p.name as proto_name, p.schema_json, p.template_json
+  let configs = await env.DB.prepare(
+    `SELECT c.*, p.id as proto_id, p.name as proto_name
      FROM configs c
      LEFT JOIN protocols p ON c.protocol_id = p.id
      WHERE c.user_id = ?`
@@ -55,306 +59,244 @@ export async function handleSubscription(
     .bind(user.id)
     .all<any>();
 
-  if (configs.results.length === 0) {
-    return text('No configurations available');
-  }
-
-  // Get ECH and TLS fragment settings
-  const echRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('ech.enabled').first<{ v: string }>();
-  const echSniRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('ech.sni').first<{ v: string }>();
-  const echDnsRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('ech.dns').first<{ v: string }>();
-  const tlsFragRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('tls_fragment.enabled').first<{ v: string }>();
-  const tlsFragModeRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('tls_fragment.mode').first<{ v: string }>();
-
-  const echEnabled = echRow?.v === 'true';
-  const echSni = echSniRow?.v || 'cloudflare-ech.com';
-  const echDns = echDnsRow?.v || 'https://dns.alidns.com/dns-query';
-  const tlsFragEnabled = tlsFragRow?.v === 'true';
-  const tlsFragMode = tlsFragModeRow?.v || 'Shadowrocket';
-
-  // Build ECH and TLS fragment link params
-  const echParam = echEnabled ? `&ech=${encodeURIComponent((echSni ? echSni + '+' : '') + echDns)}` : '';
-  const tlsFragParam = tlsFragEnabled
-    ? tlsFragMode === 'Shadowrocket'
-      ? `&fragment=${encodeURIComponent('1,40-60,30-50,tlshello')}`
-      : `&fragment=${encodeURIComponent('3,1,tlshello')}`
-    : '';
-
-  // Get clean IPs for server address
-  const cleanIPs = await getCleanIPs(env.DB);
   const url = new URL(request.url);
+  const workerHost = url.host;
+  const origin = url.origin;
+  const format = (url.searchParams.get('format') || 'base64').toLowerCase();
+  const cleanIPs = await getCleanIPs(env.DB);
 
-  // Check if user has a backend VPS
-  let host = url.host;
-  const backendRow = await env.DB.prepare('SELECT vps_ip, vps_port FROM backends WHERE user_id = ? AND status = ?')
-    .bind(user.id, 'active')
-    .first<{ vps_ip: string; vps_port: number }>();
-  if (backendRow) {
-    host = backendRow.vps_port === 443 ? backendRow.vps_ip : `${backendRow.vps_ip}:${backendRow.vps_port}`;
-  } else if (cleanIPs.length > 0) {
-    host = cleanIPs[0].split(':')[0];
+  // Auto-heal: if no configs, create recommended VLESS-WS
+  if (!configs.results.length) {
+    const path = `/proxy/${crypto.randomUUID().slice(0, 10)}`;
+    const link = buildVlessWsLink({
+      uuid: user.uuid,
+      host: workerHost,
+      path,
+      name: `${user.username} · Auto`,
+      sni: workerHost,
+    });
+    await env.DB.prepare(
+      `INSERT INTO configs (user_id, protocol_id, name, settings_json, port, path, link, node_ip, client_limit, created_at)
+       VALUES (?, 'vless-ws', ?, ?, 443, ?, ?, ?, 3, ?)`
+    )
+      .bind(
+        user.id,
+        'XrayMOD · Auto',
+        JSON.stringify({
+          path,
+          host: workerHost,
+          sni: workerHost,
+          network: 'ws',
+          security: 'tls',
+          uuid: user.uuid,
+        }),
+        path,
+        link,
+        workerHost,
+        Date.now()
+      )
+      .run();
+    configs = await env.DB.prepare(
+      `SELECT c.*, p.id as proto_id, p.name as proto_name FROM configs c
+       LEFT JOIN protocols p ON c.protocol_id = p.id WHERE c.user_id = ?`
+    )
+      .bind(user.id)
+      .all<any>();
   }
 
-  // Check Accept header for format preference
-  const accept = request.headers.get('Accept') || '';
-  const format = url.searchParams.get('format') || 'base64';
+  const mixed =
+    (
+      await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?')
+        .bind('protocol.mixed_mode')
+        .first<{ v: string }>()
+    )?.v === 'true';
 
-  // Check for mixed protocol mode
-  const mixedRow = await env.DB.prepare('SELECT v FROM kvstore WHERE k = ?').bind('protocol.mixed_mode').first<{ v: string }>();
-  const isMixedMode = mixedRow?.v === 'true';
-
-  // Shuffle hosts for per-node fingerprinting (Nova pattern)
-  const shuffledHosts = [...cleanIPs.length ? cleanIPs.map(ip => ip.split(':')[0]) : [host]];
-  for (let i = shuffledHosts.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffledHosts[i], shuffledHosts[j]] = [shuffledHosts[j], shuffledHosts[i]];
-  }
-
-  // Generate links for each config
   const links: string[] = [];
-  const protoCycle = ['vless', 'trojan', 'ss'];
   for (let i = 0; i < configs.results.length; i++) {
     const config = configs.results[i];
     const settings = JSON.parse(config.settings_json || '{}');
+    const path = config.path || settings.path || '/';
+    const name = config.name || `Node ${i + 1}`;
+    const proto = (config.proto_id || config.protocol_id || 'vless-ws') as string;
 
-    // Mixed mode: cycle through protocols
-    const effectiveProtoId = isMixedMode ? protoCycle[i % 3] : config.proto_id;
-
-    // Per-node host randomization (Nova pattern)
-    const nodeHost = shuffledHosts[i % shuffledHosts.length] || host;
-    const port = config.port || 443;
-
-    // Replace template variables
-    let processedTemplate = config.template_json;
-    const templateData = { ...settings, uuid: user.uuid };
-    for (const [key, value] of Object.entries(templateData)) {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      processedTemplate = processedTemplate.replace(regex, String(value));
-    }
-
-    // Generate URI based on protocol
-    let uri = '';
-    const protoId = effectiveProtoId;
-    const nodeLabel = `${config.name}${isMixedMode ? ' (' + protoId.toUpperCase() + ')' : ''}`;
-
-    if (protoId === 'vless' || config.proto_id.startsWith('vless')) {
-      if (config.proto_id === 'vless-grpc') {
-        const grpcMode = settings.mode || 'gun';
-        uri = `vless://${user.uuid}@${nodeHost}:${port}?encryption=none&security=tls&type=grpc&mode=${grpcMode}&serviceName=${settings.serviceName || 'grpc'}&sni=${settings.sni || nodeHost}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
-      } else {
-        uri = `vless://${user.uuid}@${nodeHost}:${port}?encryption=none&security=${settings.security || 'tls'}&type=${settings.network || 'tcp'}&flow=${settings.flow || ''}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
-      }
-    } else if (protoId === 'trojan' || config.proto_id.startsWith('trojan')) {
-      uri = `trojan://${settings.password || 'password'}@${nodeHost}:${port}?type=${settings.network || 'ws'}&host=${nodeHost}&path=${settings.path || '/'}&security=tls&sni=${settings.sni || nodeHost}${echParam}${tlsFragParam}#${encodeURIComponent(nodeLabel)}`;
-    } else if (protoId === 'ss' || config.proto_id.startsWith('ss')) {
-      const ssInfo = btoa(`${settings.method || 'chacha20-ietf-poly1305'}:${settings.password || 'password'}`);
-      uri = `ss://${ssInfo}@${nodeHost}:${port}?type=${settings.network || 'ws'}&path=${settings.path || '/'}#${encodeURIComponent(nodeLabel)}`;
-    } else if (config.proto_id.startsWith('vmess')) {
-      const vmessObj = {
-        v: '2',
-        ps: nodeLabel,
-        add: nodeHost,
-        port: port,
-        id: user.uuid,
-        aid: 0,
-        scy: 'auto',
-        net: settings.network || 'ws',
-        type: 'none',
-        host: nodeHost,
-        path: settings.path || '/',
-        tls: settings.security === 'tls' ? 'tls' : '',
-      };
-      uri = `vmess://${btoa(JSON.stringify(vmessObj))}`;
+    // Always emit recommended multi-host set for VLESS-WS
+    if (proto.includes('vless') || mixed) {
+      const batch = buildRecommendedLinks({
+        uuid: user.uuid,
+        workerHost,
+        path,
+        name,
+        cleanIPs,
+      });
+      links.push(...batch);
+    } else if (proto.includes('trojan')) {
+      links.push(
+        buildTrojanWsLink({
+          uuid: user.uuid,
+          password: settings.password || user.uuid,
+          host: workerHost,
+          path,
+          name,
+          sni: settings.sni || workerHost,
+        })
+      );
+    } else if (proto.includes('vmess')) {
+      links.push(
+        buildVmessWsLink({
+          uuid: user.uuid,
+          host: workerHost,
+          path,
+          name,
+          sni: settings.sni || workerHost,
+        })
+      );
     } else {
-      uri = `${config.proto_id}://${btoa(processedTemplate)}@${nodeHost}:${port}#${encodeURIComponent(nodeLabel)}`;
+      links.push(
+        buildVlessWsLink({
+          uuid: user.uuid,
+          host: workerHost,
+          path,
+          name,
+          sni: workerHost,
+        })
+      );
     }
-
-    links.push(uri);
   }
 
-  // Format output
-  if (format === 'clash' || accept.includes('text/yaml')) {
-    return generateClashConfig(links, configs.results, user, echEnabled, echSni);
+  // Dedupe
+  const unique = [...new Set(links.filter(Boolean))];
+  const title = `XrayMOD · ${user.username}`;
+  const headers = subHeaders(user, title, origin);
+
+  if (format === 'html' || format === 'page') {
+    return renderSubHtml(user, unique, origin, title);
   }
 
-  if (format === 'singbox' || accept.includes('application/json')) {
-    return generateSingboxConfig(links, configs.results, user, echEnabled, echSni);
+  if (format === 'raw' || format === 'list') {
+    return text(unique.join('\n'), 200, headers);
   }
 
-  // Default: base64 encoded
-  const base64Config = btoa(links.join('\n'));
-  return text(base64Config);
+  if (format === 'clash') {
+    return text(buildClashYaml(unique, workerHost, user), 200, {
+      ...headers,
+      'Content-Type': 'text/yaml; charset=utf-8',
+    });
+  }
+
+  // default base64 for v2rayNG / Hiddify / Streisand
+  return new Response(toBase64Lines(unique), {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      ...headers,
+    },
+  });
 }
 
-function generateClashConfig(
-  links: string[],
-  configs: any[],
-  user: any,
-  echEnabled = false,
-  echSni = 'cloudflare-ech.com'
-): Response {
-  const proxies: any[] = [];
-  const proxyNames: string[] = [];
-
-  for (let i = 0; i < configs.length; i++) {
-    const config = configs[i];
-    const settings = JSON.parse(config.settings_json || '{}');
-    const name = config.name || `Config ${i + 1}`;
-    proxyNames.push(name);
-
-    const proxy: any = {
-      name,
-      type: getClashProxyType(config.proto_id),
-      server: settings.host || settings.sni || 'example.com',
-      port: config.port || 443,
-      uuid: user.uuid,
-    };
-
-    if (config.proto_id.includes('vless')) {
-      proxy.flow = settings.flow || '';
-      proxy.tls = settings.security === 'tls' || settings.security === 'reality';
-      if (settings.sni) proxy.sni = settings.sni;
-
-      // gRPC support
-      if (config.proto_id === 'vless-grpc') {
-        proxy.network = 'grpc';
-        proxy['grpc-opts'] = { 'grpc-service-name': settings.serviceName || 'grpc' };
-      }
-
-      // ECH support for Clash
-      if (echEnabled) {
-        proxy['ech-opts'] = {
-          enable: true,
-          'query-server-name': echSni,
-        };
-      }
+function buildClashYaml(links: string[], host: string, user: any): string {
+  const proxies: string[] = [];
+  const names: string[] = [];
+  links.forEach((link, i) => {
+    if (!link.startsWith('vless://')) return;
+    try {
+      const u = new URL(link.replace('vless://', 'https://'));
+      const name = decodeURIComponent(u.hash.replace('#', '') || `Node-${i + 1}`);
+      names.push(name);
+      const path = u.searchParams.get('path') || '/';
+      const sni = u.searchParams.get('sni') || host;
+      proxies.push(
+        `  - name: "${name.replace(/"/g, '')}"
+    type: vless
+    server: ${u.hostname}
+    port: ${u.port || 443}
+    uuid: ${user.uuid}
+    network: ws
+    tls: true
+    servername: ${sni}
+    udp: true
+    ws-opts:
+      path: "${path}"
+      headers:
+        Host: ${sni}`
+      );
+    } catch {
+      /* skip */
     }
+  });
 
-    if (config.proto_id.includes('vmess')) {
-      proxy.network = settings.network || 'ws';
-      if (settings.path) proxy['ws-opts'] = { path: settings.path };
-      proxy.tls = settings.security === 'tls';
-    }
-
-    if (config.proto_id.includes('trojan')) {
-      proxy.password = settings.password || 'password';
-      proxy.network = settings.network || 'ws';
-      proxy.tls = true;
-    }
-
-    if (config.proto_id.includes('ss')) {
-      proxy.cipher = settings.method || 'chacha20-ietf-poly1305';
-      proxy.password = settings.password || 'password';
-    }
-
-    proxies.push(proxy);
-  }
-
-  const clashConfig = {
-    'mixed-port': 7890,
-    'allow-lan': false,
-    'mode': 'rule',
-    'proxies': proxies,
-    'proxy-groups': [
-      {
-        'name': 'Proxy',
-        'type': 'select',
-        'proxies': [...proxyNames, 'DIRECT'],
-      },
-    ],
-    'rules': ['MATCH,Proxy'],
-  };
-
-  return new Response(
-    `proxies:\n${JSON.stringify(clashConfig, null, 2)
-      .split('\n')
-      .map((l) => '  ' + l)
-      .join('\n')}`,
-    {
-      headers: { 'Content-Type': 'text/yaml; charset=utf-8' },
-    }
-  );
+  return `mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: info
+proxies:
+${proxies.join('\n')}
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+${names.map((n) => `      - "${n.replace(/"/g, '')}"`).join('\n')}
+      - DIRECT
+rules:
+  - MATCH,PROXY
+`;
 }
 
-function generateSingboxConfig(
-  links: string[],
-  configs: any[],
-  user: any,
-  echEnabled = false,
-  echSni = 'cloudflare-ech.com'
-): Response {
-  const outbounds: any[] = [];
+function renderSubHtml(user: any, links: string[], origin: string, title: string): Response {
+  const items = links
+    .map(
+      (l, i) =>
+        `<div class="item"><div class="n">${i + 1}. ${escapeHtml(decodeURIComponent((l.split('#')[1] || 'node').replace(/\+/g, ' ')))}</div>
+         <code>${escapeHtml(l)}</code>
+         <button type="button" data-l="${escapeHtml(l)}">کپی</button></div>`
+    )
+    .join('');
 
-  for (let i = 0; i < configs.length; i++) {
-    const config = configs[i];
-    const settings = JSON.parse(config.settings_json || '{}');
-    const name = config.name || `Config ${i + 1}`;
+  const html = `<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${escapeHtml(title)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,Tahoma,sans-serif;background:#050506;color:#fafafa;padding:1.25rem;line-height:1.5}
+.wrap{max-width:640px;margin:0 auto}
+h1{font-size:1.25rem;font-weight:900;margin-bottom:.35rem}
+.sub{color:#71717a;font-size:.85rem;margin-bottom:1rem}
+.item{background:#121216;border:1px solid #27272a;border-radius:.9rem;padding:.85rem;margin-bottom:.65rem}
+.n{font-size:.8rem;font-weight:700;color:#10b981;margin-bottom:.4rem}
+code{display:block;font-size:.68rem;word-break:break-all;color:#a1a1aa;background:#09090b;padding:.55rem;border-radius:.5rem;margin-bottom:.5rem}
+button{border:0;background:#10b981;color:#052e1c;font-weight:800;font-size:.75rem;padding:.45rem .8rem;border-radius:.5rem;cursor:pointer}
+.links a{color:#10b981;font-size:.8rem;margin-left:.75rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>${escapeHtml(title)}</h1>
+  <p class="sub">کاربر: ${escapeHtml(user.username)} · ${links.length} نود</p>
+  <p class="links">
+    <a href="${origin}/sub/${user.uuid}">Base64</a>
+    <a href="${origin}/sub/${user.uuid}?format=raw">Raw</a>
+    <a href="${origin}/sub/${user.uuid}?format=clash">Clash</a>
+  </p>
+  ${items}
+</div>
+<script>
+document.querySelectorAll('button[data-l]').forEach(function(b){
+  b.onclick=function(){navigator.clipboard.writeText(b.getAttribute('data-l')||'');b.textContent='کپی شد';setTimeout(function(){b.textContent='کپی'},1000)};
+});
+</script>
+</body>
+</html>`;
 
-    const outbound: any = {
-      type: getSingboxOutboundType(config.proto_id),
-      tag: name,
-      server: settings.host || settings.sni || 'example.com',
-      server_port: config.port || 443,
-      uuid: user.uuid,
-    };
-
-    if (config.proto_id.includes('vless')) {
-      outbound.flow = settings.flow || '';
-      if (settings.security === 'tls') {
-        outbound.tls = { enabled: true, server_name: settings.sni || settings.host };
-        // ECH support for sing-box
-        if (echEnabled) {
-          (outbound.tls as any).ech = {
-            enabled: true,
-            query_server_name: echSni,
-          };
-        }
-      }
-      // gRPC transport for sing-box
-      if (config.proto_id === 'vless-grpc') {
-        outbound.transport = {
-          type: 'grpc',
-          serviceName: settings.serviceName || 'grpc',
-        };
-      }
-    }
-
-    if (config.proto_id.includes('vmess')) {
-      outbound.transport = {
-        type: settings.network || 'ws',
-        path: settings.path || '/',
-      };
-    }
-
-    outbounds.push(outbound);
-  }
-
-  const singboxConfig = {
-    outbounds,
-    inbounds: [
-      {
-        type: 'mixed',
-        listen: '127.0.0.1',
-        listen_port: 2080,
-      },
-    ],
-  };
-
-  return json(singboxConfig);
+  return new Response(html, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
 }
 
-function getClashProxyType(protoId: string): string {
-  if (protoId.includes('vless')) return 'vless';
-  if (protoId.includes('vmess')) return 'vmess';
-  if (protoId.includes('trojan')) return 'trojan';
-  if (protoId.includes('ss')) return 'ss';
-  return 'ss';
-}
-
-function getSingboxOutboundType(protoId: string): string {
-  if (protoId.includes('vless')) return 'vless';
-  if (protoId.includes('vmess')) return 'vmess';
-  if (protoId.includes('trojan')) return 'trojan';
-  if (protoId.includes('ss')) return 'shadowsocks';
-  return 'shadowsocks';
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;');
 }

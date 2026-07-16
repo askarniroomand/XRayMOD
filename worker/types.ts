@@ -11,6 +11,9 @@ export interface Env {
   LOGIN_PATH?: string;
   SUB_PATH?: string;
   TG_BOT_TOKEN?: string;
+  CRYPTO_KEY?: string;
+  PAGES_URL?: string;
+  ADMIN_PASSWORD?: string;
 }
 
 export interface DisguiseConfig {

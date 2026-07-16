@@ -31,18 +31,6 @@ export async function handleNodes(
       return { id: n.k.replace('node:', ''), ...data };
     });
 
-    // If no nodes stored, return default mock nodes
-    if (parsed.length === 0) {
-      return json({
-        success: true,
-        data: [
-          { id: '1', name: 'Germany - Frankfurt', ip: '1.2.3.4', status: 'online', cpu: 12, ram: 45, users: 42, uptime: '14d 2h' },
-          { id: '2', name: 'Iran - Tehran (Bridge)', ip: '5.6.7.8', status: 'online', cpu: 5, ram: 20, users: 12, uptime: '5d 12h' },
-          { id: '3', name: 'Netherlands - Amsterdam', ip: '9.10.11.12', status: 'offline', cpu: 0, ram: 0, users: 0, uptime: '0' },
-        ],
-      });
-    }
-
     return json({ success: true, data: parsed });
   }
 

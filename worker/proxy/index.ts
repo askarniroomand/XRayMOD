@@ -1,114 +1,94 @@
 /**
- * پروکسی ترافیک — مدیریت اتصال WebSocket
- *
- * از request.fetcher.connect() استفاده می‌کنه (نه import از cloudflare:sockets)
- * این روش از Error 1101 جلوگیری می‌کنه.
+ * Proxy traffic — WebSocket handler.
+ * Uses request.fetcher.connect() instead of cloudflare:sockets to avoid Error 1101.
  */
 import type { Env } from '../types';
 import { parseVlessHeader, buildVlessResponse } from './vless';
-import { parseTrojanHeader, buildTrojanResponse } from './trojan';
+import { parseTrojanHeader } from './trojan';
 
-// ── دریافت اتصال TCP امن ───────────────────────────────────
-// به جای import { connect } from 'cloudflare:sockets'
-// که باعث Error 1101 میشه
-function getConnection(request: Request): Function {
+function getConnection(request: Request): (opts: { hostname: string; port: number }) => Promise<any> {
   const fetcher = (request as any)?.fetcher;
   if (!fetcher?.connect) {
     throw new Error('fetcher.connect unavailable');
   }
-  return fetcher.connect;
+  return fetcher.connect.bind(fetcher);
 }
 
-// ── نقطه ورود پروکسی ──────────────────────────────────────
 export async function handleProxyTraffic(
   request: Request,
   env: Env,
   _ctx: ExecutionContext
 ): Promise<Response> {
   const url = new URL(request.url);
-  const مسیر = url.pathname;
+  const path = url.pathname;
 
-  // جستجوی کانفیگ بر اساس مسیر
-  const کانفیگ = await env.DB.prepare(
+  const config = await env.DB.prepare(
     'SELECT c.*, p.id as proto_id, p.template_json FROM configs c LEFT JOIN protocols p ON c.protocol_id = p.id WHERE c.path = ?'
   )
-    .bind(مسیر)
+    .bind(path)
     .first<any>();
 
-  if (!کانفیگ) {
+  if (!config) {
     return new Response('Not found', { status: 404 });
   }
 
-  // دریافت اطلاعات کاربر
-  const کاربر = await env.DB.prepare(
+  const user = await env.DB.prepare(
     'SELECT id, uuid, traffic_limit, traffic_used, status, expiry_date FROM users WHERE id = ?'
   )
-    .bind(کانفیگ.user_id)
+    .bind(config.user_id)
     .first<any>();
 
-  if (!کاربر || کاربر.status !== 'active') {
+  if (!user || user.status !== 'active') {
     return new Response('Forbidden', { status: 403 });
   }
 
-  // بررسی سقف ترافیک
-  if (کاربر.traffic_limit > 0 && کاربر.traffic_used >= کاربر.traffic_limit) {
+  if (user.traffic_limit > 0 && user.traffic_used >= user.traffic_limit) {
     return new Response('Quota exceeded', { status: 403 });
   }
 
-  // بررسی انقضا
-  if (کاربر.expiry_date && new Date(کاربر.expiry_date) < new Date()) {
+  if (user.expiry_date && new Date(user.expiry_date) < new Date()) {
     return new Response('Subscription expired', { status: 403 });
   }
 
-  // بررسی WebSocket upgrade
-  const هدر_ارتقا = request.headers.get('Upgrade');
-  if (هدر_ارتقا !== 'websocket') {
+  const upgrade = request.headers.get('Upgrade');
+  if (upgrade !== 'websocket') {
     return new Response('Expected WebSocket upgrade', { status: 426 });
   }
 
-  // ایجاد جفت WebSocket
-  const [کلاینت_وی‌اس, سرور_وی‌اس] = Object.values(new WebSocketPair());
+  const pair = new WebSocketPair();
+  const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
 
-  سرور_وی‌اس.accept();
-  پردازش_اتصال(
-    سرور_وی‌اس,
-    request,
-    کانفیگ.protocol_id,
-    کانفیگ,
-    کاربر,
-    env.DB
-  ).catch((err: any) => {
+  server.accept();
+  handleConnection(server, request, config.protocol_id, config, user, env.DB).catch((err: unknown) => {
     console.error('WebSocket error:', err);
     try {
-      سرور_وی‌اس.close(1011, 'Internal error');
-    } catch {}
+      server.close(1011, 'Internal error');
+    } catch { /* ignore */ }
   });
 
   return new Response(null, {
     status: 101,
-    webSocket: کلاینت_وی‌اس,
+    webSocket: client,
   });
 }
 
-// ── پردازش اتصال WebSocket ─────────────────────────────────
-async function پردازش_اتصال(
-  وی‌اس: WebSocket,
-  درخواست: Request,
-  پروتکل: string,
-  کانفیگ: any,
-  کاربر: any,
-  پایگاه: D1Database
+async function handleConnection(
+  ws: WebSocket,
+  request: Request,
+  protocol: string,
+  config: any,
+  user: any,
+  db: D1Database
 ): Promise<void> {
-  let حجم_آپلود = 0;
-  let حجم_دانلود = 0;
+  let uploadBytes = 0;
+  let downloadBytes = 0;
 
-  // دریافت اولین پیام برای تجزیه هدر پروتکل
-  const اولین_پیام = await new Promise<ArrayBuffer>((resolve, reject) => {
-    const تایمر = setTimeout(() => reject(new Error('Timeout')), 10000);
-    وی‌اس.addEventListener(
+  const firstMsg = await new Promise<ArrayBuffer>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout')), 10000);
+    ws.addEventListener(
       'message',
       (event) => {
-        clearTimeout(تایمر);
+        clearTimeout(timer);
         if (event.data instanceof ArrayBuffer) {
           resolve(event.data);
         } else if (event.data instanceof Blob) {
@@ -119,117 +99,111 @@ async function پردازش_اتصال(
       },
       { once: true }
     );
-    وی‌اس.addEventListener('close', () => {
-      clearTimeout(تایمر);
+    ws.addEventListener('close', () => {
+      clearTimeout(timer);
       reject(new Error('Closed'));
     });
   });
 
-  حجم_آپلود += اولین_پیام.byteLength;
+  uploadBytes += firstMsg.byteLength;
 
-  // تجزیه بر اساس پروتکل
-  let میزبان_مقصد = '';
-  let پورت_مقصد = 0;
+  let destHost = '';
+  let destPort = 0;
+  let payload: ArrayBuffer = firstMsg;
 
-  if (پروتکل === 'vless-reality' || پروتکل === 'vless-ws') {
-    const نتیجه = parseVlessHeader(اولین_پیام);
-    if (!نتیجه) {
-      وی‌اس.close(1008, 'Invalid VLESS header');
+  if (protocol === 'vless-reality' || protocol === 'vless-ws' || String(protocol).startsWith('vless')) {
+    const result = parseVlessHeader(firstMsg);
+    if (!result) {
+      ws.close(1008, 'Invalid VLESS header');
       return;
     }
-    میزبان_مقصد = نتیجه.address;
-    پورت_مقصد = نتیجه.port;
-    وی‌اس.send(buildVlessResponse());
-  } else if (پروتکل === 'trojan-ws') {
-    const نتیجه = parseTrojanHeader(اولین_پیام);
-    if (!نتیجه) {
-      وی‌اس.close(1008, 'Invalid Trojan header');
+    destHost = result.address;
+    destPort = result.port;
+    payload = result.payload;
+    ws.send(buildVlessResponse());
+  } else if (protocol === 'trojan-ws' || String(protocol).startsWith('trojan')) {
+    const result = parseTrojanHeader(firstMsg);
+    if (!result) {
+      ws.close(1008, 'Invalid Trojan header');
       return;
     }
-    میزبان_مقصد = نتیجه.address;
-    پورت_مقصد = نتیجه.port;
-    وی‌اس.send(buildTrojanResponse());
+    destHost = result.address;
+    destPort = result.port;
+    payload = result.payload;
+    // Trojan typically has no response header
   } else {
-    const تنظیمات = JSON.parse(کانفیگ.settings_json || '{}');
-    میزبان_مقصد = تنظیمات.host || تنظیمات.sni || 'example.com';
-    پورت_مقصد = تنظیمات.port || 443;
+    const settings = JSON.parse(config.settings_json || '{}');
+    destHost = settings.host || settings.sni || 'example.com';
+    destPort = settings.port || 443;
   }
 
-  // اتصال به مقصد با استفاده از fetcher.connect()
   try {
-    const اتصال = getConnection(درخواست);
-    const سوکت_مقصد = await اتصال({
-      hostname: میزبان_مقصد,
-      port: پورت_مقصد,
+    const connect = getConnection(request);
+    const remote = await connect({
+      hostname: destHost,
+      port: destPort,
     });
 
-    // خواندن داده از سوکت مقصد
-    const خواننده = سوکت_مقصد.readable?.getReader();
-    const نویسنده = سوکت_مقصد.writable?.getWriter();
+    const reader = remote.readable?.getReader();
+    const writer = remote.writable?.getWriter();
 
-    if (!خواننده || !نویسنده) {
+    if (!reader || !writer) {
       throw new Error('Invalid socket streams');
     }
 
-    // ارسال اولین پیام به مقصد
-    await نویسنده.write(اولین_پیام);
+    await writer.write(new Uint8Array(payload));
 
-    // ارسال پیام‌های بعدی از وی‌اس به مقصد
-    وی‌اس.addEventListener('message', async (event) => {
-      const داده =
+    ws.addEventListener('message', async (event) => {
+      const data =
         event.data instanceof ArrayBuffer
           ? event.data
           : event.data instanceof Blob
             ? await event.data.arrayBuffer()
             : new TextEncoder().encode(String(event.data)).buffer;
 
-      حجم_آپلود += داده.byteLength;
+      uploadBytes += data.byteLength;
       try {
-        await نویسنده.write(داده);
-      } catch {}
+        await writer.write(new Uint8Array(data));
+      } catch { /* ignore */ }
     });
 
-    // ارسال پاسخ‌ها از مقصد به وی‌اس
-    const خواندن_پاسخ = async () => {
+    const pumpRemote = async () => {
       try {
         while (true) {
-          const { value, done } = await خواننده.read();
+          const { value, done } = await reader.read();
           if (done) break;
           if (value) {
-            حجم_دانلود += value.byteLength;
-            وی‌اس.send(value);
+            downloadBytes += value.byteLength;
+            ws.send(value);
           }
         }
-      } catch {}
+      } catch { /* ignore */ }
     };
-    خواندن_پاسخ();
+    pumpRemote();
 
-    // پاکسازی هنگام بسته شدن
-    وی‌اس.addEventListener('close', async () => {
-      try { await نویسنده.close(); } catch {}
-      try { await سوکت_مقصد.close?.(); } catch {}
+    ws.addEventListener('close', async () => {
+      try { await writer.close(); } catch { /* ignore */ }
+      try { await remote.close?.(); } catch { /* ignore */ }
     });
 
-    سوکت_مقصد.closed?.then?.(() => {
-      try { وی‌اس.close(); } catch {}
+    remote.closed?.then?.(() => {
+      try { ws.close(); } catch { /* ignore */ }
     });
   } catch (err) {
-    console.log(`اتصال به ${میزبان_مقصد}:${پورت_مقصد} ناموفق بود`);
-    // اگه اتصال مستقیم نشد، ترافیک رو رد کن
-    // (این بخش بعداً با ProxyIP پیاده‌سازی میشه)
+    console.error(`Connect to ${destHost}:${destPort} failed`, err);
+    try {
+      ws.close(1011, 'Upstream connect failed');
+    } catch { /* ignore */ }
   }
 
-  // ردیابی ترافیک هنگام بسته شدن
-  وی‌اس.addEventListener('close', async () => {
+  ws.addEventListener('close', async () => {
     try {
-      await پایگاه
-        .prepare(
-          'UPDATE users SET traffic_used = traffic_used + ? WHERE id = ?'
-        )
-        .bind(حجم_آپلود + حجم_دانلود, کاربر.id)
+      await db
+        .prepare('UPDATE users SET traffic_used = traffic_used + ? WHERE id = ?')
+        .bind(uploadBytes + downloadBytes, user.id)
         .run();
     } catch (err) {
-      console.error('خطا در بروزرسانی ترافیک:', err);
+      console.error('Traffic update failed:', err);
     }
   });
 }

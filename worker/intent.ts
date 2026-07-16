@@ -5,6 +5,7 @@
  * Processors are independent — add new intents without touching existing code.
  */
 import type { Env } from './types';
+export type { Env };
 import { isGrpcRequest } from './proxy/grpc';
 import { isXHTTPRequest } from './proxy/xhttp';
 
