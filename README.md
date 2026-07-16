@@ -40,28 +40,27 @@
 
 <div align="center">
 
-### ⚡ یک دستور · نصب کاملاً خودکار
+### ⚡ One command · fully automatic
 
-**🪟 Windows — داخل PowerShell (`PS C:\...`):**
+**🪟 Windows PowerShell** (prompt starts with `PS`):
 
 ```powershell
-irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
+irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
 ```
 
-**🪟 Windows — داخل CMD:**
+**🪟 Windows CMD** (prompt is `C:\...` without `PS`):
 
 ```cmd
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (iwr -UseBasicParsing 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1').Content"
 ```
 
 **🐧 Linux / 🍎 macOS / WSL:**
 
 ```bash
-bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
 ```
 
-اسکریپت **خودش** Node و Python/uv را (در صورت نبود) نصب می‌کند، سورس را از GitHub می‌گیرد و دیپلوی می‌کند.  
-تو فقط وارد می‌کنی: **توکن Cloudflare** · **یوزر** · **رمز**.
+You only type three things in the terminal:
 
 <table>
 <tr>
@@ -75,7 +74,10 @@ bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/instal
 </tr>
 </table>
 
-<sub>Cloudflare free plan works · Windows auto-installs Node/Python when needed · no git required</sub>
+<sub>
+Free Cloudflare plan works · auto Node/Python on Windows · <b>no git required</b> ·  
+<b>token stays on your PC</b> (never committed to GitHub) · see <a href="SECURITY.md">SECURITY.md</a>
+</sub>
 
 <br/>
 
@@ -163,13 +165,13 @@ Works with **Hiddify · v2rayNG · Streisand · NekoBox · Clash · sing-box**.
 **Windows (CMD / PowerShell)** — auto-installs Node & Python if missing:
 
 ```powershell
-irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
+irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
 ```
 
 **Linux / macOS / WSL:**
 
 ```bash
-bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
 ```
 
 You only type: **Cloudflare token** · **username** · **password**.
@@ -258,13 +260,13 @@ Save the **panel URL** and **subscription URL** from the response. Never share t
 **ویندوز (CMD / PowerShell)** — Node و Python را در صورت نبود خودش نصب می‌کند:
 
 ```powershell
-irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
+irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
 ```
 
 **لینوکس / مک / WSL:**
 
 ```bash
-bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
 ```
 
 فقط ۳ تا ورودی: **توکن Cloudflare** · **نام کاربری** · **رمز**

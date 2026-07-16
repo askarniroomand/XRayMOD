@@ -16,23 +16,31 @@ dist-worker/
 worker.js
 *.map
 
-# Local / personal
+# Local / personal installer state (never commit)
 .references/
 .opencode/
 .mimocode/
 .xraymod/
+**/.xraymod/
+config.json
+**/config.local.json
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
 
-# Secrets
+# Secrets — never commit
 .env
 .env.*
 !.env.example
 wrangler.toml.bak
 *.pem
 *.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+**/secrets.json
 
 # OS / IDE
 .DS_Store

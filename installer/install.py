@@ -39,8 +39,19 @@ def load_config() -> dict:
 
 
 def save_config(config: dict):
+    """Local metadata only — never persist API tokens or passwords."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(config, indent=2))
+    safe = {
+        k: v
+        for k, v in config.items()
+        if k not in {"api_token", "token", "password", "admin_password"}
+        and not str(k).lower().endswith(("_token", "_secret", "_password", "_key"))
+    }
+    CONFIG_FILE.write_text(json.dumps(safe, indent=2))
+    try:
+        CONFIG_FILE.chmod(0o600)
+    except Exception:
+        pass
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -391,9 +402,8 @@ def main() -> None:
         print(f"\n  ❌ Deployment failed: {e}")
         sys.exit(1)
 
-    # Save config for next time
+    # Save non-secret metadata only
     save_config({
-        "api_token": token,
         "worker_name": worker_name,
         "d1_name": d1_name,
         "worker_url": result["worker_url"],

@@ -34,26 +34,26 @@
 
 ## ⚡ یک دستور · کاملاً خودکار
 
-### 🪟 ویندوز — اگر داخل PowerShell هستی (`PS C:\...`)
+### 🪟 ویندوز — داخل PowerShell (`PS C:\...`)
 
 ```powershell
-irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
+irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
 ```
 
-### 🪟 ویندوز — اگر داخل CMD هستی (مشکی بدون `PS`)
+### 🪟 ویندوز — داخل CMD (`C:\...` بدون `PS`)
 
 ```cmd
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (iwr -UseBasicParsing 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1').Content"
 ```
 
 ### 🐧 لینوکس / 🍎 مک / WSL
 
 ```bash
-bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
 ```
 
 اسکریپت **خودش** ابزارها (Node، Python/uv) را نصب می‌کند، سورس را از GitHub می‌گیرد و پنل را می‌سازد.  
-**git لازم نیست.** فقط ۳ ورودی از تو:
+**git لازم نیست.** توکن فقط داخل ترمینال وارد می‌شود و **به ریپو نمی‌رود**. فقط ۳ ورودی از تو:
 
 | مرحله | ورودی |
 |:-----:|:------|

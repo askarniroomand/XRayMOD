@@ -3,13 +3,13 @@ setlocal EnableExtensions
 chcp 65001 >nul 2>&1
 
 REM ═══════════════════════════════════════════════════════════════
-REM  XrayMOD — Windows bootstrap
-REM
-REM  PowerShell (prompt starts with PS):
-REM    irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
+REM  XrayMOD — Windows one-command install (CMD)
 REM
 REM  CMD:
-REM    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex"
+REM    powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (iwr -UseBasicParsing 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1').Content"
+REM
+REM  PowerShell (prompt starts with PS):
+REM    irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
 REM
 REM  Support: https://t.me/MRROBOT_DT
 REM ═══════════════════════════════════════════════════════════════
@@ -25,5 +25,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex"
+REM Single-quoted -Command so CMD does not mangle the script.
+REM Cache-bust query so raw CDN is less likely to serve a stale bootstrap.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (iwr -UseBasicParsing ('https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1?t=' + [guid]::NewGuid().ToString('N'))).Content"
 exit /b %ERRORLEVEL%

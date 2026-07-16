@@ -108,8 +108,8 @@ def save_config(state: dict) -> dict:
     if "error" in state:
         return state
 
+    # Never persist Cloudflare API tokens
     save({
-        "api_token": state["token"],
         "worker_name": state["worker_name"],
         "d1_name": state["d1_name"],
         "d1_id": state["d1_id"],

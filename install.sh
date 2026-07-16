@@ -3,10 +3,13 @@
 #  XrayMOD — One-Click Open Source Installer
 #
 #  Linux / macOS / Git Bash / WSL:
-#    bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
+#    bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
 #
-#  Windows CMD / PowerShell:
-#    irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
+#  Windows PowerShell:
+#    irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
+#
+#  Windows CMD:
+#    powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (iwr -UseBasicParsing 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1').Content"
 #
 #  Flow for end users:
 #    1) Cloudflare API Token

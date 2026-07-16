@@ -66,8 +66,8 @@ def deploy_cf(token: str, worker_name: str, d1_name: str, admin_password: str) -
     cf_api.enable_worker_subdomain(token, account_id, worker_name)
     worker_url = cf_api.get_worker_url(token, account_id, worker_name)
 
+    # Never persist Cloudflare API tokens on disk
     save({
-        "api_token": token,
         "worker_name": worker_name,
         "d1_name": d1_name,
         "d1_id": d1_id,

@@ -1,21 +1,22 @@
 # ═══════════════════════════════════════════════════════════════
 #  XrayMOD — Fully Automatic Installer (Windows)
-#  Version: 2026.07.16-auto5
+#  Version: 2026.07.16-oss1
 #
-#  PowerShell (you are already in PS — use this):
-#    irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
+#  PowerShell (prompt PS C:\...):
+#    irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
 #
-#  CMD:
-#    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex"
+#  CMD (prompt C:\... without PS):
+#    powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (iwr -UseBasicParsing 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1').Content"
 #
 #  Auto: Node · Python/uv · source ZIP · deploy  (git NOT required)
 #  You only enter: Cloudflare token · username · password
+#  Tokens are never written to the GitHub repo.
 #
 #  Support: https://t.me/MRROBOT_DT
 # ═══════════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Stop"
-$XrayModInstallerVersion = "2026.07.16-auto5"
+$XrayModInstallerVersion = "2026.07.16-oss1"
 
 $RepoUrl = if ($env:XRAYMOD_REPO) { $env:XRAYMOD_REPO } else { "https://github.com/askarniroomand/XRayMOD.git" }
 $Branch  = if ($env:XRAYMOD_BRANCH) { $env:XRAYMOD_BRANCH } else { "main" }

@@ -133,14 +133,39 @@ def cf(token: str, path: str, method: str = "GET", body: dict | None = None) -> 
 
 
 def save_config(cfg: dict) -> None:
+    """Persist local metadata only — never write API tokens or passwords to disk."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
+    safe = {
+        k: v
+        for k, v in cfg.items()
+        if k
+        not in {
+            "api_token",
+            "token",
+            "password",
+            "admin_password",
+            "CLOUDFLARE_API_TOKEN",
+        }
+        and not str(k).lower().endswith(("_token", "_secret", "_password", "_key"))
+    }
+    CONFIG_FILE.write_text(json.dumps(safe, indent=2, ensure_ascii=False))
+    try:
+        CONFIG_FILE.chmod(0o600)
+    except Exception:
+        pass
 
 
 def load_config() -> dict:
     if CONFIG_FILE.exists():
         try:
-            return json.loads(CONFIG_FILE.read_text())
+            data = json.loads(CONFIG_FILE.read_text())
+            # Drop any legacy secrets from older installer versions
+            for k in list(data.keys()):
+                if k in {"api_token", "token", "password", "admin_password"} or str(
+                    k
+                ).lower().endswith(("_token", "_secret", "_password", "_key")):
+                    data.pop(k, None)
+            return data
         except Exception:
             pass
     return {}
@@ -642,7 +667,6 @@ def main() -> None:
         data = bootstrap_remote(worker_url, username, password)
         save_config(
             {
-                "api_token": token,
                 "account_id": account_id,
                 "worker_name": worker_name,
                 "d1_id": d1_id,
