@@ -1,16 +1,18 @@
 # ═══════════════════════════════════════════════════════════════
 #  XrayMOD — Fully Automatic Installer (Windows)
+#  Version: 2026.07.16-auto3
 #
 #  ONE COMMAND (CMD or PowerShell):
-#    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+#    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
 #
-#  Auto: Node · Python/uv · source download · deploy
+#  Auto: Node · Python/uv · source ZIP · deploy  (git NOT required)
 #  You only enter: Cloudflare token · username · password
 #
 #  Support: https://t.me/MRROBOT_DT
 # ═══════════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Stop"
+$XrayModInstallerVersion = "2026.07.16-auto3"
 
 $RepoUrl = if ($env:XRAYMOD_REPO) { $env:XRAYMOD_REPO } else { "https://github.com/askarniroomand/XRayMOD.git" }
 $Branch  = if ($env:XRAYMOD_BRANCH) { $env:XRAYMOD_BRANCH } else { "main" }
@@ -287,10 +289,11 @@ Clear-Host
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Green
 Write-Host "║   XrayMOD  ·  نصب کاملاً خودکار                  ║" -ForegroundColor Green
-Write-Host "║   Node · Python · سورس · دیپلوی                  ║" -ForegroundColor Green
+Write-Host "║   Node · Python · سورس · دیپلوی  (بدون git)      ║" -ForegroundColor Green
 Write-Host "║   فقط توکن · یوزر · رمز                          ║" -ForegroundColor Green
 Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
+Write-Host "  installer $XrayModInstallerVersion" -ForegroundColor DarkGray
 Write-Host "  پشتیبانی: https://t.me/MRROBOT_DT" -ForegroundColor Cyan
 Write-Host ""
 

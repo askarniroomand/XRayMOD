@@ -6,7 +6,7 @@ REM ═════════════════════════�
 REM  XrayMOD — One-command Windows bootstrap
 REM
 REM  Prefer this single command in CMD or PowerShell:
-REM    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+REM    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex"
 REM
 REM  Support: https://t.me/MRROBOT_DT
 REM ═══════════════════════════════════════════════════════════════
@@ -22,5 +22,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main/install.ps1 | iex"
+REM Use /main/ path (not refs/heads/main — that URL can stick on CDN cache)
+REM Cache-bust query so Windows never reuses an old install.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$u='https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1?t='+[DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); iex (irm $u)"
 exit /b %ERRORLEVEL%

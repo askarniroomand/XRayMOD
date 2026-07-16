@@ -22,7 +22,7 @@ from pathlib import Path
 import httpx
 
 CF_API = "https://api.cloudflare.com/client/v4"
-PANEL_GITHUB = "https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/heads/main"
+PANEL_GITHUB = "https://raw.githubusercontent.com/askarniroomand/XRayMOD/main"
 TOKEN_CREATE_URL = "https://dash.cloudflare.com/profile/api-tokens"
 CONFIG_DIR = Path.home() / ".xraymod"
 CONFIG_FILE = CONFIG_DIR / "config.json"
