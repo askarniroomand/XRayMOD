@@ -3,10 +3,10 @@
 #  Version: 2026.07.16-auto5
 #
 #  PowerShell (you are already in PS — use this):
-#    irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex
+#    irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
 #
 #  CMD:
-#    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex"
+#    powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex"
 #
 #  Auto: Node · Python/uv · source ZIP · deploy  (git NOT required)
 #  You only enter: Cloudflare token · username · password

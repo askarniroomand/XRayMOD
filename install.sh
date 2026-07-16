@@ -6,7 +6,7 @@
 #    bash <(curl -fsSL https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.sh)
 #
 #  Windows CMD / PowerShell:
-#    irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex
+#    irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
 #
 #  Flow for end users:
 #    1) Cloudflare API Token

@@ -37,13 +37,13 @@
 ### 🪟 ویندوز — اگر داخل PowerShell هستی (`PS C:\...`)
 
 ```powershell
-irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex
+irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex
 ```
 
 ### 🪟 ویندوز — اگر داخل CMD هستی (مشکی بدون `PS`)
 
 ```cmd
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://cdn.jsdelivr.net/gh/askarniroomand/XRayMOD@main/install.ps1' | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/4b075bb77ddf8c506fd5c02fc9c68392dde290a5/install.ps1' | iex"
 ```
 
 ### 🐧 لینوکس / 🍎 مک / WSL
