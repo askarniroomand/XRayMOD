@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <b>پنل مخفی مدیریت پروکسی روی Cloudflare Workers</b><br/>
-  اوپن‌سورس · سرورلس · فارسی
+  <b>پنل مخفی و مدرن مدیریت پروکسی روی Cloudflare Workers</b><br/>
+  اوپن‌سورس · سرورلس · دوستانه · فارسی
 </p>
 
 <p align="center">
@@ -15,16 +15,17 @@
 
 ---
 
-## XrayMOD چیست؟
+## XrayMOD چیه؟
 
-پنل **self-hosted** برای ساخت و مدیریت کانفیگ پروکسی روی **Cloudflare Workers + D1**:
+پنل **self-hosted** برای ساخت و مدیریت کانفیگ روی **Cloudflare Workers + D1**:
 
 | | |
 |:--|:--|
-| 🥷 | پنل پشت **UUID مخفی** — بقیه Error 1101 می‌بینند |
+| 🥷 | پنل پشت **UUID مخفی** — بقیه صفحه جعلی می‌بینند |
 | ☁️ | بدون VPS اجباری |
-| 🇮🇷 | UI **فارسی** پیش‌فرض + انگلیسی |
-| 📡 | ساب Base64 / Raw / Clash / HTML |
+| 📊 | صفحه وضعیت کاربر: حجم، روز، QR |
+| 🎯 | ساب هوشمند تا **۱۰ کانفیگ** پیشنهادی |
+| 🇮🇷 | UI فارسی + انگلیسی |
 | ⚡ | نصب با **یک دستور** |
 
 ---
@@ -51,10 +52,46 @@ bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/refs/
 
 ---
 
+## ✨ قابلیت‌های تازه
+
+- **صفحه وضعیت** `/me/<uuid>` — کاربر خودش مصرف و انقضا را می‌بیند  
+- **ساب Top-10** — Direct + Clean IP + پورت‌های CF + fingerprint  
+- **استیلث** — پوسته‌های 1101 / nginx / GitHub / WordPress / …  
+- **Canary** — طعمه اسکنر + لاگ  
+- **Backup & Audit** — پشتیبان امن + تاریخچه  
+- **Kill switch** و **سقف ماهانه**  
+
+---
+
+## لینک‌های مهم
+
+| لینک | کاربرد |
+|:-----|:-------|
+| `/<UUID_پنل>/login` | ورود ادمین (خصوصی) |
+| `/sub/<UUID_کاربر>` | ساب اپ‌ها |
+| `/me/<UUID_کاربر>` | صفحه وضعیت کاربر |
+| `?format=clash` / `singbox` / `html` | فرمت‌های ساب |
+
+---
+
+## بهترین کانفیگ
+
+| مورد | مقدار |
+|:-----|:------|
+| پروتکل | **VLESS** |
+| Transport | **WebSocket** |
+| Security | **TLS** |
+| Port | **443** |
+| Fingerprint | chrome |
+
+کلاینت: Hiddify · v2rayNG · Streisand · NekoBox
+
+---
+
 ## 🛠 نصب دستی
 
 <details>
-<summary><b>گام‌به‌گام کامل</b></summary>
+<summary><b>گام‌به‌گام</b></summary>
 
 <br/>
 
@@ -84,45 +121,31 @@ curl -X POST "https://WORKER.workers.dev/install" \
 https://WORKER.workers.dev/<ACCESS_UUID>/login
 ```
 
-ساب:
+ساب و وضعیت:
 
 ```text
 https://WORKER.workers.dev/sub/<USER_UUID>
-https://WORKER.workers.dev/sub/<USER_UUID>?format=html
+https://WORKER.workers.dev/me/<USER_UUID>
 ```
 
 </details>
 
 ---
 
-## بهترین کانفیگ
-
-| مورد | مقدار |
-|:-----|:------|
-| پروتکل | **VLESS** |
-| Transport | **WebSocket** |
-| Security | **TLS** |
-| Port | **443** |
-| Fingerprint | chrome |
-
-کلاینت: Hiddify · v2rayNG · Streisand · NekoBox
-
----
-
-## پشتیبانی
+## پشتیبانی و کانال
 
 <p align="center">
   <a href="https://t.me/MRROBOT_DT"><img src="https://img.shields.io/badge/تلگرام-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram" alt="Telegram"/></a>
 </p>
 
+سوال، باگ، پیشنهاد — خوشحال می‌شیم کمک کنیم 💚  
+
+**لطفاً لینک پنل، رمز و توکن را عمومی نفرست.**
+
+نسخه انگلیسی: [README.md](README.md)
+
 ---
 
 ## لایسنس
 
-[MIT](LICENSE) · راهنمای انگلیسی کامل: [README.md](README.md)
-
----
-
-## کلمات کلیدی (برای سرچ)
-
-`xraymod` · `cloudflare workers` · `vless` · `trojan` · `v2ray` · `پنل پروکسی` · `سابسکریپشن` · `v2rayng` · `hiddify` · `بدون سرور` · `d1`
+[MIT](LICENSE)

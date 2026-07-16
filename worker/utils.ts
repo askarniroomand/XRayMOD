@@ -101,8 +101,19 @@ export async function generateRandomIPs(
 
 // --- Clean IP Storage ---
 
-export async function getCleanIPs(db: D1Database): Promise<string[]> {
+export async function getCleanIPs(db: D1Database, carrier?: string): Promise<string[]> {
   try {
+    // Prefer per-ISP pool when available
+    if (carrier && carrier !== 'all' && carrier !== 'unknown') {
+      const ispRow = await db
+        .prepare('SELECT v FROM kvstore WHERE k = ?')
+        .bind(`cleanip.ips.${carrier}`)
+        .first<{ v: string }>();
+      if (ispRow?.v) {
+        const list = ispRow.v.split('\n').map((s) => s.trim()).filter(Boolean);
+        if (list.length) return list;
+      }
+    }
     const row = await db.prepare('SELECT v FROM kvstore WHERE k = ?').bind('cleanip.ips').first<{ v: string }>();
     if (!row || !row.v) return [];
     return row.v.split('\n').map((s) => s.trim()).filter(Boolean);
@@ -111,11 +122,21 @@ export async function getCleanIPs(db: D1Database): Promise<string[]> {
   }
 }
 
-export async function setCleanIPs(db: D1Database, ips: string[]): Promise<void> {
+export async function setCleanIPs(db: D1Database, ips: string[], carrier?: string): Promise<void> {
   const unique = [...new Set(ips)].slice(0, 30);
+  const key =
+    carrier && carrier !== 'all' && carrier !== 'unknown'
+      ? `cleanip.ips.${carrier}`
+      : 'cleanip.ips';
   await db.prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
-    .bind('cleanip.ips', unique.join('\n'), Date.now())
+    .bind(key, unique.join('\n'), Date.now())
     .run();
+  // Always keep a global fallback copy when writing ISP pool
+  if (key !== 'cleanip.ips') {
+    await db.prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
+      .bind('cleanip.ips', unique.join('\n'), Date.now())
+      .run();
+  }
 }
 
 export async function getCleanIPConfig(db: D1Database): Promise<{ ips: string[]; carrier: string; updatedAt: number }> {

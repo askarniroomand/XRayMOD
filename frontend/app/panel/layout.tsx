@@ -16,6 +16,7 @@ import {
   Server,
   Layers,
   LifeBuoy,
+  Ghost,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { goPanel, getPanelPrefix } from '@/lib/paths';
@@ -27,6 +28,7 @@ const NAV_ITEMS: { href: string; key: DictKey; icon: typeof LayoutDashboard }[] 
   { href: '/panel/users', key: 'users', icon: Users },
   { href: '/panel/nodes', key: 'nodes', icon: Server },
   { href: '/panel/config', key: 'config', icon: Shield },
+  { href: '/panel/stealth', key: 'stealth', icon: Ghost },
   { href: '/panel/protocols', key: 'protocols', icon: Layers },
   { href: '/panel/cleanip', key: 'cleanip', icon: Radar },
   { href: '/panel/network', key: 'network', icon: Wifi },

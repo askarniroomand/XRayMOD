@@ -71,6 +71,11 @@ export default function DashboardPage() {
               <Radar size={14} /> {t('scanClean')}
             </Button>
           </PanelLink>
+          <PanelLink href="/panel/stealth">
+            <Button size="sm" variant="secondary">
+              <Shield size={14} /> استیلث
+            </Button>
+          </PanelLink>
           <PanelLink href="/panel/support">
             <Button size="sm" variant="secondary">
               {t('support')}

@@ -32,6 +32,8 @@ interface Config {
   // Misc
   mixedProtocol: boolean;
   paused: boolean;
+  monthlyCapGb: string;
+  ispAware: boolean;
 }
 
 const defaultConfig: Config = {
@@ -56,6 +58,8 @@ const defaultConfig: Config = {
   subSingbox: true,
   mixedProtocol: false,
   paused: false,
+  monthlyCapGb: '0',
+  ispAware: true,
 };
 
 export default function ConfigPage() {
@@ -90,6 +94,8 @@ export default function ConfigPage() {
         subSingbox: d['panel.sub_singbox'] !== 'false',
         mixedProtocol: d['protocol.mixed_mode'] === 'true',
         paused: d['panel.paused'] === 'true',
+        monthlyCapGb: d['panel.monthly_cap_gb'] || '0',
+        ispAware: d['panel.isp_aware_sub'] !== 'false',
       };
       setConfig(mapped);
       const hostRaw = d['panel.hosts'] || d['panel.host'] || '';
@@ -129,6 +135,8 @@ export default function ConfigPage() {
         'panel.sub_singbox': String(config.subSingbox),
         'protocol.mixed_mode': String(config.mixedProtocol),
         'panel.paused': String(config.paused),
+        'panel.monthly_cap_gb': String(Number(config.monthlyCapGb) || 0),
+        'panel.isp_aware_sub': String(config.ispAware),
       });
       setذخیرهd(true);
       setTimeout(() => setذخیرهd(false), 2000);
@@ -396,12 +404,29 @@ export default function ConfigPage() {
       {/* Service Control */}
       <Card>
         <CardHeader title="Service Control" />
-        <Toggle
-          label="Pause Service"
-          description="Block all proxy and subscription requests (503)"
-          checked={config.paused}
-          onChange={v => setConfig({ ...config, paused: v })}
-        />
+        <div className="space-y-1">
+          <Toggle
+            label="Pause Service"
+            description="Block all proxy traffic (503) — panel stays open"
+            checked={config.paused}
+            onChange={v => setConfig({ ...config, paused: v })}
+          />
+          <Toggle
+            label="ISP-aware subscription"
+            description="Pick clean IPs based on Iranian ISP (MCI/MTN/...)"
+            checked={config.ispAware}
+            onChange={v => setConfig({ ...config, ispAware: v })}
+          />
+          <div className="pt-2">
+            <Input
+              label="Monthly panel cap (GB)"
+              type="number"
+              value={config.monthlyCapGb}
+              onChange={e => setConfig({ ...config, monthlyCapGb: e.target.value })}
+              placeholder="0 = unlimited"
+            />
+          </div>
+        </div>
       </Card>
     </div>
   );

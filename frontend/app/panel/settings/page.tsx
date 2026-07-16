@@ -135,8 +135,10 @@ export default function SettingsPage() {
 
   const exportConfig = async () => {
     try {
-      const settings = await api.get('/api/settings');
-      const blob = new Blob([JSON.stringify({ settings: settings?.data || settings }, null, 2)], {
+      // Prefer full backup API (settings + users + configs, no secrets)
+      const full = await api.get('/api/tools/backup');
+      const payload = full?.data || full;
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
         type: 'application/json',
       });
       const url = URL.createObjectURL(blob);
@@ -145,7 +147,20 @@ export default function SettingsPage() {
       a.download = `xraymod-backup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch { /* ignore */ }
+    } catch {
+      try {
+        const settings = await api.get('/api/settings');
+        const blob = new Blob([JSON.stringify({ settings: settings?.data || settings }, null, 2)], {
+          type: 'application/json',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `xraymod-settings-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch { /* ignore */ }
+    }
   };
 
   const importConfig = async () => {
@@ -158,9 +173,17 @@ export default function SettingsPage() {
       try {
         const text = await file.text();
         const data = JSON.parse(text);
-        const flat = data.settings || data.config || data;
-        if (flat && typeof flat === 'object') {
-          await api.put('/api/settings', flat);
+        if (data.settings || data.version) {
+          const res = await api.post('/api/tools/restore', data);
+          if (res.success === false) {
+            alert(res.message || 'Restore failed');
+            return;
+          }
+        } else {
+          const flat = data.config || data;
+          if (flat && typeof flat === 'object') {
+            await api.put('/api/settings', flat);
+          }
         }
         alert('Config imported successfully');
         window.location.reload();

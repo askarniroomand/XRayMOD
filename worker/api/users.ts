@@ -12,6 +12,9 @@ function json(data: unknown, status = 200): Response {
 function mapUser(u: User) {
   const limitGB = Math.round((u.traffic_limit / (1024 * 1024 * 1024)) * 10) / 10;
   const usedGB = Math.round((u.traffic_used / (1024 * 1024 * 1024)) * 10) / 10;
+  const daysLeft = u.expiry_date
+    ? Math.ceil((new Date(u.expiry_date).getTime() - Date.now()) / 86400000)
+    : null;
   return {
     id: u.id,
     username: u.username,
@@ -27,9 +30,12 @@ function mapUser(u: User) {
     limit: limitGB,
     expiry: u.expiry_date,
     expiry_date: u.expiry_date,
+    days_left: daysLeft,
     created_at: u.created_at,
     speed_limit: 0,
     sub_id: u.uuid,
+    sub_path: `/sub/${u.uuid}`,
+    status_path: `/me/${u.uuid}`,
   };
 }
 
@@ -148,6 +154,9 @@ export async function handleUsers(
             password,
             uuid,
             sub: `/sub/${uuid}`,
+            status: `/me/${uuid}`,
+            sub_url: `${new URL(request.url).origin}/sub/${uuid}`,
+            status_url: `${new URL(request.url).origin}/me/${uuid}`,
           },
         },
         201

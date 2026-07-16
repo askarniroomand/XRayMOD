@@ -15,14 +15,23 @@ import { handleSettings } from './api/settings';
 import { handleCleanIP } from './api/cleanip';
 import { handleBackends } from './api/backends';
 import { handleWizard } from './api/wizard';
+import { handleTools } from './api/tools';
 import { handleSubscription } from './subscription';
+import { handleUserPortal } from './user-portal';
 import { handleProxyTraffic } from './proxy';
-import { getDisguiseConfig, getDecoyResponse, remapDisguisePath } from './disguise';
+import {
+  getDisguiseConfig,
+  getDecoyResponse,
+  remapDisguisePath,
+  getCanaryPaths,
+  matchCanary,
+} from './disguise';
 import { isGrpcRequest } from './proxy/grpc';
 import { isXHTTPRequest } from './proxy/xhttp';
 import { handleTelegramWebhook, handleTelegramLogin } from './telegram';
 import { serveStatic, serveRemotePages } from './static';
 import { renderLoginPage } from './panel-login';
+import { appendAudit, clientIp } from './lib/audit';
 
 type Handler = (
   request: Request,
@@ -61,7 +70,10 @@ const routes: Route[] = [
   { pattern: /^\/api\/cleanip(?:\/([^/]+))?$/, handler: handleCleanIP, params: ['action'] },
   { pattern: /^\/api\/backends(?:\/([^/]+))?$/, handler: handleBackends, params: ['id'] },
   { pattern: /^\/api\/wizard(?:\/([^/]+))?$/, handler: handleWizard, params: ['action'] },
+  { pattern: /^\/api\/tools(?:\/([^/]+))?$/, handler: handleTools, params: ['action'] },
   { pattern: /^\/sub\/([^/]+)$/, handler: handleSubscription, params: ['token'] },
+  { pattern: /^\/me\/([^/]+)$/, handler: handleUserPortal, params: ['token'] },
+  { pattern: /^\/status\/([^/]+)$/, handler: handleUserPortal, params: ['token'] },
   { pattern: /^\/bot$/, handler: handleTelegramWebhook },
   { pattern: /^\/admin$/, handler: handleTelegramLogin },
 ];
@@ -141,6 +153,25 @@ export async function handleRequest(
       return handleProxyTraffic(request, env, ctx);
     }
 
+    // Canary paths: log scanners, always serve decoy (never reveal panel)
+    try {
+      const canaries = await getCanaryPaths(env.DB);
+      const hit = matchCanary(pathname, canaries);
+      if (hit) {
+        const disguise = await getDisguiseConfig(env, env.DB);
+        await appendAudit(
+          env.DB,
+          'canary_hit',
+          `path=${pathname} bait=${hit}`,
+          clientIp(request),
+          'scanner'
+        );
+        return getDecoyResponse(url.host, disguise.fallbackPage || '1101');
+      }
+    } catch {
+      /* ignore canary errors */
+    }
+
     // Static UI assets must bypass UUID gate — otherwise /_next/* returns 403/1101
     // and React never hydrates (login button becomes a dead native form submit).
     const isStaticAsset =
@@ -152,6 +183,8 @@ export async function handleRequest(
       pathname.startsWith('/install') ||
       pathname.startsWith('/api/') ||
       pathname.startsWith('/sub/') ||
+      pathname.startsWith('/me/') ||
+      pathname.startsWith('/status/') ||
       pathname.startsWith('/bot') ||
       isStaticAsset;
 

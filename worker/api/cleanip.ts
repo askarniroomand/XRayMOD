@@ -42,8 +42,8 @@ export async function handleCleanIP(
         return jsonResponse({ success: false, message: 'Invalid IP format' }, 400);
       }
 
-      await setCleanIPs(env.DB, validIPs);
       const carrier = detectIranianISP(request);
+      await setCleanIPs(env.DB, validIPs, carrier);
       await env.DB.prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
         .bind('cleanip.carrier', carrier, Date.now())
         .run();

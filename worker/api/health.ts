@@ -44,7 +44,7 @@ export async function handleHealth(
     return json({
       status: 'ok',
       service: 'xraymod',
-      version: '2.0.0',
+      version: '2.2.0',
       database: dbOk ? 'connected' : 'disconnected',
       d1: dbOk,
       kv: true,

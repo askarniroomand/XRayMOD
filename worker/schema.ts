@@ -251,6 +251,7 @@ const DEFAULT_SETTINGS = {
   'disguise.login_path': '',
   'disguise.sub_path': '',
   'disguise.fallback_page': '1101',
+  'disguise.canary_paths': 'wp-admin,phpmyadmin,.env,xmlrpc.php,actuator,admin.php,wp-login.php',
   'ech.enabled': 'false',
   'ech.sni': 'cloudflare-ech.com',
   'ech.dns': 'https://dns.alidns.com/dns-query',
@@ -262,6 +263,8 @@ const DEFAULT_SETTINGS = {
   'panel.paused': 'false',
   'protocol.mixed_mode': 'false',
   'panel.monthly_cap_gb': '0',
+  'panel.sub_html_enhanced': 'true',
+  'panel.isp_aware_sub': 'true',
 };
 
 async function tableExists(db: D1Database, tableName: string): Promise<boolean> {
@@ -355,12 +358,31 @@ async function ensureSchemaInner(db: D1Database): Promise<void> {
     await db.prepare(sql).run();
   }
 
-  // Fast path: already fully seeded
+  // Fast path: already fully seeded — still soft-insert any new default keys
   const version = await db
     .prepare('SELECT v FROM kvstore WHERE k = ?')
     .bind('schema.version')
     .first<{ v: string }>();
-  if (version?.v === '2') {
+  if (version?.v === '2' || version?.v === '3') {
+    const nowSoft = Date.now();
+    for (const k of [
+      'disguise.canary_paths',
+      'panel.sub_html_enhanced',
+      'panel.isp_aware_sub',
+    ] as const) {
+      const def = (DEFAULT_SETTINGS as Record<string, string>)[k];
+      if (def === undefined) continue;
+      await db
+        .prepare('INSERT OR IGNORE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
+        .bind(k, def, nowSoft)
+        .run();
+    }
+    if (version?.v === '2') {
+      await db
+        .prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
+        .bind('schema.version', '3', nowSoft)
+        .run();
+    }
     return;
   }
 

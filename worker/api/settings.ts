@@ -7,6 +7,7 @@ import {
   verifyTotp,
   totpOtpauthUrl,
 } from '../auth';
+import { appendAudit, clientIp } from '../lib/audit';
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -105,6 +106,7 @@ export async function handleSettings(
         .bind('panel.password_hash', newHash, Date.now())
         .run();
 
+      await appendAudit(env.DB, 'password_change', '', clientIp(request));
       return json({ success: true, message: 'Password updated' });
     }
 
@@ -181,6 +183,7 @@ export async function handleSettings(
       return json({ success: true, message: '2FA disabled' });
     }
 
+    const changed: string[] = [];
     for (const [k, v] of Object.entries(body)) {
       if (BLOCKED_KEYS.has(k)) continue;
       if (['currentPassword', 'newPassword', 'action', 'code', 'secret', 'totp'].includes(k)) continue;
@@ -189,6 +192,16 @@ export async function handleSettings(
       )
         .bind(k, String(v), Date.now())
         .run();
+      changed.push(k);
+    }
+
+    if (changed.length) {
+      await appendAudit(
+        env.DB,
+        'settings_update',
+        changed.slice(0, 20).join(','),
+        clientIp(request)
+      );
     }
 
     return json({ success: true });
