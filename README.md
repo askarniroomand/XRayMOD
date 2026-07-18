@@ -1,342 +1,403 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="XrayMOD — stealth proxy panel on Cloudflare Workers" width="100%"/>
+  <img src="docs/assets/banner.svg" alt="XRayMOD — stealth proxy panel on Cloudflare Workers" width="100%"/>
 </p>
 
 <p align="center">
-  <strong>⚡ Open-source · Serverless · Stealth-first</strong><br/>
-  Modern <b>VLESS / Trojan / VMess</b> panel on <b>Cloudflare Workers + D1</b><br/>
-  <sub>User status portal · Top-10 smart sub · Clean IP · Persian UI · One-line install</sub>
+  <strong>Open-source · Serverless · Stealth-aware</strong><br/>
+  Modern <b>VLESS / Trojan / VMess</b> control plane on <b>Cloudflare Workers + D1</b><br/>
+  <sub>User status portal · Smart subscription · Disguise skins · One-line install · Persian UI</sub>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="MIT"/></a>
+  <a href="https://github.com/askarniroomand/XRayMOD/releases"><img src="https://img.shields.io/github/v/release/askarniroomand/XRayMOD?style=for-the-badge&color=38bdf8" alt="Release"/></a>
   <a href="https://workers.cloudflare.com"><img src="https://img.shields.io/badge/Cloudflare-Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="CF"/></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TS"/></a>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-15-000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next"/></a>
+  <a href="https://github.com/askarniroomand/XRayMOD/actions"><img src="https://img.shields.io/github/actions/workflow/status/askarniroomand/XRayMOD/ci.yml?style=for-the-badge&label=CI" alt="CI"/></a>
   <a href="https://github.com/askarniroomand/XRayMOD/stargazers"><img src="https://img.shields.io/github/stars/askarniroomand/XRayMOD?style=for-the-badge&color=eab308" alt="Stars"/></a>
-  <a href="https://github.com/askarniroomand/XRayMOD/network/members"><img src="https://img.shields.io/github/forks/askarniroomand/XRayMOD?style=for-the-badge&color=38bdf8" alt="Forks"/></a>
   <a href="https://t.me/MRROBOT_DT"><img src="https://img.shields.io/badge/Telegram-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="TG"/></a>
 </p>
 
 <p align="center">
-  <a href="#-فارسی"><b>🇮🇷 فارسی</b></a>
-  ·
-  <a href="#-english"><b>🇬🇧 English</b></a>
-  ·
-  <a href="#-quick-start"><b>⚡ Install</b></a>
-  ·
-  <a href="#-features"><b>✨ Features</b></a>
-  ·
-  <a href="https://t.me/MRROBOT_DT"><b>💬 Community</b></a>
-  ·
-  <a href="https://github.com/askarniroomand"><b>👤 Author</b></a>
-</p>
-
----
-
-<a id="-quick-start"></a>
-
-<br/>
-
-<div align="center">
-
-### ⚡ One command · fully automatic
-
-**🪟 Windows PowerShell** (prompt starts with `PS`):
-
-```powershell
-irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
-```
-
-**🪟 Windows CMD** (prompt is `C:\...` without `PS`):
-
-```cmd
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (iwr -UseBasicParsing 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1').Content"
-```
-
-**🐧 Linux / 🍎 macOS / WSL:**
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
-```
-
-You only type three things in the terminal:
-
-<table>
-<tr>
-<td align="center"><b>🔑 Token</b><br/><sub>Cloudflare API</sub></td>
-<td align="center">→</td>
-<td align="center"><b>👤 Username</b><br/><sub>Panel admin</sub></td>
-<td align="center">→</td>
-<td align="center"><b>🔒 Password</b><br/><sub>Your choice</sub></td>
-<td align="center">→</td>
-<td align="center"><b>✨ Live</b><br/><sub>Panel · Sub · /me</sub></td>
-</tr>
-</table>
-
-<sub>
-Free Cloudflare plan works · auto Node/Python on Windows · <b>no git required</b> ·  
-<b>token stays on your PC</b> (never committed to GitHub) · see <a href="SECURITY.md">SECURITY.md</a>
-</sub>
-
-<br/>
-
-⭐ **Star the repo** if it helps you — it keeps the project visible.
-
-</div>
-
----
-
-<a id="-features"></a>
-
-## ✨ Features that feel modern
-
-| | Feature | Why it hits different |
-|:--:|:--------|:---------------------|
-| 📊 | **User status portal** `/me/<uuid>` | Traffic, days left, QR, copy — no login needed for the user |
-| 🎯 | **Top-10 smart subscription** | Direct + clean IPs + CF ports + fingerprints — auto |
-| 🥷 | **Stealth skins** | CF 1101 · nginx · GitHub 404 · WordPress · Access Denied · blank |
-| 🕳 | **Canary traps** | Fake paths log scanners · never leak the panel |
-| 💾 | **Backup & audit** | Safe export/import · admin action history |
-| 📡 | **ISP-aware clean IPs** | Better picks for Iranian carriers when available |
-| 🛑 | **Kill switch & monthly cap** | Pause proxy only · panel stays open |
-| 🔐 | **2FA + rate limit** | Safer admin login on the edge |
-
-<p align="center">
-  <img src="docs/assets/social-card.svg" alt="XrayMOD social card" width="85%"/>
+  <a href="#-english"><b>English</b></a> ·
+  <a href="README.fa.md"><b>فارسی</b></a> ·
+  <a href="#-installation"><b>Install</b></a> ·
+  <a href="#-features"><b>Features</b></a> ·
+  <a href="#-architecture"><b>Architecture</b></a> ·
+  <a href="SECURITY.md"><b>Security</b></a> ·
+  <a href="CONTRIBUTING.md"><b>Contributing</b></a>
 </p>
 
 ---
 
 <a id="-english"></a>
 
-## 🇬🇧 English
+# XRayMOD
 
-### Why XrayMOD?
+**XRayMOD** is an open-source, serverless panel for managing proxy users and subscription links on **Cloudflare Workers** with **D1** storage. It prioritizes low ops cost (no VPS required for the control plane), a practical admin UI, a user-facing status page, and optional disguise surfaces for hostile networks.
 
-<table>
-<tr>
-<td width="33%" valign="top">
+> **Operator responsibility:** You must comply with Cloudflare terms, local laws, and acceptable-use rules. This project is infrastructure software — not an invitation to attack networks you do not control.
 
-### 🥷 Stealth by design
-Panel only on a secret **UUID** path.  
-Everyone else sees a realistic **decoy page**.
+---
 
-</td>
-<td width="33%" valign="top">
+## Features
 
-### ☁️ Zero infrastructure
-**Workers + D1** only.  
-No VPS · No Docker · No Nginx required.
+| | Feature | Detail |
+|:--:|:--------|:-------|
+| 📊 | **User status portal** `/me/<uuid>` | Traffic, days left, QR, copy — no admin login for end users |
+| 🎯 | **Top-10 smart subscription** | Direct + clean IPs + CF ports + fingerprints when configured |
+| 🥷 | **Stealth skins** | CF 1101 · nginx · GitHub 404 · WordPress · Access Denied · blank |
+| 🕳 | **Canary traps** | Fake paths log scanners without exposing the panel |
+| 💾 | **Backup & audit** | Export/import flows · admin action history foundations |
+| 📡 | **ISP-aware clean IPs** | Better picks for constrained carriers when data is available |
+| 🛑 | **Kill switch & caps** | Pause proxy paths while keeping panel reachable |
+| 🔐 | **Admin hardening** | 2FA support path · rate limiting · secret panel path |
+| ⚡ | **One-line install** | Windows PowerShell/CMD · Linux · macOS · WSL |
+| 📱 | **Client-ready** | Hiddify · v2rayNG · Streisand · NekoBox · Clash · sing-box |
 
-</td>
-<td width="33%" valign="top">
+---
 
-### 📱 Client-ready
-Works with **Hiddify · v2rayNG · Streisand · NekoBox · Clash · sing-box**.
+## Tech stack
 
-</td>
-</tr>
-</table>
+| Layer | Technology |
+|:------|:-----------|
+| Runtime | Cloudflare Workers |
+| Database | Cloudflare D1 (SQLite at the edge) |
+| Language | TypeScript |
+| Admin UI | Next.js |
+| Installers | Bash · PowerShell |
+| Tooling | Wrangler · npm |
 
-### What you get after install
+```text
+Internet → Cloudflare Edge (Worker)
+              ├─ Disguise / static responses
+              ├─ Admin API (secret path)
+              ├─ Subscription endpoints
+              ├─ /me user portal
+              └─ D1 (users, settings, audit)
+```
 
-| Link | Purpose |
-|:-----|:--------|
-| `/<ACCESS_UUID>/login` | Admin panel (keep private) |
-| `/sub/<USER_UUID>` | Subscription for apps (Base64 default) |
-| `/me/<USER_UUID>` | **User status page** — traffic, days left, QR, configs |
-| `/sub/<USER_UUID>?format=clash` | Clash / Mihomo YAML |
-| `/sub/<USER_UUID>?format=singbox` | sing-box JSON |
-| `/sub/<USER_UUID>?format=html` | Pretty portal (same idea as `/me`) |
+---
 
-### Recommended config
+## Architecture
 
-| Item | Value |
-|:-----|:------|
-| Protocol | **VLESS** |
-| Transport | **WebSocket** |
-| Security | **TLS** |
-| Port | **443** (also tries CF edge ports automatically) |
-| Fingerprint | **chrome** |
+### High-level
 
-### One-line install (fully automatic)
+```text
+                    ┌──────────────────────────┐
+   Clients          │   Cloudflare Network     │
+   (v2rayNG, etc.)  │                          │
+         │          │  Worker (router.ts)      │
+         │          │    ├ processors/         │
+         └─────────►│    ├ proxy/              │
+                    │    ├ api/                │
+   Admin browser ──►│    └ user-portal         │
+                    │            │             │
+                    │            ▼             │
+                    │         D1 SQLite        │
+                    └──────────────────────────┘
+```
 
-**Windows (CMD / PowerShell)** — auto-installs Node & Python if missing:
+### Canonical source of truth
+
+| Path | Role |
+|:-----|:-----|
+| `worker/` | **Production runtime** — request routing, auth, sub, portal |
+| `frontend/` | Admin panel UI |
+| `installer/` + `install.*` | Bootstrap onto a Cloudflare account |
+| `docs/` | Human documentation and assets |
+| `backend/` | Legacy / optional Python experiments — **not required** for Workers deploy |
+
+### Request flow (simplified)
+
+1. Request hits Worker `fetch` handler (`worker/index.ts`)
+2. Router classifies: install · static · API · subscription · proxy · portal
+3. Auth middleware gates admin APIs
+4. D1 reads/writes user and settings rows
+5. Response is either panel JSON/HTML, subscription payload, or disguise page
+
+---
+
+## Screenshots
+
+> **Placeholder — replace with real captures before marketing push.**
+
+| Admin dashboard | User `/me` portal | Subscription in client |
+|:---------------:|:-----------------:|:----------------------:|
+| ![Admin](docs/assets/screenshot-admin.png) | ![Me](docs/assets/screenshot-me.png) | ![Client](docs/assets/screenshot-client.png) |
+
+*Add 1280×800 PNG screenshots under `docs/assets/` and keep secrets cropped out.*
+
+---
+
+## Requirements
+
+### Operator machine
+- Windows 10+, macOS 12+, or modern Linux
+- Internet access to `api.cloudflare.com` and GitHub
+- Ability to run PowerShell **or** Bash
+
+### Cloudflare account
+- Free plan is sufficient for many personal deployments
+- Permission to create Workers and D1 databases
+- API token with **Edit Cloudflare Workers** (prefer scoped token)
+
+### Optional for contributors
+- Node.js 20+
+- npm 10+
+- Wrangler 3+
+
+---
+
+## Installation
+
+### One-command install
+
+**Windows PowerShell** (prompt starts with `PS`):
 
 ```powershell
 irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
 ```
 
-**Linux / macOS / WSL:**
+**Windows CMD**:
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (iwr -UseBasicParsing 'https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1').Content"
+```
+
+**Linux / macOS / WSL**:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
 ```
 
-You only type: **Cloudflare token** · **username** · **password**.
+### What you will enter
 
-**Cloudflare token:** [Create API Token](https://dash.cloudflare.com/profile/api-tokens) → template **Edit Cloudflare Workers**
+| Prompt | Purpose |
+|:-------|:--------|
+| Cloudflare API token | Deploy Worker + D1 (stays on your machine) |
+| Admin username | Panel login |
+| Admin password | Panel login (choose a strong password) |
 
-### Manual install
+### After install
+
+| URL pattern | Purpose |
+|:------------|:--------|
+| `/<ACCESS_UUID>/login` | Admin panel (keep private) |
+| `/sub/<USER_UUID>` | Subscription (Base64 default) |
+| `/me/<USER_UUID>` | User status page |
+| `/sub/<USER_UUID>?format=clash` | Clash / Mihomo YAML |
+| `/sub/<USER_UUID>?format=singbox` | sing-box JSON |
+
+⭐ Star the repo if it helps — visibility funds maintenance motivation.
+
+---
+
+## Usage
+
+### Admin
+1. Open the panel login URL from the installer output
+2. Create users with traffic / expiry limits
+3. Copy subscription or `/me` links to end users
+4. Configure disguise skin and canary paths as needed
+
+### End user
+1. Import subscription URL into Hiddify / v2rayNG / Clash / sing-box
+2. Optionally open `/me/<uuid>` to check remaining traffic and days
+
+### Code example — fetch subscription (operator tooling)
+
+```bash
+# Example only — replace host and UUID
+curl -fsSL "https://YOUR_WORKER.workers.dev/sub/USER_UUID" | head -c 200
+```
+
+```ts
+// Example: read Clash profile
+const res = await fetch(`https://YOUR_WORKER.workers.dev/sub/${userUuid}?format=clash`);
+const yaml = await res.text();
+console.log(yaml.slice(0, 200));
+```
+
+---
+
+## Configuration
+
+| Variable / setting | Where | Notes |
+|:-------------------|:------|:------|
+| API token | Installer prompt only | Never commit |
+| D1 `database_id` | Local wrangler config after install | Template uses placeholders in git |
+| Access UUID | Generated / configured at deploy | Panel path secret |
+| Admin credentials | Bootstrap install | Rotate if leaked |
+| Disguise mode | Panel settings | Choose skin for unknown routes |
+| Protocol options | Panel / API | VLESS · Trojan · VMess related settings |
+
+See `.env.example` and `SECURITY.md` for safe configuration practices.
+
+---
+
+## Project structure
+
+```text
+XRayMOD/
+├── worker/                 # Cloudflare Worker (runtime source of truth)
+│   ├── api/                # Admin/API route handlers
+│   ├── processors/         # Request processors
+│   ├── proxy/              # Protocol helpers
+│   ├── lib/                # Shared worker utilities
+│   ├── index.ts            # Worker entry
+│   └── router.ts           # Routing
+├── frontend/               # Next.js admin UI
+├── installer/              # Installer support code
+├── docs/                   # Documentation & assets
+├── scripts/                # Smoke / e2e helpers
+├── install.sh              # Unix installer
+├── install.ps1             # Windows installer
+├── wrangler.toml           # Template bindings
+├── SECURITY.md
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+├── CHANGELOG.md
+└── LICENSE
+```
+
+---
+
+## API documentation
+
+Admin and internal APIs are path-scoped behind the panel access UUID.
+
+| Area | Methods | Notes |
+|:-----|:--------|:------|
+| Auth login/logout | POST | Rate-limited |
+| Users CRUD | GET/POST/PATCH/DELETE | Admin session required |
+| Settings | GET/PUT | Admin session required |
+| Nodes / backends | GET/POST | Admin session required |
+| Subscription | GET | User UUID; format query param |
+| Health | GET | Liveness |
+
+> Full OpenAPI export is on the roadmap. Until then, inspect `worker/api/*` and panel network calls.
+
+---
+
+## Roadmap
+
+- [x] Workers + D1 panel core
+- [x] `/me` status portal
+- [x] Smart subscription bundle
+- [x] One-line cross-platform install
+- [ ] Public OpenAPI document
+- [ ] Miniflare unit/integration tests in CI
+- [ ] Signed release artifacts
+- [ ] Multi-language panel UI packs
+- [ ] Hardened error responses (no internal leakage)
+
+See also [ROADMAP.md](./ROADMAP.md) if present and [CHANGELOG.md](./CHANGELOG.md).
+
+---
+
+## Future plans
+
+1. First-class observability (structured logs without secrets)
+2. Safer multi-operator roles
+3. Exportable disaster-recovery runbook
+4. Optional Terraform/Pulumi deploy path
+5. Contributor good-first-issues labeled weekly
+
+---
+
+## Known issues
+
+| Issue | Severity | Workaround |
+|:------|:---------|:-----------|
+| GitHub raw CDN can cache install scripts briefly | Medium | Installer pins / retries; re-run after a minute |
+| Dual historical trees (`backend/` Python vs Worker) may confuse new contributors | Medium | Follow `worker/` as canonical |
+| Zero or few automated tests in early public tags | Medium | Use smoke scripts; contribute tests |
+| Exception messages may be too verbose in some 500 paths | Low–Med | Patch to generic client errors |
+
+Track live issues: https://github.com/askarniroomand/XRayMOD/issues
+
+---
+
+## FAQ
 
 <details>
-<summary><b>Step by step</b></summary>
+<summary><b>Is a VPS required?</b></summary>
 
-<br/>
+No for the control plane. The panel runs on Cloudflare Workers + D1. Your proxy backends/nodes are a separate concern depending on how you deploy user traffic paths.
+</details>
+
+<details>
+<summary><b>Does the free Cloudflare plan work?</b></summary>
+
+Yes for many personal setups. Watch Workers request limits and D1 quotas as you scale.
+</details>
+
+<details>
+<summary><b>Where is my API token stored?</b></summary>
+
+It should remain on your machine during install and be sent only to Cloudflare APIs. Do not commit it. See SECURITY.md.
+</details>
+
+<details>
+<summary><b>Can I use Hiddify / v2rayNG?</b></summary>
+
+Yes. Import the subscription URL. Clash and sing-box formats are available via query parameters.
+</details>
+
+<details>
+<summary><b>How do I report a security issue?</b></summary>
+
+Privately via Telegram [@MRROBOT_DT](https://t.me/MRROBOT_DT) — do not open a public issue.
+</details>
+
+<details>
+<summary><b>Is this legal?</b></summary>
+
+Laws vary. You are solely responsible for lawful use and compliance with Cloudflare’s terms.
+</details>
+
+---
+
+## Contributing
+
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
 ```bash
 git clone https://github.com/askarniroomand/XRayMOD.git
 cd XRayMOD
 npm install
-npm install --prefix frontend
-npm run build:ui
-npx wrangler login
-npx wrangler d1 create xraymod-db
-# paste database_id into wrangler.toml
-npx wrangler deploy
+# open a feature branch, make changes, PR against main
 ```
 
-Bootstrap:
-
-```bash
-curl -X POST "https://YOUR_WORKER.workers.dev/install" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"YourStrongPassword"}'
-```
-
-Save the **panel URL** and **subscription URL** from the response. Never share the panel UUID.
-
-</details>
-
-### Panel tour (friendly)
-
-1. **Users** — create a user → copy **Status** (for the person) + **Sub** (for the app)  
-2. **Clean IP** — scan & apply best IPs for better connectivity  
-3. **Stealth** — pick a decoy skin, secret paths, canary traps, kill switch  
-4. **Config** — ECH / fragment / mixed protocol / monthly cap  
-5. **Settings** — password, 2FA, full backup  
-
-### Community & support
-
-<p align="center">
-  <a href="https://t.me/MRROBOT_DT"><img src="https://img.shields.io/badge/Telegram_Support-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"/></a>
-</p>
-
-- Questions, bugs, ideas → Telegram  
-- Be kind — this is free & open source 💚  
-- Don't post your **panel UUID**, **passwords**, or **API tokens** in public chats  
+Small docs PRs and tests are excellent first contributions.
 
 ---
 
-<a id="-فارسی"></a>
+## Changelog & versioning
 
-## 🇮🇷 فارسی
-
-### XrayMOD چیه؟
-
-پنل **self-hosted** برای ساخت و مدیریت کانفیگ پروکسی روی **Cloudflare Workers + D1** — مخفی، سبک، و مناسب ایران.
-
-| | |
-|:--|:--|
-| 🥷 | پنل پشت **UUID مخفی** — بقیه صفحه جعلی می‌بینند |
-| ☁️ | بدون VPS اجباری |
-| 📊 | هر کاربر **صفحه وضعیت** خودش (`/me/...`) |
-| 🎯 | ساب هوشمند تا **۱۰ کانفیگ** پیشنهادی |
-| 🇮🇷 | UI فارسی + انگلیسی |
-| ⚡ | نصب با **یک دستور** |
-
-### لینک‌هایی که بعد از نصب می‌گیری
-
-| لینک | برای چی |
-|:-----|:--------|
-| `/<UUID_پنل>/login` | ورود ادمین — **فقط خودت** |
-| `/sub/<UUID_کاربر>` | ساب برای اپ (Hiddify / v2rayNG / …) |
-| `/me/<UUID_کاربر>` | صفحه کاربر: حجم، روز، QR، کپی کانفیگ |
-| `?format=clash` / `singbox` / `html` | فرمت‌های مختلف همان ساب |
-
-### نصب یک‌خطی (کاملاً خودکار)
-
-**ویندوز (CMD / PowerShell)** — Node و Python را در صورت نبود خودش نصب می‌کند:
-
-```powershell
-irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
-```
-
-**لینوکس / مک / WSL:**
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
-```
-
-فقط ۳ تا ورودی: **توکن Cloudflare** · **نام کاربری** · **رمز**
-
-[ساخت API Token](https://dash.cloudflare.com/profile/api-tokens) → قالب **Edit Cloudflare Workers**
-
-### بهترین تجربه برای کاربر نهایی
-
-1. از پنل کاربر بساز  
-2. دکمه **وضعیت** را برایش بفرست → حجم و روز را خودش می‌بیند  
-3. دکمه **ساب** را توی Hiddify / v2rayNG وارد کند  
-4. اگر یکی از نودها قطع شد، تا ۱۰ تا جایگزین خودکار دارد  
-
-### گشت‌وگذار پنل
-
-| بخش | کارش |
-|:----|:-----|
-| **کاربران** | ساخت، کپی ساب / وضعیت، ریست حجم |
-| **آی‌پی تمیز** | اسکن و اعمال IP بهتر |
-| **استیلث** | پوسته جعلی، canary، kill switch، بکاپ |
-| **کانفیگ** | پروتکل، ECH، fragment، سقف ماهانه |
-| **تنظیمات** | رمز، 2FA، پشتیبان |
-
-### کانال و پشتیبانی
-
-<p align="center">
-  <a href="https://t.me/MRROBOT_DT"><img src="https://img.shields.io/badge/تلگرام_پشتیبانی-@MRROBOT__DT-26A5E4?style=for-the-badge&logo=telegram" alt="Telegram"/></a>
-</p>
-
-خوشحال می‌شیم کمکت کنیم 🌟  
-
-**لطفاً این‌ها را عمومی نفرست:** لینک پنل، رمز، توکن Cloudflare، UUID ادمین.
+- [CHANGELOG.md](./CHANGELOG.md)
+- Semantic versioning: `MAJOR.MINOR.PATCH`
+- GitHub Releases via tag `vX.Y.Z`
 
 ---
 
-## 🏗 Architecture (short)
+## License
 
-```
-Browser / Client
-      │
-      ├─ /me/<uuid>      → User status portal (public token)
-      ├─ /sub/<uuid>     → Subscription (Base64 / Clash / sing-box)
-      ├─ /<panel-uuid>/* → Admin SPA (Next.js static on Workers Assets)
-      └─ WS / gRPC / XHTTP → Edge proxy handlers
-                │
-         Cloudflare Worker + D1
-```
+MIT © Askar Niroomand — see [LICENSE](./LICENSE).
 
 ---
 
-## 🛡 Security notes
+## Contact
 
-- Never commit real `database_id`, API tokens, or passwords  
-- Rotate tokens if they were ever pasted in chat  
-- Prefer 2FA for admin  
-- Keep the panel UUID private  
-
-See [SECURITY.md](SECURITY.md).
-
----
-
-## 📄 License
-
-[MIT](LICENSE) — free to use, modify, and share.
+| Channel | Link |
+|:--------|:-----|
+| Maintainer | [github.com/askarniroomand](https://github.com/askarniroomand) |
+| Telegram | [t.me/MRROBOT_DT](https://t.me/MRROBOT_DT) |
+| Security | [SECURITY.md](./SECURITY.md) |
 
 ---
 
 <p align="center">
-  <b>Made with ☕ for people who want simple, stealthy self-hosted access</b><br/>
-  <a href="https://t.me/MRROBOT_DT">Telegram</a> ·
-  <a href="https://github.com/askarniroomand/XRayMOD">GitHub</a> ·
-  <a href="README.fa.md">README فارسی</a>
+  <sub>Built for operators who want edge-native control planes · Please star if useful</sub>
 </p>

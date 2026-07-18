@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose an improvement for XRayMOD
+title: "feat: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What pain does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Protocols / proxy
+        - Subscription formats
+        - Admin UX
+        - Stealth / disguise
+        - Installer
+        - Docs / i18n
+        - Security
+        - Other
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a PR for this

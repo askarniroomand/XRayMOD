@@ -1,0 +1,79 @@
+name: Bug report
+description: Report a functional defect in XRayMOD
+title: "bug: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Redact secrets** (tokens, passwords, full panel UUIDs, cookies).
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-paragraph description of the problem
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Install with …
+        2. Open …
+        3. Click …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Installer (shell/ps1)
+        - Worker runtime
+        - Admin panel UI
+        - Subscription /me portal
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: v1.0.0 or commit SHA
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operator OS
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (redacted)
+      render: text
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues
+          required: true
+        - label: I removed tokens/passwords/secrets from this report
+          required: true

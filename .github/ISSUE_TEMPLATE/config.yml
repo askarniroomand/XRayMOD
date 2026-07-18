@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
+  - name: Security vulnerability
+    url: https://github.com/askarniroomand/XRayMOD/blob/main/SECURITY.md
+    about: Do not file public issues for security problems. Read SECURITY.md.
   - name: Telegram support
     url: https://t.me/MRROBOT_DT
-    about: نصب، کانفیگ، ساب و سوالات — پیام مستقیم در تلگرام
+    about: Community / install help (never paste API tokens).
