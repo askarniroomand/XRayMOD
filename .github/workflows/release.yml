@@ -27,7 +27,7 @@ jobs:
           echo "Ensure CHANGELOG.md contains this version section."
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: XRayMOD ${{ steps.ver.outputs.version }}
           generate_release_notes: true
