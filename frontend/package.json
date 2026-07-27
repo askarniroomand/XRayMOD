@@ -11,7 +11,7 @@
   "dependencies": {
     "next": "^15.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.8",
     "lucide-react": "^0.546.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
