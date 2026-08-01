@@ -225,14 +225,17 @@ export async function handleRequest(
       return handleInstall(request, env, ctx, {});
     }
 
+    // Static Next assets must be absolute (/_next/...) for nested SPA routes.
+    // Serving them without SECURE PATH avoids broken chunk loads on /panel/*.
+    if (pathname.startsWith('/_next/') || pathname.startsWith('/favicon')) {
+      return (await serveAsset(request, env, pathname)) || silent404();
+    }
+
     // Compulsory SECURE PATH (access UUID) for everything except first-boot install.
-    // IMPORTANT: do NOT 404 on file extensions before stripping the UUID —
-    // /{uuid}/_next/*.css matches /\.css$/ and was incorrectly rejected as a
-    // "bare" public asset, which left the panel HTML unstyled.
     if (isConfigured) {
       const segments = pathname.split('/').filter(Boolean);
       if (segments.length === 0 || segments[0] !== accessUuid!.v) {
-        // Bare /_next, /api, /login, etc. without SECURE PATH → silent 404/decoy
+        // Bare /api, /login, etc. without SECURE PATH → silent 404/decoy
         return denyPublic(env, url.host);
       }
       panelPrefix = `/${accessUuid!.v}`;
@@ -240,7 +243,7 @@ export async function handleRequest(
       if (pathname === '/') pathname = '/';
       url.pathname = pathname;
 
-      // Assets under /{SECURE_PATH}/_next/...
+      // Non-_next static under SECURE PATH (rare)
       if (isStaticAssetPath(pathname)) {
         return (await serveAsset(request, env, pathname)) || silent404();
       }

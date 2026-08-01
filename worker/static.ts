@@ -88,12 +88,10 @@ async function injectHtmlGlobals(
     html = script + html;
   }
 
-  // Rewrite absolute /_next and root assets under SECURE PATH
+  // Keep Next absolute /_next as-is (Worker serves it publicly for nested routes).
+  // Only rewrite app routes + favicon under SECURE PATH.
   if (panelPrefix) {
-    html = html.replace(/(href|src)=(["'])\/_next\//g, `$1=$2${panelPrefix}/_next/`);
-    html = html.replace(/(href|src)=(["'])\.\/_next\//g, `$1=$2${panelPrefix}/_next/`);
     html = html.replace(/(href|src)=(["'])\/favicon/g, `$1=$2${panelPrefix}/favicon`);
-    // Next static export hardcodes /panel|/login — keep them under SECURE PATH
     html = html.replace(
       /(href|src)=(["'])\/(panel|login|install)(\/|"|'|\?|#)/g,
       `$1=$2${panelPrefix}/$3$4`

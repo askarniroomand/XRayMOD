@@ -1,9 +1,21 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { Radar, Play, Square, Copy, RefreshCw, Zap, Globe, Shield, Server } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Radar,
+  Play,
+  Square,
+  Copy,
+  Check,
+  Sparkles,
+  Wifi,
+  Globe,
+  Trophy,
+  Trash2,
+} from 'lucide-react';
 import { api } from '@/lib/api';
-import { Card, CardHeader, Button, Input, ProgressBar, StatusBadge, EmptyState } from '@/components';
+import { Card, CardHeader, Button, ProgressBar, EmptyState, PageHeader } from '@/components';
+import { toast } from 'sonner';
 
 interface ScanResult {
   ip: string;
@@ -12,18 +24,86 @@ interface ScanResult {
   jitter: number;
   loss: number;
   score: number;
-  datacenter: string;
+  samples: number;
+  grade: 'S' | 'A' | 'B' | 'C' | 'D';
 }
 
 interface CleanIP {
   ip: string;
   port: number;
   label: string;
-  score?: number;
-  latency?: number;
+}
+
+interface NetworkHint {
+  asn: number;
+  isp: string;
+  country: string;
+  carrier: string;
 }
 
 const PORTS = [443, 8443, 2053, 2083, 2087, 2096];
+
+function gradeLatency(ms: number): ScanResult['grade'] {
+  if (ms < 80) return 'S';
+  if (ms < 140) return 'A';
+  if (ms < 220) return 'B';
+  if (ms < 350) return 'C';
+  return 'D';
+}
+
+function gradeColor(g: ScanResult['grade']) {
+  if (g === 'S' || g === 'A') return 'text-[var(--accent)]';
+  if (g === 'B') return 'text-[var(--info)]';
+  if (g === 'C') return 'text-[var(--warn)]';
+  return 'text-[var(--coral)]';
+}
+
+/** Probe one IP from the visitor's own network path (browser → IP). */
+async function probeFromClient(ip: string, port: number, rounds = 3): Promise<ScanResult | null> {
+  const samples: number[] = [];
+  let fails = 0;
+
+  for (let i = 0; i < rounds; i++) {
+    const ms = await new Promise<number | null>((resolve) => {
+      const img = new Image();
+      const t0 = performance.now();
+      const timer = window.setTimeout(() => {
+        img.src = '';
+        resolve(null);
+      }, 2200);
+      const done = () => {
+        window.clearTimeout(timer);
+        resolve(Math.max(1, Math.round(performance.now() - t0)));
+      };
+      img.onload = done;
+      img.onerror = done;
+      // Hits CF edge from the user's ISP path; cert mismatch still fires onerror with RTT.
+      img.src = `https://${ip}:${port}/cdn-cgi/trace?_=${Date.now()}-${i}`;
+    });
+    if (ms == null) fails += 1;
+    else samples.push(ms);
+    await new Promise((r) => setTimeout(r, 40));
+  }
+
+  if (!samples.length) return null;
+
+  const latency = Math.round(samples.reduce((a, b) => a + b, 0) / samples.length);
+  const jitter = Math.round(
+    samples.reduce((a, b) => a + Math.abs(b - latency), 0) / samples.length
+  );
+  const loss = Math.round((fails / rounds) * 100);
+  const score = Math.round(latency + jitter * 1.4 + loss * 8);
+  return {
+    ip,
+    port,
+    latency,
+    jitter,
+    loss,
+    score,
+    samples: samples.length,
+    grade: gradeLatency(latency),
+  };
+}
 
 export default function CleanIPPage() {
   const [cleanIPs, setCleanIPs] = useState<CleanIP[]>([]);
@@ -31,273 +111,414 @@ export default function CleanIPPage() {
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [scanProgress, setScanProgress] = useState(0);
   const [selectedPort, setSelectedPort] = useState(443);
-  const [scanCount, setScanCount] = useState(50);
-  const [bestIP, setBestIP] = useState<ScanResult | null>(null);
+  const [scanCount, setScanCount] = useState(40);
+  const [network, setNetwork] = useState<NetworkHint | null>(null);
+  const [statusLine, setStatusLine] = useState('آمادهٔ اسکن از شبکهٔ شما');
   const abortRef = useRef(false);
 
-  useEffect(() => { loadCleanIPs(); }, []);
-
-  const loadCleanIPs = async () => {
+  const loadCleanIPs = useCallback(async () => {
     try {
       const data = await api.get('/api/cleanip/list');
       const raw = data?.data?.ips || data?.data || data?.ips || [];
       const list = Array.isArray(raw) ? raw : [];
       setCleanIPs(
-        list.map((item: string | CleanIP) => {
-          if (typeof item === 'string') {
-            const [ipPort, label] = item.split('#');
-            const [ip, port] = (ipPort || '').split(':');
-            return { ip: ip || '', port: Number(port) || 443, label: label?.trim() || '' };
-          }
-          return {
-            ip: item.ip || '',
-            port: item.port || 443,
-            label: item.label || '',
-            score: item.score,
-            latency: item.latency,
-          };
-        }).filter((x: CleanIP) => x.ip)
+        list
+          .map((item: string | CleanIP) => {
+            if (typeof item === 'string') {
+              const [ipPort, label] = item.split('#');
+              const [ip, port] = (ipPort || '').split(':');
+              return { ip: ip || '', port: Number(port) || 443, label: label?.trim() || '' };
+            }
+            return {
+              ip: item.ip || '',
+              port: item.port || 443,
+              label: item.label || '',
+            };
+          })
+          .filter((x: CleanIP) => x.ip)
       );
     } catch {
       setCleanIPs([]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCleanIPs();
+    api
+      .get('/api/cleanip')
+      .then((d) => {
+        const isp = d?.data?.isp || d?.isp;
+        if (isp) setNetwork(isp);
+      })
+      .catch(() => {});
+  }, [loadCleanIPs]);
 
   const scanIPs = async () => {
     setScanning(true);
     setScanResults([]);
     setScanProgress(0);
-    setBestIP(null);
     abortRef.current = false;
+    setStatusLine('دریافت لیست IP مناسب ISP شما…');
 
-    // Generate random Cloudflare IPs
-    const cfRanges = [
-      [104, 16, 0, 0, 104, 31, 255, 255],
-      [172, 64, 0, 0, 172, 71, 255, 255],
-      [162, 159, 0, 0, 162, 159, 255, 255],
-    ];
-
-    const ips: string[] = [];
-    for (let i = 0; i < scanCount; i++) {
-      const range = cfRanges[Math.floor(Math.random() * cfRanges.length)];
-      const ip = `${range[0]}.${range[1]}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;
-      ips.push(ip);
+    let targets: { ip: string; port: number }[] = [];
+    try {
+      const data = await api.get(
+        `/api/cleanip/scan?count=${scanCount}&port=${selectedPort}`
+      );
+      const isp = data?.data?.isp || data?.isp;
+      if (isp) setNetwork(isp);
+      const raw: string[] = data?.data?.ips || data?.ips || [];
+      targets = raw
+        .map((s) => {
+          const [ip, port] = String(s).split(':');
+          return { ip, port: Number(port) || selectedPort };
+        })
+        .filter((t) => t.ip);
+    } catch {
+      /* fallback below */
     }
 
+    if (!targets.length) {
+      // Fallback CF ranges if API unavailable
+      const ranges = [
+        [104, 16],
+        [104, 17],
+        [172, 64],
+        [172, 67],
+        [162, 159],
+      ];
+      targets = Array.from({ length: scanCount }, () => {
+        const [a, b] = ranges[Math.floor(Math.random() * ranges.length)];
+        return {
+          ip: `${a}.${b}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`,
+          port: selectedPort,
+        };
+      });
+    }
+
+    setStatusLine(
+      `در حال تست ${targets.length} آی‌پی از مسیر اینترنت شما (${network?.isp || network?.carrier || 'شبکه فعلی'})…`
+    );
+
     const results: ScanResult[] = [];
-    const batchSize = 12;
+    const batchSize = 8;
 
-    for (let i = 0; i < ips.length; i += batchSize) {
+    for (let i = 0; i < targets.length; i += batchSize) {
       if (abortRef.current) break;
-      const batch = ips.slice(i, i + batchSize);
-      const batchResults = await Promise.allSettled(
-        batch.map(ip => scanSingleIP(ip, selectedPort))
+      const batch = targets.slice(i, i + batchSize);
+      const settled = await Promise.allSettled(
+        batch.map((t) => probeFromClient(t.ip, t.port, 3))
       );
-
-      for (const r of batchResults) {
+      for (const r of settled) {
         if (r.status === 'fulfilled' && r.value) {
           results.push(r.value);
           results.sort((a, b) => a.score - b.score);
           setScanResults([...results]);
-          setBestIP(results[0]);
         }
       }
-      setScanProgress(Math.min(((i + batchSize) / ips.length) * 100, 100));
+      setScanProgress(Math.min(((i + batchSize) / targets.length) * 100, 100));
+      setStatusLine(
+        `پیدا شده: ${results.length} · پیشرفت ${Math.min(100, Math.round(((i + batchSize) / targets.length) * 100))}%`
+      );
     }
 
     setScanning(false);
+    if (results.length) {
+      setStatusLine(
+        `بهترین: ${results[0].ip}:${results[0].port} · ${results[0].latency}ms · Grade ${results[0].grade}`
+      );
+      toast.success(`${results.length} آی‌پی پاسخ‌گو از شبکهٔ شما`);
+    } else {
+      setStatusLine('هیچ آی‌پی پاسخ‌گویی پیدا نشد — VPN/فیلتر را چک کنید و دوباره بزنید');
+      toast.error('نتیجه‌ای نبود');
+    }
   };
 
-  const scanSingleIP = (ip: string, port: number): Promise<ScanResult | null> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const timeout = setTimeout(() => {
-        resolve(null);
-      }, 2000);
-
-      const start = performance.now();
-      img.onload = img.onerror = () => {
-        clearTimeout(timeout);
-        const latency = performance.now() - start;
-        const score = latency + Math.random() * 10;
-        resolve({
-          ip, port, latency: Math.round(latency),
-          jitter: Math.round(Math.random() * 20),
-          loss: Math.random() > 0.9 ? Math.round(Math.random() * 5) : 0,
-          score: Math.round(score),
-          datacenter: ['SFO', 'LAX', 'NRT', 'HKG', 'FRA', 'LHR'][Math.floor(Math.random() * 6)],
-        });
-      };
-      img.src = `https://${ip}/cdn-cgi/trace?t=${Date.now()}`;
-    });
+  const stopScan = () => {
+    abortRef.current = true;
+    setScanning(false);
+    setStatusLine('اسکن متوقف شد');
   };
 
-  const stopScan = () => { abortRef.current = true; setScanning(false); };
-
-  const applyBestIP = async () => {
-    if (!bestIP) return;
+  const applyIPs = async (list: ScanResult[]) => {
+    if (!list.length) return;
     try {
       const existing = cleanIPs.map((c) => `${c.ip}:${c.port}`);
-      const next = [...new Set([...existing, `${bestIP.ip}:${bestIP.port}`])];
+      const next = [...new Set([...existing, ...list.map((r) => `${r.ip}:${r.port}`)])];
       await api.post('/api/cleanip/apply', { ips: next });
-      loadCleanIPs();
-    } catch { /* ignore */ }
+      await loadCleanIPs();
+      toast.success(`${list.length} آی‌پی ذخیره شد`);
+    } catch {
+      toast.error('ذخیره ناموفق');
+    }
   };
 
   const removeCleanIP = async (ip: string) => {
     try {
-      const next = cleanIPs
-        .filter((c) => c.ip !== ip)
-        .map((c) => `${c.ip}:${c.port}`);
+      const next = cleanIPs.filter((c) => c.ip !== ip).map((c) => `${c.ip}:${c.port}`);
       await api.post('/api/cleanip/apply', { ips: next });
-      loadCleanIPs();
-    } catch { /* ignore */ }
+      await loadCleanIPs();
+    } catch {
+      /* ignore */
+    }
   };
 
-  const copyIP = (ip: string, port: number) => {
-    navigator.clipboard.writeText(`${ip}:${port}`);
+  const copyText = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    toast.success('کپی شد');
   };
+
+  const top = scanResults.slice(0, 5);
+  const best = top[0] || null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-black">آی‌پی تمیز</h1>
-        <p className="text-zinc-500 text-sm mt-1">اسکن و مدیریت آی‌پی‌های بهینه کلودفلر</p>
-      </div>
+    <div className="page-shell space-y-6">
+      <PageHeader
+        eyebrow="Network probe"
+        title="آی‌پی تمیز"
+        description="اسکن واقعی از اینترنت شما — بهترین edge برای همین مسیر"
+        actions={
+          scanning ? (
+            <Button variant="danger" onClick={stopScan}>
+              <Square size={14} /> توقف
+            </Button>
+          ) : (
+            <Button onClick={scanIPs}>
+              <Play size={14} /> شروع اسکن شبکه
+            </Button>
+          )
+        }
+      />
 
-      {/* Scanner */}
+      <section className="hero-band">
+        <div className="relative z-[1] grid gap-4 md:grid-cols-[1.2fr_1fr]">
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <span className="chip chip-live">
+                <Wifi size={11} /> Client-path scan
+              </span>
+              {network?.carrier && network.carrier !== 'all' && (
+                <span className="chip">{network.carrier.toUpperCase()}</span>
+              )}
+              {network?.country && <span className="chip">{network.country}</span>}
+            </div>
+            <h2 className="font-display text-xl font-bold tracking-tight">
+              تست از همان شبکه‌ای که الان پنل را باز کرده‌اید
+            </h2>
+            <p className="text-sm text-[var(--text-muted)] leading-relaxed max-w-xl">
+              لیست IP بر اساس ISP شما گرفته می‌شود، بعد مرورگر شما هر IP را از مسیر واقعی اینترنتتان
+              پروب می‌کند و بهترین‌ها را پیشنهاد می‌دهد.
+            </p>
+            <p className="text-xs font-mono text-[var(--text-faint)]">{statusLine}</p>
+          </div>
+          <div className="surface rounded-[var(--radius)] p-4 border border-[var(--stroke)] space-y-2">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-[var(--text-faint)] font-display font-semibold">
+              شبکهٔ فعلی
+            </p>
+            <p className="text-sm font-semibold truncate">{network?.isp || 'در حال تشخیص…'}</p>
+            <p className="text-xs text-[var(--text-muted)] font-mono">
+              ASN {network?.asn || '—'} · Carrier {network?.carrier || '—'}
+            </p>
+            {best && (
+              <div className="pt-2 border-t border-[var(--stroke)]">
+                <p className="text-[11px] text-[var(--accent)] font-semibold mb-1">پیشنهاد اول</p>
+                <p className="font-mono text-sm font-bold">
+                  {best.ip}:{best.port}
+                </p>
+                <p className="text-[11px] text-[var(--text-faint)] mt-1">
+                  {best.latency}ms · jitter {best.jitter}ms · grade {best.grade}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
       <Card>
         <CardHeader
-          title="IP Scanner"
-          description="Find the fastest Cloudflare IPs for your network"
-          action={
-            scanning ? (
-              <Button variant="danger" onClick={stopScan}><Square size={14} /> توقف</Button>
-            ) : (
-              <Button onClick={scanIPs}><Play size={14} /> شروع اسکن</Button>
-            )
-          }
+          title="تنظیمات اسکن"
+          description="پورت و تعداد هدف — هرچه بیشتر، دقیق‌تر و کندتر"
         />
-
-        {/* Port Selection */}
-        <div className="flex items-center gap-4 mb-4">
-          <span className="text-xs text-zinc-500">Port:</span>
-          <div className="flex gap-2">
-            {PORTS.map(p => (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <span className="text-xs text-[var(--text-faint)]">Port</span>
+          <div className="flex flex-wrap gap-1.5">
+            {PORTS.map((p) => (
               <button
                 key={p}
+                type="button"
                 onClick={() => setSelectedPort(p)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                className={`px-2.5 py-1 rounded-[var(--radius)] text-xs font-mono border transition-colors ${
                   selectedPort === p
-                    ? 'bg-emerald-600/20 text-emerald-500 border border-emerald-500/50'
-                    : 'bg-zinc-800/50 text-zinc-500 border border-transparent hover:border-zinc-700'
+                    ? 'border-[var(--accent)]/50 bg-[var(--accent-soft)] text-[var(--accent)]'
+                    : 'border-[var(--stroke)] text-[var(--text-muted)] hover:border-[var(--stroke-strong)]'
                 }`}
               >
                 {p}
               </button>
             ))}
           </div>
+          <label className="ms-auto flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            تعداد
+            <select
+              value={scanCount}
+              onChange={(e) => setScanCount(Number(e.target.value))}
+              className="bg-[var(--bg)] border border-[var(--stroke-strong)] rounded-[var(--radius)] px-2 py-1 text-xs"
+            >
+              {[24, 40, 64, 80].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
-        {/* Progress */}
         {scanning && (
           <div className="mb-4">
-            <div className="flex justify-between text-xs text-zinc-500 mb-1">
-              <span>Scanning...</span>
-              <span>{scanResults.length} found</span>
+            <div className="flex justify-between text-[11px] text-[var(--text-faint)] mb-1.5">
+              <span>Scanning your path…</span>
+              <span>{scanResults.length} live</span>
             </div>
             <ProgressBar value={scanProgress} size="sm" />
           </div>
         )}
 
-        {/* Best IP */}
-        {bestIP && (
-          <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl mb-4">
-            <div className="flex items-center justify-between">
+        {best && (
+          <div className="p-4 mb-4 rounded-[var(--radius)] border border-[var(--accent)]/25 bg-[var(--accent-soft)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <p className="text-xs text-emerald-500 font-bold uppercase mb-1">Best IP Found</p>
-                <p className="font-mono text-lg font-bold">{bestIP.ip}:{bestIP.port}</p>
-                <p className="text-xs text-zinc-500 mt-1">
-                  {bestIP.latency}ms latency · {bestIP.datacenter} · Score: {bestIP.score}
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--accent)] flex items-center gap-1.5">
+                  <Trophy size={12} /> Best for your network
+                </p>
+                <p className="font-mono text-lg font-bold mt-1">
+                  {best.ip}:{best.port}
+                </p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  {best.latency}ms · jitter {best.jitter}ms · loss {best.loss}% · score {best.score} ·{' '}
+                  <span className={gradeColor(best.grade)}>Grade {best.grade}</span>
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={applyBestIP}>Apply</Button>
-                <Button size="sm" variant="secondary" onClick={() => copyIP(bestIP.ip, bestIP.port)}>Copy</Button>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => applyIPs([best])}>
+                  <Check size={14} /> اعمال بهترین
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => applyIPs(top)}>
+                  <Sparkles size={14} /> Top {Math.min(5, top.length)}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => copyText(`${best.ip}:${best.port}`)}
+                >
+                  <Copy size={14} /> کپی
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Results Table */}
-        {scanResults.length > 0 && (
-          <div className="overflow-x-auto max-h-64 overflow-y-auto">
+        {scanResults.length > 0 ? (
+          <div className="overflow-x-auto max-h-80 overflow-y-auto rounded-[var(--radius)] border border-[var(--stroke)]">
             <table className="w-full">
-              <thead className="sticky top-0 bg-zinc-900">
-                <tr className="border-b border-zinc-800">
-                  <th className="text-left px-3 py-2 text-[10px] font-black text-zinc-500 uppercase">#</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-black text-zinc-500 uppercase">IP:Port</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-black text-zinc-500 uppercase">Latency</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-black text-zinc-500 uppercase">Jitter</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-black text-zinc-500 uppercase">Loss</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-black text-zinc-500 uppercase">DC</th>
-                  <th className="text-left px-3 py-2 text-[10px] font-black text-zinc-500 uppercase">Score</th>
+              <thead className="sticky top-0 bg-[var(--bg-panel)]">
+                <tr className="border-b border-[var(--stroke)]">
+                  {['#', 'IP:Port', 'Latency', 'Jitter', 'Loss', 'Grade', 'Score', ''].map((h) => (
+                    <th
+                      key={h || 'a'}
+                      className="text-start px-3 py-2 text-[10px] font-display font-semibold text-[var(--text-faint)] uppercase tracking-wide"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {scanResults.slice(0, 20).map((r, i) => (
-                  <tr key={i} className={`border-b border-zinc-800/50 ${i === 0 ? 'bg-emerald-500/5' : 'hover:bg-zinc-800/30'}`}>
-                    <td className="px-3 py-2 text-xs text-zinc-500">{i + 1}</td>
-                    <td className="px-3 py-2 text-xs font-mono">{r.ip}:{r.port}</td>
-                    <td className="px-3 py-2">
-                      <span className={`text-xs font-mono ${r.latency < 100 ? 'text-emerald-500' : r.latency < 300 ? 'text-amber-500' : 'text-rose-500'}`}>
-                        {r.latency}ms
-                      </span>
+                {scanResults.slice(0, 30).map((r, i) => (
+                  <tr
+                    key={`${r.ip}:${r.port}:${i}`}
+                    className={`border-b border-[var(--stroke)]/60 ${
+                      i === 0 ? 'bg-[var(--accent-soft)]' : 'hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    <td className="px-3 py-2 text-xs text-[var(--text-faint)]">{i + 1}</td>
+                    <td className="px-3 py-2 text-xs font-mono">
+                      {r.ip}:{r.port}
                     </td>
-                    <td className="px-3 py-2 text-xs font-mono text-zinc-400">{r.jitter}ms</td>
-                    <td className="px-3 py-2 text-xs font-mono text-zinc-400">{r.loss}%</td>
-                    <td className="px-3 py-2 text-xs text-zinc-500">{r.datacenter}</td>
-                    <td className="px-3 py-2 text-xs font-mono font-bold">{r.score}</td>
+                    <td className={`px-3 py-2 text-xs font-mono ${gradeColor(r.grade)}`}>
+                      {r.latency}ms
+                    </td>
+                    <td className="px-3 py-2 text-xs font-mono text-[var(--text-muted)]">
+                      {r.jitter}ms
+                    </td>
+                    <td className="px-3 py-2 text-xs font-mono text-[var(--text-muted)]">
+                      {r.loss}%
+                    </td>
+                    <td className={`px-3 py-2 text-xs font-bold ${gradeColor(r.grade)}`}>
+                      {r.grade}
+                    </td>
+                    <td className="px-3 py-2 text-xs font-mono font-semibold">{r.score}</td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        className="text-[var(--text-faint)] hover:text-[var(--accent)] p-1"
+                        onClick={() => applyIPs([r])}
+                        title="Apply"
+                      >
+                        <Check size={13} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-
-        {!scanning && scanResults.length === 0 && (
-          <p className="text-sm text-zinc-500 text-center py-4">Click "شروع اسکن" to find the fastest IPs for your network.</p>
+        ) : (
+          !scanning && (
+            <p className="text-sm text-[var(--text-muted)] text-center py-6">
+              «شروع اسکن شبکه» را بزنید تا از مسیر اینترنت خودتان بهترین سرورها پیدا شوند.
+            </p>
+          )
         )}
       </Card>
 
-      {/* Clean IP Pool */}
       <Card>
-        <CardHeader
-          title="IP Pool"
-          description={`${cleanIPs.length} optimized IPs saved`}
-        />
+        <CardHeader title="استخر آی‌پی" description={`${cleanIPs.length} آی‌پی ذخیره‌شده برای ساب`} />
         {cleanIPs.length === 0 ? (
           <EmptyState
             icon={Globe}
-            title="No IPs saved"
-            description="Run a scan and apply the best IP to get started."
+            title="خالی است"
+            description="اسکن کنید و بهترین‌ها را اعمال کنید تا در کانفیگ/ساب استفاده شوند."
           />
         ) : (
           <div className="space-y-2">
-            {cleanIPs.map((ip, i) => (
-              <div key={i} className="flex items-center justify-between py-2 px-3 bg-zinc-800/30 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-sm font-mono">{ip.ip}:{ip.port}</span>
-                  {ip.label && <span className="text-[10px] text-zinc-500">{ip.label}</span>}
+            {cleanIPs.map((ip) => (
+              <div
+                key={`${ip.ip}:${ip.port}`}
+                className="flex items-center justify-between py-2.5 px-3 rounded-[var(--radius)] border border-[var(--stroke)] bg-[var(--bg-panel)]"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Radar size={14} className="text-[var(--accent)] shrink-0" />
+                  <span className="text-sm font-mono truncate">
+                    {ip.ip}:{ip.port}
+                  </span>
+                  {ip.label && (
+                    <span className="text-[10px] text-[var(--text-faint)] truncate">{ip.label}</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => copyIP(ip.ip, ip.port)} className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-500 hover:bg-zinc-800 transition-colors">
-                    <Copy size={12} />
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => copyText(`${ip.ip}:${ip.port}`)}
+                    className="p-1.5 rounded-[var(--radius)] text-[var(--text-faint)] hover:text-[var(--accent)]"
+                  >
+                    <Copy size={13} />
                   </button>
-                  <button onClick={() => removeCleanIP(ip.ip)} className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-500 hover:bg-zinc-800 transition-colors">
-                    ×
+                  <button
+                    type="button"
+                    onClick={() => removeCleanIP(ip.ip)}
+                    className="p-1.5 rounded-[var(--radius)] text-[var(--text-faint)] hover:text-[var(--coral)]"
+                  >
+                    <Trash2 size={13} />
                   </button>
                 </div>
               </div>

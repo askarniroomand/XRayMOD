@@ -4,9 +4,9 @@ const nextConfig: NextConfig = {
   output: 'export',
   images: { unoptimized: true },
   trailingSlash: false,
-  // Relative prefix so /{SECURE_PATH}/panel resolves ./_next → /{SECURE_PATH}/_next
-  // (absolute /_next would bypass the stealth UUID and 404 once configured).
-  assetPrefix: '.',
+  // Absolute /_next — required for nested routes (/panel/cleanip).
+  // Worker serves /_next/* publicly; HTML/API stay behind SECURE PATH.
+  assetPrefix: '',
 };
 
 export default nextConfig;
