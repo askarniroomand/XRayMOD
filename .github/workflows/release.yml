@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release notes hint
+        run: |
+          echo "Creating GitHub release for ${{ steps.ver.outputs.version }}"
+          echo "Ensure CHANGELOG.md contains this version section."
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: XRayMOD ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          body: |
+            ## XRayMOD ${{ steps.ver.outputs.version }}
+
+            See [CHANGELOG.md](https://github.com/askarniroomand/XRayMOD/blob/main/CHANGELOG.md) for details.
+
+            ### Install
+
+            **Linux / macOS / WSL**
+            ```bash
+            bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.sh)
+            ```
+
+            **Windows PowerShell**
+            ```powershell
+            irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
+            ```
+
+            ### Security
+            Never share Cloudflare API tokens in issues or chats.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
