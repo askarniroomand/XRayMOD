@@ -246,12 +246,16 @@ const DEFAULT_SETTINGS = {
   'integrations.telegram_enabled': 'false',
   'integrations.ton_wallet_enabled': 'false',
   'integrations.external_server_url': '',
-  'disguise.enabled': 'false',
+  'disguise.enabled': 'true',
   'disguise.admin_path': '',
   'disguise.login_path': '',
   'disguise.sub_path': '',
-  'disguise.fallback_page': '1101',
+  'disguise.fallback_page': '404',
   'disguise.canary_paths': 'wp-admin,phpmyadmin,.env,xmlrpc.php,actuator,admin.php,wp-login.php',
+  'panel.cf_email': '',
+  'panel.cf_email_enforce': 'false',
+  'panel.custom_domains': '',
+  'panel.version': '5.1.1',
   'ech.enabled': 'false',
   'ech.sni': 'cloudflare-ech.com',
   'ech.dns': 'https://dns.alidns.com/dns-query',
@@ -363,12 +367,16 @@ async function ensureSchemaInner(db: D1Database): Promise<void> {
     .prepare('SELECT v FROM kvstore WHERE k = ?')
     .bind('schema.version')
     .first<{ v: string }>();
-  if (version?.v === '2' || version?.v === '3') {
+  if (version?.v === '2' || version?.v === '3' || version?.v === '4') {
     const nowSoft = Date.now();
     for (const k of [
       'disguise.canary_paths',
       'panel.sub_html_enhanced',
       'panel.isp_aware_sub',
+      'panel.cf_email',
+      'panel.cf_email_enforce',
+      'panel.custom_domains',
+      'panel.version',
     ] as const) {
       const def = (DEFAULT_SETTINGS as Record<string, string>)[k];
       if (def === undefined) continue;
@@ -377,10 +385,23 @@ async function ensureSchemaInner(db: D1Database): Promise<void> {
         .bind(k, def, nowSoft)
         .run();
     }
-    if (version?.v === '2') {
+    // Gen 5.1.1: harden existing panels once
+    if (version.v !== '4') {
       await db
         .prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
-        .bind('schema.version', '3', nowSoft)
+        .bind('disguise.fallback_page', '404', nowSoft)
+        .run();
+      await db
+        .prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
+        .bind('disguise.enabled', 'true', nowSoft)
+        .run();
+      await db
+        .prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
+        .bind('panel.version', '5.1.1', nowSoft)
+        .run();
+      await db
+        .prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
+        .bind('schema.version', '4', nowSoft)
         .run();
     }
     return;
@@ -462,6 +483,6 @@ async function ensureSchemaInner(db: D1Database): Promise<void> {
 
   await db
     .prepare('INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)')
-    .bind('schema.version', '2', now)
+    .bind('schema.version', '4', now)
     .run();
 }

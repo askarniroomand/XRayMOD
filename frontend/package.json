@@ -1,6 +1,6 @@
 {
   "name": "xraymod-frontend",
-  "version": "2.0.0",
+  "version": "5.1.1",
   "private": true,
   "scripts": {
     "dev": "next dev",

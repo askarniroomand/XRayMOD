@@ -8,6 +8,7 @@ import {
   toBase64Lines,
 } from './lib/links';
 import { renderUserPortal } from './user-portal';
+import { getSecureBase, getCustomDomains } from './lib/secure-path';
 
 function text(content: string, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(content, {
@@ -16,17 +17,16 @@ function text(content: string, status = 200, headers: Record<string, string> = {
   });
 }
 
-function subHeaders(user: any, title: string, origin: string): Record<string, string> {
+function subHeaders(user: any, title: string, statusPage: string): Record<string, string> {
   const expire = user.expiry_date
     ? Math.floor(new Date(user.expiry_date).getTime() / 1000)
     : 0;
-  const statusPage = `${origin}/me/${user.uuid}`;
   return {
     'Profile-Title': 'base64:' + btoa(unescape(encodeURIComponent(title))),
     'Profile-Update-Interval': '6',
     'Profile-Web-Page-Url': statusPage,
     'Subscription-Userinfo': `upload=0; download=${user.traffic_used || 0}; total=${user.traffic_limit || 0}; expire=${expire}`,
-    Announce: 'base64:' + btoa(unescape(encodeURIComponent('XrayMOD · وضعیت: ' + statusPage))),
+    Announce: 'base64:' + btoa(unescape(encodeURIComponent('Usage: ' + statusPage))),
     'support-url': statusPage,
   };
 }
@@ -156,8 +156,27 @@ async function buildUserLinks(
     }
   }
 
-  const unique = [...new Set(links.filter(Boolean))].slice(0, 10);
-  return { links: unique, carrier };
+  const unique = [...new Set(links.filter(Boolean))].slice(0, 8);
+
+  // Custom domains → extra D-tagged configs (BPB-style)
+  const domains = await getCustomDomains(env.DB);
+  const domainLinks: string[] = [];
+  for (const domain of domains) {
+    domainLinks.push(
+      buildVlessWsLink({
+        uuid: user.uuid,
+        host: domain,
+        path: cfg.path,
+        name: `${cfg.name} · D · ${domain}`,
+        sni: domain,
+      })
+    );
+  }
+
+  return {
+    links: [...unique, ...domainLinks].slice(0, 12),
+    carrier,
+  };
 }
 
 export async function handleSubscription(
@@ -180,27 +199,26 @@ export async function handleSubscription(
   const url = new URL(request.url);
   const workerHost = url.host;
   const origin = url.origin;
+  const base = await getSecureBase(env.DB, origin);
   const format = (url.searchParams.get('format') || 'base64').toLowerCase();
 
-  // Status portal always available (even if expired) so users see remaining traffic
   if (format === 'status' || format === 'me' || format === 'portal') {
-    // Reuse portal renderer via redirect to /me for clean URL
-    return Response.redirect(`${origin}/me/${user.uuid}`, 302);
+    return Response.redirect(`${base}/me/${user.uuid}`, 302);
   }
 
   if (user.status !== 'active') return text('Account is not active', 403);
   if (user.expiry_date && new Date(user.expiry_date) < new Date()) {
-    return text('Subscription expired — open /me/' + user.uuid + ' for status', 403);
+    return text('Subscription expired — open status portal for details', 403);
   }
 
   const { links, carrier } = await buildUserLinks(request, env, user, workerHost);
-  const title = `XrayMOD · ${user.username}`;
-  const headers = subHeaders(user, title, origin);
+  const title = `Panel · ${user.username}`;
+  const headers = subHeaders(user, title, `${base}/me/${user.uuid}`);
 
   if (format === 'html' || format === 'page') {
     return renderUserPortal({
       user,
-      origin,
+      origin: base,
       nodeCount: links.length,
       carrier,
       links,

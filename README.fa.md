@@ -69,14 +69,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/
 
 ---
 
-## ✨ قابلیت‌های تازه
+## ✨ قابلیت‌های تازه (نسل ۵.۱.۱)
 
-- **صفحه وضعیت** `/me/<uuid>` — کاربر خودش مصرف و انقضا را می‌بیند  
-- **ساب Top-10** — Direct + Clean IP + پورت‌های CF + fingerprint  
-- **استیلث** — پوسته‌های 1101 / nginx / GitHub / WordPress / …  
+- **SECURE PATH اجباری** — بدون UUID تصادفی، همه مسیرها ۴۰۴  
+- **Admin Dashboard** — آپدیت، ریست پسورد، دامنه سفارشی، ایمیل CF، kill switch  
+- **صفحه وضعیت** `/{SECURE}/me/<uuid>`  
+- **ساب Top-10 + تگ D** برای دامنه سفارشی  
+- **استیلث پیش‌فرض** — fallback خاموش ۴۰۴  
 - **Canary** — طعمه اسکنر + لاگ  
-- **Backup & Audit** — پشتیبان امن + تاریخچه  
-- **Kill switch** و **سقف ماهانه**  
+- **Backup / Remote sync / Audit**  
 
 ---
 
@@ -84,24 +85,14 @@ bash <(curl -fsSL https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/
 
 | لینک | کاربرد |
 |:-----|:-------|
-| `/<UUID_پنل>/login` | ورود ادمین (خصوصی) |
-| `/sub/<UUID_کاربر>` | ساب اپ‌ها |
-| `/me/<UUID_کاربر>` | صفحه وضعیت کاربر |
-| `?format=clash` / `singbox` / `html` | فرمت‌های ساب |
+| `/<SECURE_PATH>/login` | ورود ادمین (خصوصی) |
+| `/<SECURE_PATH>/panel` | داشبورد |
+| `/<SECURE_PATH>/sub/<UUID_کاربر>` | ساب اپ‌ها |
+| `/<SECURE_PATH>/me/<UUID_کاربر>` | صفحه وضعیت کاربر |
 
----
+> ⚠️ مسیرهای قدیمی مثل `/panel` یا `/sub/...` بدون SECURE PATH دیگر کار نمی‌کنند (۴۰۴).
 
-## بهترین کانفیگ
-
-| مورد | مقدار |
-|:-----|:------|
-| پروتکل | **VLESS** |
-| Transport | **WebSocket** |
-| Security | **TLS** |
-| Port | **443** |
-| Fingerprint | chrome |
-
-کلاینت: Hiddify · v2rayNG · Streisand · NekoBox
+کلاینت: v2rayNG ≥ ۲.۲.۳ (Hev TUN) · sing-box ≥ ۱.۱۲ · Streisand · Hiddify
 
 ---
 

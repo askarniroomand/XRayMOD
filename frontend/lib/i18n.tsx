@@ -16,6 +16,7 @@ const dict = {
   fa: {
     appName: 'XrayMOD',
     dashboard: 'داشبورد',
+    admin: 'مدیریت',
     users: 'کاربران',
     nodes: 'سرورها',
     config: 'کانفیگ',
@@ -117,6 +118,7 @@ const dict = {
   en: {
     appName: 'XrayMOD',
     dashboard: 'Dashboard',
+    admin: 'Admin',
     users: 'Users',
     nodes: 'Nodes',
     config: 'Config',

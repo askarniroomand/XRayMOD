@@ -148,6 +148,47 @@ export async function bootstrapPanel(
     .bind('panel.bootstrapped', 'true', now)
     .run();
 
+  // Gen 5.1 secure defaults: silent 404 fallback + disguise enabled
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+  )
+    .bind('disguise.enabled', 'true', now)
+    .run();
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+  )
+    .bind('disguise.fallback_page', '404', now)
+    .run();
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+  )
+    .bind('panel.started_at', String(now), now)
+    .run();
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+  )
+    .bind('panel.version', '5.1.1', now)
+    .run();
+
+  // Optional CF email from install username if it looks like an email
+  if (username.includes('@')) {
+    await env.DB.prepare(
+      'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+    )
+      .bind('panel.cf_email', username.toLowerCase(), now)
+      .run();
+    await env.DB.prepare(
+      'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
+    )
+      .bind('panel.cf_email_enforce', 'true', now)
+      .run();
+    await env.DB.prepare(
+      "UPDATE users SET email = ? WHERE role = 'admin'"
+    )
+      .bind(username.toLowerCase())
+      .run();
+  }
+
   // Store plain credentials once for recovery screen (hashed password still used for login)
   await env.DB.prepare(
     'INSERT OR REPLACE INTO kvstore (k, v, updated) VALUES (?, ?, ?)'
@@ -165,10 +206,10 @@ export async function bootstrapPanel(
     )
     .run();
 
-  const panelUrl = `${origin}/${accessUUID}/`;
+  const panelUrl = `${origin}/${accessUUID}/panel`;
   const loginUrl = `${origin}/${accessUUID}/login`;
-  const subscriptionUrl = `${origin}/sub/${admin.uuid}`;
-  const subscriptionRaw = `${origin}/sub/${admin.uuid}?format=raw`;
+  const subscriptionUrl = `${origin}/${accessUUID}/sub/${admin.uuid}`;
+  const subscriptionRaw = `${origin}/${accessUUID}/sub/${admin.uuid}?format=raw`;
 
   return {
     username,
@@ -222,10 +263,10 @@ export async function getStoredCredentials(
       password: c.password || '(changed — use your password)',
       accessUUID,
       adminUuid,
-      panelUrl: `${origin}/${accessUUID}/`,
+      panelUrl: `${origin}/${accessUUID}/panel`,
       loginUrl: `${origin}/${accessUUID}/login`,
-      subscriptionUrl: `${origin}/sub/${adminUuid}`,
-      subscriptionRaw: `${origin}/sub/${adminUuid}?format=raw`,
+      subscriptionUrl: `${origin}/${accessUUID}/sub/${adminUuid}`,
+      subscriptionRaw: `${origin}/${accessUUID}/sub/${adminUuid}?format=raw`,
       configLink: cfg?.link || '',
       configPath: cfg?.path || '',
       workerHost: new URL(origin).host,

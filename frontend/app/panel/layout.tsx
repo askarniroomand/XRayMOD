@@ -17,6 +17,7 @@ import {
   Layers,
   LifeBuoy,
   Ghost,
+  ShieldCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { goPanel, getPanelPrefix } from '@/lib/paths';
@@ -25,6 +26,7 @@ import { LangToggle, useI18n, type DictKey } from '@/lib/i18n';
 
 const NAV_ITEMS: { href: string; key: DictKey; icon: typeof LayoutDashboard }[] = [
   { href: '/panel', key: 'dashboard', icon: LayoutDashboard },
+  { href: '/panel/admin', key: 'admin', icon: ShieldCheck },
   { href: '/panel/users', key: 'users', icon: Users },
   { href: '/panel/nodes', key: 'nodes', icon: Server },
   { href: '/panel/config', key: 'config', icon: Shield },

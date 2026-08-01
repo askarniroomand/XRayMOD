@@ -90,6 +90,7 @@ function matchRoute(pathname) {
   const routes = [
     [/^\/api\/login$/, []],
     [/^\/api\/health$/, []],
+    [/^\/api\/admin(?:\/([^/]+))?$/, ['action']],
     [/^\/api\/users(?:\/([^/]+))?$/, ['id']],
     [/^\/api\/cleanip(?:\/([^/]+))?$/, ['action']],
     [/^\/api\/nodes(?:\/([^/]+))?$/, ['id']],
@@ -133,6 +134,7 @@ async function main() {
 
   // Routes
   try {
+    assert.deepEqual(matchRoute('/api/admin/update-check')?.params, { action: 'update-check' });
     assert.deepEqual(matchRoute('/api/cleanip/scan')?.params, { action: 'scan' });
     assert.deepEqual(matchRoute('/api/users/42')?.params, { id: '42' });
     assert.deepEqual(matchRoute('/api/backends/7')?.params, { id: '7' });

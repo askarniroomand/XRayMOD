@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 import { api, asList } from '@/lib/api';
+import { secureSubUrl, getPanelPrefix } from '@/lib/paths';
 import { Card, CardHeader, Button, Input, StatusBadge, ProgressBar, EmptyState } from '@/components';
 import { toast } from 'sonner';
 
@@ -35,7 +36,8 @@ interface User {
   created_at: number;
   enable: boolean;
   speed_limit: number;
-  sub_id: string;
+  sub_id?: string;
+  sub_path?: string;
   status_path?: string;
 }
 
@@ -80,10 +82,17 @@ export default function UsersPage() {
     setLoading(false);
   };
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-
-  const subUrl = (u: User) => `${origin}/sub/${u.uuid || u.sub_id}`;
-  const statusUrl = (u: User) => `${origin}/me/${u.uuid || u.sub_id}`;
+  const subUrl = (u: User) => {
+    const id = String(u.uuid || u.sub_id || '');
+    if (!id) return '';
+    if (u.sub_path?.startsWith('http')) return u.sub_path;
+    return secureSubUrl(id) || `${typeof window !== 'undefined' ? window.location.origin : ''}${getPanelPrefix()}/sub/${id}`;
+  };
+  const statusUrl = (u: User) => {
+    const id = String(u.uuid || u.sub_id || '');
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}${getPanelPrefix()}/me/${id}`;
+  };
 
   const copy = async (text: string, label: string) => {
     try {
@@ -116,8 +125,8 @@ export default function UsersPage() {
       if (uuid) {
         setCreatedLinks({
           user: d.username || addForm.username,
-          sub: d.sub_url || `${origin}/sub/${uuid}`,
-          status: d.status_url || `${origin}/me/${uuid}`,
+          sub: d.sub_url || secureSubUrl(uuid),
+          status: d.status_url || `${typeof window !== 'undefined' ? window.location.origin : ''}${getPanelPrefix()}/me/${uuid}`,
         });
       }
       toast.success('کاربر ساخته شد');

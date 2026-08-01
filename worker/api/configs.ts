@@ -1,6 +1,7 @@
 import type { Env } from '../types';
 import { requireAdmin } from '../auth';
 import { buildVlessWsLink, buildTrojanWsLink, buildVmessWsLink } from '../lib/links';
+import { getSecureBase } from '../lib/secure-path';
 
 function json(data: any, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -79,6 +80,7 @@ export async function handleConfigs(
     }
 
     const origin = new URL(request.url).origin;
+    const base = await getSecureBase(env.DB, origin);
     const workerHost = new URL(request.url).host;
     const configPath =
       body.settings.path ||
@@ -158,8 +160,8 @@ export async function handleConfigs(
           protocolId: body.protocolId,
           link,
           path,
-          subscription: `${origin}/sub/${user.uuid}`,
-          tip: 'Best for Cloudflare Workers: VLESS + WebSocket + TLS on port 443. Import the subscription URL in v2rayNG / Hiddify / Streisand.',
+          subscription: `${base}/sub/${user.uuid}`,
+          tip: 'Use SECURE PATH subscription URL. Clients: v2rayNG ≥2.2.3 (Hev TUN), sing-box ≥1.12.0.',
         },
       },
       201

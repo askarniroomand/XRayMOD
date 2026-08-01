@@ -88,7 +88,11 @@ async function injectHtmlGlobals(
     html = script + html;
   }
 
-  // Fix absolute asset paths if Next emitted /_next — keep as-is (root-absolute works on workers.dev)
+  // Rewrite absolute /_next and root assets under SECURE PATH
+  if (panelPrefix) {
+    html = html.replace(/(href|src)=(["'])\/_next\//g, `$1=$2${panelPrefix}/_next/`);
+    html = html.replace(/(href|src)=(["'])\/favicon/g, `$1=$2${panelPrefix}/favicon`);
+  }
 
   const headers = new Headers(res.headers);
   headers.set('Content-Type', 'text/html; charset=utf-8');

@@ -1,8 +1,8 @@
 {
   "name": "xraymod",
   "private": true,
-  "version": "2.0.0",
-  "description": "Open-source VLESS/Trojan/VMess proxy management panel on Cloudflare Workers with stealth UUID, D1, subscription (v2rayNG/Hiddify), and one-line install",
+  "version": "5.1.1",
+  "description": "Gen 5.1.1 stealth VLESS/Trojan/VMess panel on Cloudflare Workers — compulsory SECURE PATH, silent 404, CF-email login, Admin Dashboard, D1, smart sub",
   "keywords": [
     "xraymod",
     "cloudflare-workers",

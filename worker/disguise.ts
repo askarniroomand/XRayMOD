@@ -7,8 +7,20 @@ const EMPTY_DISGUISE: DisguiseConfig = {
   subPath: '',
   pubAdmin: '/admin',
   pubLogin: '/login',
-  fallbackPage: '1101',
+  fallbackPage: '404',
 };
+
+/** Plain 404 — BPB-style default; no product fingerprint. */
+export function silent404(): Response {
+  return new Response('Not Found', {
+    status: 404,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+}
 
 function cleanPath(v: string | undefined): string {
   return String(v || '')
@@ -35,7 +47,9 @@ export async function getDisguiseConfig(env: Env, db: D1Database): Promise<Disgu
       settings[row.k] = row.v;
     }
 
-    const enabled = settings['disguise.enabled'] === 'true';
+    // Gen 5.1: disguise ON by default (opt-out via disguise.enabled=false)
+    const enabledRaw = settings['disguise.enabled'];
+    const enabled = enabledRaw !== 'false';
 
     const adminPath =
       cleanPath(env.ADMIN_PATH) || cleanPath(settings['disguise.admin_path']);
@@ -44,12 +58,15 @@ export async function getDisguiseConfig(env: Env, db: D1Database): Promise<Disgu
     const subPath =
       cleanPath(env.SUB_PATH) || cleanPath(settings['disguise.sub_path']);
 
+    const fallbackPage =
+      env.DISGUISE_PAGE || settings['disguise.fallback_page'] || '404';
+
     const on =
       (enabled || !!(env.ADMIN_PATH || env.LOGIN_PATH || env.SUB_PATH)) &&
-      !!(adminPath || loginPath || subPath);
+      (!!adminPath || !!loginPath || !!subPath || enabled);
 
     if (!on) {
-      return { ...EMPTY_DISGUISE, fallbackPage: settings['disguise.fallback_page'] || '1101' };
+      return { ...EMPTY_DISGUISE, fallbackPage };
     }
 
     return {
@@ -59,7 +76,7 @@ export async function getDisguiseConfig(env: Env, db: D1Database): Promise<Disgu
       subPath,
       pubAdmin: adminPath ? '/' + adminPath : '/admin',
       pubLogin: loginPath ? '/' + loginPath : '/login',
-      fallbackPage: env.DISGUISE_PAGE || settings['disguise.fallback_page'] || '1101',
+      fallbackPage,
     };
   } catch {
     return { ...EMPTY_DISGUISE };
@@ -294,10 +311,13 @@ export function html1020(host: string): string {
 </html>`;
 }
 
-export const DISGUISE_SKINS = ['1101', 'nginx', 'github', 'wordpress', 'blank', '1020'] as const;
+export const DISGUISE_SKINS = ['404', '1101', 'nginx', 'github', 'wordpress', 'blank', '1020'] as const;
 
 export function getDecoyResponse(host: string, pageType: string): Response {
-  const t = (pageType || '1101').toLowerCase();
+  const t = (pageType || '404').toLowerCase();
+  if (t === '404' || t === 'silent' || t === 'none') {
+    return silent404();
+  }
   let html: string;
   let status = 200;
   switch (t) {

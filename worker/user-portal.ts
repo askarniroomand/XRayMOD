@@ -4,6 +4,7 @@
  */
 import { getCleanIPs, detectIranianISP } from './utils';
 import { buildRecommendedLinks } from './lib/links';
+import { getSecureBase } from './lib/secure-path';
 
 function escapeHtml(s: string): string {
   return String(s)
@@ -213,7 +214,7 @@ code{display:block;font-size:.6rem;word-break:break-all;color:#71717a;background
     ${nodeItems}
   </section>
 
-  <p class="foot">XrayMOD · بروزرسانی خودکار هر چند ساعت از طریق ساب</p>
+  <p class="foot">SECURE PATH · auto-updating subscription</p>
 </div>
 <script>
 document.querySelectorAll('[data-copy]').forEach(function(el){
@@ -261,7 +262,7 @@ export async function handleUserPortal(
   }
 
   const url = new URL(request.url);
-  const origin = url.origin;
+  const base = await getSecureBase(env.DB, url.origin);
 
   // Count configs; links only if active & not expired
   const cfg = await env.DB.prepare(
@@ -307,7 +308,7 @@ export async function handleUserPortal(
 
   return renderUserPortal({
     user,
-    origin,
+    origin: base,
     nodeCount: Math.max(nodeCountRow?.c || 0, links.length ? 1 : 0),
     carrier,
     links,

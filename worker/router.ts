@@ -1,5 +1,6 @@
 /**
- * Router — flat pipeline: schema → proxy guards → disguise → UUID → routes → SPA/fallback.
+ * Router — Gen 5.1: compulsory SECURE PATH, silent 404 fallback, no public fingerprints.
+ * Pipeline: schema → proxy guards → canary → secure-path gate → routes → SPA/404.
  */
 import type { Env } from './types';
 import { ensureSchema } from './schema';
@@ -16,6 +17,7 @@ import { handleCleanIP } from './api/cleanip';
 import { handleBackends } from './api/backends';
 import { handleWizard } from './api/wizard';
 import { handleTools } from './api/tools';
+import { handleAdmin } from './api/admin';
 import { handleSubscription } from './subscription';
 import { handleUserPortal } from './user-portal';
 import { handleProxyTraffic } from './proxy';
@@ -25,6 +27,7 @@ import {
   remapDisguisePath,
   getCanaryPaths,
   matchCanary,
+  silent404,
 } from './disguise';
 import { isGrpcRequest } from './proxy/grpc';
 import { isXHTTPRequest } from './proxy/xhttp';
@@ -43,19 +46,8 @@ type Handler = (
 type Route = {
   pattern: RegExp;
   handler: Handler;
-  /** Named capture groups in order of regex groups (m[1], m[2], …) */
   params?: string[];
 };
-
-const FALLBACK_HTML = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>XrayMOD</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#09090b;color:#fafafa;display:grid;place-items:center;min-height:100vh}
-.box{text-align:center;padding:2rem;max-width:440px}.icon{width:48px;height:48px;background:#10b981;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.5rem;color:#000;margin:0 auto 1.5rem}
-h1{font-size:1.5rem;margin-bottom:.5rem}p{color:#a1a1aa;font-size:.875rem;line-height:1.6}
-.links{margin-top:1.5rem;display:flex;flex-direction:column;gap:.5rem}.links a{color:#10b981;text-decoration:none;font-size:.875rem}</style></head>
-<body><div class="box"><div class="icon">X</div><h1>XrayMOD</h1><p>Panel deployed. Visit <a href="/install">/install</a> to set up.</p>
-<div class="links"><a href="/install">Setup</a><a href="/api/health">API Health</a></div></div></body></html>`;
 
 const routes: Route[] = [
   { pattern: /^\/install(?:\/|$)/, handler: handleInstall },
@@ -71,6 +63,7 @@ const routes: Route[] = [
   { pattern: /^\/api\/backends(?:\/([^/]+))?$/, handler: handleBackends, params: ['id'] },
   { pattern: /^\/api\/wizard(?:\/([^/]+))?$/, handler: handleWizard, params: ['action'] },
   { pattern: /^\/api\/tools(?:\/([^/]+))?$/, handler: handleTools, params: ['action'] },
+  { pattern: /^\/api\/admin(?:\/([^/]+))?$/, handler: handleAdmin, params: ['action'] },
   { pattern: /^\/sub\/([^/]+)$/, handler: handleSubscription, params: ['token'] },
   { pattern: /^\/me\/([^/]+)$/, handler: handleUserPortal, params: ['token'] },
   { pattern: /^\/status\/([^/]+)$/, handler: handleUserPortal, params: ['token'] },
@@ -119,6 +112,43 @@ async function checkProxyGuards(env: Env): Promise<Response | null> {
   return null;
 }
 
+function isStaticAssetPath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/favicon') ||
+    /\.(js|css|map|woff2?|ttf|eot|png|jpg|jpeg|gif|svg|ico|webp|txt)$/i.test(pathname)
+  );
+}
+
+async function serveAsset(
+  request: Request,
+  env: Env,
+  pathname: string
+): Promise<Response | null> {
+  if (!env.ASSETS || !isStaticAssetPath(pathname)) return null;
+  try {
+    const assetReq = new Request(new URL(pathname, request.url), request);
+    const assetRes = await env.ASSETS.fetch(assetReq);
+    if (assetRes.status === 200) {
+      const headers = new Headers(assetRes.headers);
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      return new Response(assetRes.body, { status: 200, headers });
+    }
+  } catch (e) {
+    console.error('ASSETS fetch failed', e);
+  }
+  return silent404();
+}
+
+/** Unknown / unauthorized → plain 404 or configured decoy (never brand the product). */
+async function denyPublic(env: Env, host: string): Promise<Response> {
+  const disguise = await getDisguiseConfig(env, env.DB);
+  if (disguise.on && disguise.fallbackPage && disguise.fallbackPage !== '404') {
+    return getDecoyResponse(host, disguise.fallbackPage);
+  }
+  return silent404();
+}
+
 export async function handleRequest(
   request: Request,
   env: Env,
@@ -126,13 +156,19 @@ export async function handleRequest(
 ): Promise<Response> {
   try {
     if (request.method === 'OPTIONS') {
+      const origin = request.headers.get('Origin') || '';
+      const host = new URL(request.url).origin;
+      // Same-origin only — no public CORS wildcard fingerprint
+      const allow = !origin || origin === host ? origin || host : 'null';
       return new Response(null, {
         status: 204,
         headers: {
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': allow,
           'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Credentials': 'true',
           'Access-Control-Max-Age': '86400',
+          Vary: 'Origin',
         },
       });
     }
@@ -146,19 +182,18 @@ export async function handleRequest(
     const isGrpc = request.method === 'POST' && isGrpcRequest(request);
     const isXhttp = request.method === 'POST' && isXHTTPRequest(request);
 
-    // WebSocket / gRPC / XHTTP → proxy (kill switch + monthly cap first)
+    // WebSocket / gRPC / XHTTP → proxy (same Worker edge; kill switch + monthly cap)
     if (isUpgrade || isGrpc || isXhttp) {
       const blocked = await checkProxyGuards(env);
       if (blocked) return blocked;
       return handleProxyTraffic(request, env, ctx);
     }
 
-    // Canary paths: log scanners, always serve decoy (never reveal panel)
+    // Canary traps (before secure-path — scanners probe public paths)
     try {
       const canaries = await getCanaryPaths(env.DB);
       const hit = matchCanary(pathname, canaries);
       if (hit) {
-        const disguise = await getDisguiseConfig(env, env.DB);
         await appendAudit(
           env.DB,
           'canary_hit',
@@ -166,80 +201,72 @@ export async function handleRequest(
           clientIp(request),
           'scanner'
         );
-        return getDecoyResponse(url.host, disguise.fallbackPage || '1101');
+        return denyPublic(env, url.host);
       }
     } catch {
-      /* ignore canary errors */
-    }
-
-    // Static UI assets must bypass UUID gate — otherwise /_next/* returns 403/1101
-    // and React never hydrates (login button becomes a dead native form submit).
-    const isStaticAsset =
-      pathname.startsWith('/_next/') ||
-      pathname.startsWith('/favicon') ||
-      /\.(js|css|map|woff2?|ttf|eot|png|jpg|jpeg|gif|svg|ico|webp|txt)$/i.test(pathname);
-
-    const bypass =
-      pathname.startsWith('/install') ||
-      pathname.startsWith('/api/') ||
-      pathname.startsWith('/sub/') ||
-      pathname.startsWith('/me/') ||
-      pathname.startsWith('/status/') ||
-      pathname.startsWith('/bot') ||
-      isStaticAsset;
-
-    // Serve static assets immediately from ASSETS (no UUID, no DB disguise)
-    if (isStaticAsset && env.ASSETS) {
-      try {
-        const assetRes = await env.ASSETS.fetch(request);
-        if (assetRes.status === 200) {
-          const headers = new Headers(assetRes.headers);
-          headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-          return new Response(assetRes.body, { status: 200, headers });
-        }
-      } catch (e) {
-        console.error('ASSETS fetch failed', e);
-      }
-      return new Response('Not found', { status: 404 });
+      /* ignore */
     }
 
     const accessUuid = await env.DB.prepare(
       'SELECT v FROM kvstore WHERE k = ?'
     ).bind('panel.access_uuid').first<{ v: string }>();
 
-    if (accessUuid?.v && !bypass) {
+    const pw = await env.DB.prepare(
+      'SELECT v FROM kvstore WHERE k = ?'
+    ).bind('panel.password_hash').first<{ v: string }>();
+
+    const isConfigured = !!(accessUuid?.v && pw?.v);
+
+    // First-boot only: /install stays public until panel is bootstrapped
+    if (!isConfigured && (pathname === '/install' || pathname.startsWith('/install/'))) {
+      return handleInstall(request, env, ctx, {});
+    }
+
+    // Bare /_next or public assets without SECURE PATH → 404 once configured
+    if (isConfigured && isStaticAssetPath(pathname)) {
+      return silent404();
+    }
+
+    // Compulsory SECURE PATH (access UUID) for everything except first-boot install
+    if (isConfigured) {
       const segments = pathname.split('/').filter(Boolean);
-      if (segments.length === 0 || segments[0] !== accessUuid.v) {
-        const pw = await env.DB.prepare(
-          'SELECT v FROM kvstore WHERE k = ?'
-        ).bind('panel.password_hash').first<{ v: string }>();
-        if (!pw?.v) {
-          return new Response(null, { status: 302, headers: { Location: '/install' } });
-        }
-        const disguise = await getDisguiseConfig(env, env.DB);
-        return getDecoyResponse(url.host, disguise.fallbackPage);
+      if (segments.length === 0 || segments[0] !== accessUuid!.v) {
+        // Legacy public paths that used to leak fingerprints → silent 404
+        return denyPublic(env, url.host);
       }
-      panelPrefix = `/${accessUuid.v}`;
+      panelPrefix = `/${accessUuid!.v}`;
       pathname = '/' + segments.slice(1).join('/');
       if (pathname === '/') pathname = '/';
       url.pathname = pathname;
-    }
 
-    if (!accessUuid?.v && !bypass) {
-      const pw = await env.DB.prepare(
-        'SELECT v FROM kvstore WHERE k = ?'
-      ).bind('panel.password_hash').first<{ v: string }>();
-      if (!pw?.v) {
-        return new Response(null, { status: 302, headers: { Location: '/install' } });
+      // Assets under /{SECURE_PATH}/_next/...
+      if (isStaticAssetPath(pathname)) {
+        return (await serveAsset(request, env, pathname)) || silent404();
       }
+    } else {
+      // Not configured: allow install wizard assets at root for setup UI
+      if (isStaticAssetPath(pathname)) {
+        const asset = await serveAsset(request, env, pathname);
+        if (asset) return asset;
+      }
+      if (pathname === '/' || pathname === '') {
+        return new Response(null, {
+          status: 302,
+          headers: { Location: '/install' },
+        });
+      }
+      if (pathname.startsWith('/install')) {
+        return handleInstall(request, env, ctx, {});
+      }
+      return silent404();
     }
 
     // Secret-path remapping + decoy for leaked /admin|/login
-    if (!bypass) {
+    {
       const disguise = await getDisguiseConfig(env, env.DB);
       const remapped = remapDisguisePath(pathname, disguise);
       if (remapped.isDecoy) {
-        return getDecoyResponse(url.host, disguise.fallbackPage);
+        return denyPublic(env, url.host);
       }
       pathname = remapped.remapped;
       url.pathname = pathname;
@@ -250,17 +277,14 @@ export async function handleRequest(
       return route.handler(request, env, ctx, route.params);
     }
 
-    // / or /UUID/ → login
     const isRoot = pathname === '/' || pathname === '';
     if (isRoot) {
-      const loc = panelPrefix ? `${panelPrefix}/login` : '/login';
       return new Response(null, {
         status: 302,
-        headers: { Location: loc },
+        headers: { Location: `${panelPrefix}/login` },
       });
     }
 
-    // Dedicated login UI (no React) — always works
     if (pathname === '/login' || pathname === '/login/') {
       return renderLoginPage(url.origin, panelPrefix);
     }
@@ -273,22 +297,10 @@ export async function handleRequest(
       if (remote) return remote;
     }
 
-    if (!isRoot) {
-      const disguise = await getDisguiseConfig(env, env.DB);
-      if (disguise.on) {
-        return getDecoyResponse(url.host, disguise.fallbackPage);
-      }
-    }
-
-    return new Response(FALLBACK_HTML, {
-      status: 200,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
+    return denyPublic(env, url.host);
   } catch (e) {
     console.error('Router error:', e);
-    return new Response('Internal Server Error', {
-      status: 500,
-      headers: { 'Content-Type': 'text/plain' },
-    });
+    // Never leak stack / product name on errors
+    return silent404();
   }
 }

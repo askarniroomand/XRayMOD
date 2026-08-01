@@ -1,4 +1,4 @@
-/** Access-UUID prefix for stealth panel URLs on Cloudflare Workers. */
+/** Access-UUID (SECURE PATH) prefix for stealth panel URLs on Cloudflare Workers. */
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -24,7 +24,7 @@ export function getPanelPrefix(): string {
   return '';
 }
 
-/** Build in-panel path that keeps the stealth UUID prefix. */
+/** Build in-panel path that keeps the SECURE PATH prefix. */
 export function panelPath(path: string): string {
   const prefix = getPanelPrefix();
   const clean = path.startsWith('/') ? path : `/${path}`;
@@ -37,9 +37,24 @@ export function goPanel(path: string): void {
   window.location.assign(panelPath(path));
 }
 
+/**
+ * API base = origin + SECURE PATH so calls hit /{uuid}/api/...
+ * (Gen 5.1: public /api/* is closed.)
+ */
 export function getApiBase(): string {
   if (typeof window === 'undefined') {
     return process.env.NEXT_PUBLIC_API_URL || '';
   }
-  return window.__API_BASE || window.location.origin;
+  const origin = (window.__API_BASE || window.location.origin).replace(/\/$/, '');
+  const prefix = getPanelPrefix();
+  return `${origin}${prefix}`;
+}
+
+/** Public subscription / portal URL including SECURE PATH. */
+export function secureSubUrl(userUuid: string, format?: string): string {
+  if (typeof window === 'undefined') return '';
+  const origin = window.location.origin.replace(/\/$/, '');
+  const prefix = getPanelPrefix();
+  const q = format ? `?format=${encodeURIComponent(format)}` : '';
+  return `${origin}${prefix}/sub/${userUuid}${q}`;
 }

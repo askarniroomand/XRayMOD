@@ -1,6 +1,7 @@
 import type { Env, User } from '../types';
 import { requireAdmin, hashPassword } from '../auth';
 import { buildVlessWsLink } from '../lib/links';
+import { getSecureBase, getSecurePrefix } from '../lib/secure-path';
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -9,7 +10,7 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-function mapUser(u: User) {
+function mapUser(u: User, prefix = '') {
   const limitGB = Math.round((u.traffic_limit / (1024 * 1024 * 1024)) * 10) / 10;
   const usedGB = Math.round((u.traffic_used / (1024 * 1024 * 1024)) * 10) / 10;
   const daysLeft = u.expiry_date
@@ -25,7 +26,6 @@ function mapUser(u: User) {
     enable: u.status === 'active',
     traffic_limit: u.traffic_limit,
     traffic_used: u.traffic_used,
-    // GB aliases for SPA dashboard
     used: usedGB,
     limit: limitGB,
     expiry: u.expiry_date,
@@ -34,8 +34,8 @@ function mapUser(u: User) {
     created_at: u.created_at,
     speed_limit: 0,
     sub_id: u.uuid,
-    sub_path: `/sub/${u.uuid}`,
-    status_path: `/me/${u.uuid}`,
+    sub_path: `${prefix}/sub/${u.uuid}`,
+    status_path: `${prefix}/me/${u.uuid}`,
   };
 }
 
@@ -53,13 +53,14 @@ export async function handleUsers(
   }
 
   if (request.method === 'GET') {
+    const prefix = await getSecurePrefix(env.DB);
     const users = await env.DB.prepare(
       'SELECT id, username, role, uuid, email, traffic_limit, traffic_used, expiry_date, status, created_at FROM users'
     ).all<User>();
 
     return json({
       success: true,
-      data: users.results.map(mapUser),
+      data: users.results.map((u) => mapUser(u, prefix)),
     });
   }
 
@@ -145,6 +146,9 @@ export async function handleUsers(
         )
         .run();
 
+      const base = await getSecureBase(env.DB, new URL(request.url).origin);
+      const prefix = await getSecurePrefix(env.DB);
+
       return json(
         {
           success: true,
@@ -153,10 +157,10 @@ export async function handleUsers(
             username: body.username,
             password,
             uuid,
-            sub: `/sub/${uuid}`,
-            status: `/me/${uuid}`,
-            sub_url: `${new URL(request.url).origin}/sub/${uuid}`,
-            status_url: `${new URL(request.url).origin}/me/${uuid}`,
+            sub: `${prefix}/sub/${uuid}`,
+            status: `${prefix}/me/${uuid}`,
+            sub_url: `${base}/sub/${uuid}`,
+            status_url: `${base}/me/${uuid}`,
           },
         },
         201

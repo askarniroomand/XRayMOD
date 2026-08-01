@@ -1,4 +1,7 @@
 import type { Env } from '../types';
+import { requireAdmin } from '../auth';
+import { APP_VERSION } from './admin';
+import { silent404 } from '../disguise';
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -7,13 +10,30 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+/**
+ * Public (behind SECURE PATH): minimal ok — no brand, no traffic stats.
+ * Authenticated admin: full dashboard payload.
+ */
 export async function handleHealth(
-  _request: Request,
+  request: Request,
   env: Env,
   _ctx: ExecutionContext,
   _params: Record<string, string>
 ): Promise<Response> {
   try {
+    let isAdmin = false;
+    try {
+      await requireAdmin(request, env.DB);
+      isAdmin = true;
+    } catch {
+      isAdmin = false;
+    }
+
+    if (!isAdmin) {
+      // Silent heartbeat only — scanners get nothing useful
+      return json({ ok: true });
+    }
+
     const result = await env.DB.prepare('SELECT 1 as ok').first();
     const dbOk = result !== null;
 
@@ -35,7 +55,6 @@ export async function handleHealth(
       }
     }
 
-    // Aggregate traffic for dashboard
     const traffic = await env.DB.prepare(
       'SELECT COALESCE(SUM(traffic_used), 0) as total FROM users'
     ).first<{ total: number }>();
@@ -43,8 +62,7 @@ export async function handleHealth(
 
     return json({
       status: 'ok',
-      service: 'xraymod',
-      version: '2.2.0',
+      version: APP_VERSION,
       database: dbOk ? 'connected' : 'disconnected',
       d1: dbOk,
       kv: true,
@@ -57,18 +75,7 @@ export async function handleHealth(
         month: { up: 0, down: totalUsed, total: totalUsed },
       },
     });
-  } catch (e) {
-    return json(
-      {
-        status: 'error',
-        service: 'xraymod',
-        database: 'error',
-        d1: false,
-        kv: false,
-        configured: false,
-        error: e instanceof Error ? e.message : 'Unknown error',
-      },
-      500
-    );
+  } catch {
+    return silent404();
   }
 }

@@ -93,7 +93,9 @@ Free Cloudflare plan works · auto Node/Python on Windows · <b>no git required<
 
 | | Feature | Why it hits different |
 |:--:|:--------|:---------------------|
-| 📊 | **User status portal** `/me/<uuid>` | Traffic, days left, QR, copy — no login needed for the user |
+| 📊 | **User status portal** `/{SECURE}/me/<uuid>` | Traffic, days left, QR — no login for the user |
+| 🥷 | **Compulsory SECURE PATH** | Panel/API/sub only under random UUID; root → 404 |
+| 🛡 | **Admin Dashboard** | Update check, CF email login, custom domains (D tag), kill switch, remote sync |
 | 🎯 | **Top-10 smart subscription** | Direct + clean IPs + CF ports + fingerprints — auto |
 | 🥷 | **Stealth skins** | CF 1101 · nginx · GitHub 404 · WordPress · Access Denied · blank |
 | 🕳 | **Canary traps** | Fake paths log scanners · never leak the panel |
@@ -144,11 +146,14 @@ Works with **Hiddify · v2rayNG · Streisand · NekoBox · Clash · sing-box**.
 | Link | Purpose |
 |:-----|:--------|
 | `/<ACCESS_UUID>/login` | Admin panel (keep private) |
-| `/sub/<USER_UUID>` | Subscription for apps (Base64 default) |
-| `/me/<USER_UUID>` | **User status page** — traffic, days left, QR, configs |
-| `/sub/<USER_UUID>?format=clash` | Clash / Mihomo YAML |
-| `/sub/<USER_UUID>?format=singbox` | sing-box JSON |
-| `/sub/<USER_UUID>?format=html` | Pretty portal (same idea as `/me`) |
+| `/{SECURE_PATH}/login` | Admin login (private) |
+| `/{SECURE_PATH}/panel` | Admin dashboard |
+| `/{SECURE_PATH}/sub/<USER_UUID>` | Subscription for apps (Base64 default) |
+| `/{SECURE_PATH}/me/<USER_UUID>` | **User status page** — traffic, days left, QR, configs |
+| `…/sub/<USER_UUID>?format=clash` | Clash / Mihomo YAML |
+| `…/sub/<USER_UUID>?format=singbox` | sing-box JSON |
+
+> Bare `/panel`, `/api/*`, `/sub/*` without SECURE PATH return **404** (Gen 5.1.1).
 
 ### Recommended config
 

@@ -11,7 +11,7 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <meta name="theme-color" content="#050506" />
-  <title>ورود · XrayMOD</title>
+  <title>Login</title>
   <script>window.__API_BASE=${JSON.stringify(origin)};window.__PANEL_PREFIX=${JSON.stringify(prefix)};window.__LANG=localStorage.getItem('xraymod_lang')||'fa';</script>
   <style>
     :root {
@@ -127,14 +127,14 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="logo">X</div>
-      <h1>Xray<span>MOD</span></h1>
-      <p class="sub">ورود به پنل مدیریت پروکسی</p>
+      <div class="logo">·</div>
+      <h1>Panel</h1>
+      <p class="sub">ورود امن به داشبورد</p>
 
       <form id="f" autocomplete="on">
         <div class="field">
-          <label for="user">نام کاربری</label>
-          <input id="user" name="username" type="text" value="admin" autocomplete="username" required />
+          <label for="user">ایمیل Cloudflare / نام کاربری</label>
+          <input id="user" name="username" type="text" value="" autocomplete="username" required placeholder="you@example.com" />
         </div>
         <div class="field">
           <label for="pass">رمز عبور</label>
@@ -153,12 +153,12 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
       <button type="button" id="langFa" style="padding:.35rem .7rem;border-radius:.5rem;border:1px solid #27272a;background:#10b981;color:#000;font-weight:800;font-size:.7rem;cursor:pointer">FA</button>
       <button type="button" id="langEn" style="padding:.35rem .7rem;border-radius:.5rem;border:1px solid #27272a;background:#09090b;color:#a1a1aa;font-weight:800;font-size:.7rem;cursor:pointer">EN</button>
     </div>
-    <p class="foot" id="foot">دسترسی مخفی · Cloudflare Workers<br/>Stealth panel</p>
+    <p class="foot" id="foot">SECURE PATH · private entry<br/>Unauthorized requests return 404</p>
   </div>
 
   <script>
 (function () {
-  var API = (window.__API_BASE || location.origin).replace(/\\/$/, '');
+  var API = (window.__API_BASE || location.origin).replace(/\\/$/, '') + (window.__PANEL_PREFIX || '');
   var PREFIX = window.__PANEL_PREFIX || '';
   var form = document.getElementById('f');
   var err = document.getElementById('err');
@@ -169,8 +169,8 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
   var challenge = null;
   var lang = localStorage.getItem('xraymod_lang') || 'fa';
   var i18n = {
-    fa: { title: 'ورود به پنل مدیریت پروکسی', user: 'نام کاربری', pass: 'رمز عبور', go: 'ورود به پنل', show: 'نمایش', hide: 'مخفی', bad: 'نام کاربری یا رمز اشتباه است', net: 'خطای شبکه — دوباره تلاش کنید', ok: 'موفق — در حال انتقال...' },
-    en: { title: 'Sign in to proxy panel', user: 'Username', pass: 'Password', go: 'Sign in', show: 'Show', hide: 'Hide', bad: 'Invalid username or password', net: 'Network error — try again', ok: 'OK — redirecting...' }
+    fa: { title: 'ورود امن به داشبورد', user: 'ایمیل Cloudflare / نام کاربری', pass: 'رمز عبور', go: 'ورود به پنل', show: 'نمایش', hide: 'مخفی', bad: 'نام کاربری یا رمز اشتباه است', net: 'خطای شبکه — دوباره تلاش کنید', ok: 'موفق — در حال انتقال...' },
+    en: { title: 'Secure panel sign-in', user: 'Cloudflare email / username', pass: 'Password', go: 'Sign in', show: 'Show', hide: 'Hide', bad: 'Invalid username or password', net: 'Network error — try again', ok: 'OK — redirecting...' }
   };
   function applyLang() {
     var t = i18n[lang] || i18n.fa;

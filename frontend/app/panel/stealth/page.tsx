@@ -15,6 +15,7 @@ import { api } from '@/lib/api';
 import { Card, CardHeader, Button, Input, Toggle, StatusBadge } from '@/components';
 
 const SKINS = [
+  { id: '404', label: 'Silent 404 (recommended)', desc: 'بدون برند — بهترین ضدکشف' },
   { id: '1101', label: 'CF Error 1101', desc: 'صفحه خطای کلاسیک Cloudflare' },
   { id: 'nginx', label: 'Nginx Welcome', desc: 'صفحه پیش‌فرض nginx' },
   { id: 'github', label: 'GitHub 404', desc: 'صفحه not found گیت‌هاب' },
@@ -58,8 +59,8 @@ export default function StealthPage() {
     try {
       const res = await api.get('/api/settings');
       const d = res?.data || {};
-      setEnabled(d['disguise.enabled'] === 'true');
-      setFallback(d['disguise.fallback_page'] || '1101');
+      setEnabled(d['disguise.enabled'] !== 'false');
+      setFallback(d['disguise.fallback_page'] || '404');
       setAdminPath(d['disguise.admin_path'] || '');
       setLoginPath(d['disguise.login_path'] || '');
       setSubPath(d['disguise.sub_path'] || '');

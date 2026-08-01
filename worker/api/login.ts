@@ -84,10 +84,24 @@ export async function handleLogin(
       return json({ success: false, message: 'Username and password required' }, 400);
     }
 
+    // BPB-style: when CF email is enforced, login username must match
+    const cfEmailRow = await env.DB.prepare(
+      'SELECT v FROM kvstore WHERE k = ?'
+    ).bind('panel.cf_email').first<{ v: string }>();
+    const enforceRow = await env.DB.prepare(
+      'SELECT v FROM kvstore WHERE k = ?'
+    ).bind('panel.cf_email_enforce').first<{ v: string }>();
+    const cfEmail = (cfEmailRow?.v || '').trim().toLowerCase();
+    const enforce = enforceRow?.v !== 'false' && !!cfEmail;
+    if (enforce && username.trim().toLowerCase() !== cfEmail) {
+      await recordLoginAttempt(env.DB, clientIP);
+      return json({ success: false, message: 'Invalid credentials' }, 401);
+    }
+
     const user = await env.DB.prepare(
-      'SELECT id, username, password_hash, role, email FROM users WHERE username = ?'
+      'SELECT id, username, password_hash, role, email FROM users WHERE username = ? OR (email != "" AND lower(email) = lower(?))'
     )
-      .bind(username)
+      .bind(username, username)
       .first<{
         id: number;
         username: string;
@@ -181,15 +195,16 @@ export async function handleLogin(
       ).bind('admin').first<{ uuid: string }>();
 
       initialConfig = {
-        panelUrl: `${url.protocol}//${url.host}/${accessUUID?.v || ''}`,
-        subscriptionUrl: `${url.protocol}//${url.host}/sub/${adminUser?.uuid || ''}`,
+        panelUrl: `${url.protocol}//${url.host}/${accessUUID?.v || ''}/panel`,
+        subscriptionUrl: `${url.protocol}//${url.host}/${accessUUID?.v || ''}/sub/${adminUser?.uuid || ''}`,
         adminUuid: adminUser?.uuid || '',
         accessUuid: accessUUID?.v || '',
+        securePath: accessUUID?.v || '',
         instructions: [
-          'Save your Panel URL — this is the only way to access your panel',
-          'Share the Subscription URL with clients to connect',
-          'Install a client app (V2RayNG, sing-box, Clash) and import the subscription',
-          'Go to Settings to configure protocols, ECH, clean IPs, and Telegram bot',
+          'Save your Panel URL — SECURE PATH is required; /panel alone will not work',
+          'Share the Subscription URL (includes SECURE PATH) with clients',
+          'Install a client (v2rayNG ≥2.2.3, sing-box ≥1.12.0) and enable Hev TUN on Android',
+          'Set Cloudflare email in Admin Dashboard for stronger login binding',
         ],
       };
 
