@@ -291,7 +291,7 @@ export function LangToggle({ className = '' }: { className?: string }) {
         onClick={() => setLang('fa')}
         className={`px-2.5 py-1 rounded-md transition-colors ${
           lang === 'fa'
-            ? 'bg-[var(--accent)] text-[#06140e]'
+            ? 'bg-[var(--accent)] text-[#041414]'
             : 'text-[var(--text-faint)] hover:text-[var(--text-muted)]'
         }`}
       >
@@ -302,7 +302,7 @@ export function LangToggle({ className = '' }: { className?: string }) {
         onClick={() => setLang('en')}
         className={`px-2.5 py-1 rounded-md transition-colors ${
           lang === 'en'
-            ? 'bg-[var(--accent)] text-[#06140e]'
+            ? 'bg-[var(--accent)] text-[#041414]'
             : 'text-[var(--text-faint)] hover:text-[var(--text-muted)]'
         }`}
       >

@@ -8,17 +8,17 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants = {
   primary:
-    'bg-[var(--accent)] hover:brightness-110 text-[#06140e] font-semibold shadow-[0_8px_24px_-12px_rgba(61,214,140,0.55)]',
+    'bg-[var(--coral)] hover:brightness-110 text-white font-semibold shadow-[0_10px_28px_-14px_rgba(255,92,69,0.7)]',
   secondary:
-    'border border-[var(--stroke-strong)] bg-white/[0.02] text-[var(--text)] hover:bg-white/[0.05]',
+    'border border-[var(--stroke-strong)] bg-[var(--bg-panel)] text-[var(--text)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)]',
   danger: 'bg-[var(--danger)]/90 hover:bg-[var(--danger)] text-white font-semibold',
   ghost: 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/[0.04]',
 };
 
 const sizes = {
-  sm: 'px-3 py-1.5 text-xs rounded-lg',
-  md: 'px-4 py-2.5 text-sm rounded-[0.8rem]',
-  lg: 'px-6 py-3 text-sm rounded-[0.9rem]',
+  sm: 'px-3 py-1.5 text-xs rounded-[var(--radius)]',
+  md: 'px-4 py-2.5 text-sm rounded-[var(--radius)]',
+  lg: 'px-6 py-3 text-sm rounded-[var(--radius-lg)]',
 };
 
 export function Button({

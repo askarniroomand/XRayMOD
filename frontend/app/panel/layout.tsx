@@ -9,7 +9,6 @@ import {
   Settings,
   Radar,
   LogOut,
-  Zap,
   Menu,
   X,
   Wifi,
@@ -26,7 +25,7 @@ import { LangToggle, useI18n, type DictKey } from '@/lib/i18n';
 
 type NavItem = { href: string; key: DictKey; icon: typeof LayoutDashboard };
 
-const NAV_GROUPS: { label: DictKey | string; items: NavItem[] }[] = [
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'overview',
     items: [
@@ -99,10 +98,8 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   const NavBlocks = ({ onNavigate }: { onNavigate?: () => void }) => (
     <>
       {NAV_GROUPS.map((group) => (
-        <div key={group.label} className="space-y-1.5">
-          <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-            {GROUP_LABEL[group.label]?.[lang] || group.label}
-          </p>
+        <div key={group.label} className="space-y-1">
+          <p className="nav-group-label">{GROUP_LABEL[group.label]?.[lang] || group.label}</p>
           <div className="space-y-0.5">
             {group.items.map((item) => {
               const active = isActive(item.href);
@@ -113,7 +110,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
                   onClick={onNavigate}
                   className={`nav-item ${active ? 'is-active' : ''}`}
                 >
-                  <item.icon size={16} strokeWidth={1.75} />
+                  <item.icon size={15} strokeWidth={1.9} />
                   <span>{t(item.key)}</span>
                 </PanelLink>
               );
@@ -125,54 +122,51 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="nav-rail hidden md:flex flex-col w-[248px] p-4 sticky top-0 h-screen shrink-0">
-        <PanelLink href="/panel" className="flex items-center gap-3 px-2 py-2 mb-5 group">
-          <div className="relative">
-            <div className="absolute inset-0 bg-[var(--accent)]/30 blur-md rounded-xl opacity-70 group-hover:opacity-100 transition-opacity" />
-            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-deep)] flex items-center justify-center">
-              <Zap className="text-[#06140e] w-[18px] h-[18px]" strokeWidth={2.4} />
-            </div>
-          </div>
-          <div className="leading-tight">
+    <div className="shell">
+      <aside className="nav-rail hidden md:flex flex-col p-4 sticky top-0 h-screen">
+        <PanelLink href="/panel" className="flex items-center gap-3 px-1.5 py-2 mb-6 group">
+          <div className="brand-mark" aria-hidden />
+          <div className="leading-tight min-w-0">
             <p className="font-display text-[15px] font-bold tracking-tight">
               Xray<span className="text-[var(--accent)]">MOD</span>
             </p>
-            <p className="text-[10px] text-[var(--text-faint)] tracking-wide">Gen 5.1 · Secure</p>
+            <p className="text-[10px] text-[var(--text-faint)] tracking-[0.08em] uppercase font-display">
+              Aperture · 5.1
+            </p>
           </div>
         </PanelLink>
 
-        <nav className="flex-1 space-y-4 overflow-y-auto pr-1">
+        <nav className="flex-1 space-y-4 overflow-y-auto pe-1">
           <NavBlocks />
         </nav>
 
         <div className="pt-4 mt-2 border-t border-[var(--stroke)] space-y-3">
-          <div className="px-2">
+          <div className="px-1.5">
             <LangToggle />
           </div>
           {prefix && (
             <p
-              className="px-3 text-[10px] text-[var(--text-faint)] font-mono truncate"
+              className="px-2 text-[10px] text-[var(--text-faint)] font-mono truncate"
               title={prefix}
             >
-              {prefix.slice(0, 16)}…
+              PATH {prefix.slice(0, 14)}…
             </p>
           )}
           <button
             type="button"
             onClick={handleLogout}
-            className="nav-item w-full text-[var(--text-faint)] hover:text-[var(--danger)] hover:bg-[rgba(240,113,120,0.06)]"
+            className="nav-item w-full text-[var(--text-faint)] hover:text-[var(--coral)] hover:bg-[var(--coral-soft)]"
           >
-            <LogOut size={16} />
+            <LogOut size={15} />
             {t('logout')}
           </button>
         </div>
       </aside>
 
-      <div className="md:hidden fixed top-0 inset-inline-0 z-50 border-b border-[var(--stroke)] bg-[rgba(7,8,10,0.88)] backdrop-blur-xl">
+      <div className="md:hidden fixed top-0 inset-inline-0 z-50 border-b border-[var(--stroke)] bg-[rgba(6,11,18,0.92)] backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 py-3">
-          <PanelLink href="/panel" className="flex items-center gap-2">
-            <Zap className="text-[var(--accent)] w-5 h-5" />
+          <PanelLink href="/panel" className="flex items-center gap-2.5">
+            <div className="brand-mark !w-8 !h-8" aria-hidden />
             <span className="font-display font-bold tracking-tight text-sm">
               Xray<span className="text-[var(--accent)]">MOD</span>
             </span>
@@ -180,7 +174,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="text-[var(--text-muted)] p-2 rounded-lg hover:bg-white/[0.04]"
+            className="text-[var(--text-muted)] p-2 rounded-[var(--radius)] hover:bg-white/[0.04]"
             aria-label="Menu"
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -192,21 +186,19 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
             <div className="px-2 pt-1">
               <LangToggle />
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="nav-item w-full"
-            >
-              <LogOut size={16} />
+            <button type="button" onClick={handleLogout} className="nav-item w-full">
+              <LogOut size={15} />
               {t('logout')}
             </button>
           </nav>
         )}
       </div>
 
-      <main className="flex-1 overflow-y-auto pt-14 md:pt-0 min-w-0">
-        <div className="p-4 sm:p-6 md:p-8 lg:px-10 lg:py-9 max-w-6xl mx-auto pb-24 md:pb-14">
-          {children}
+      <main className="min-w-0 overflow-y-auto pt-14 md:pt-0">
+        <div className="aperture-grid min-h-full">
+          <div className="p-4 sm:p-6 md:p-8 lg:px-10 lg:py-9 max-w-6xl mx-auto pb-24 md:pb-14">
+            {children}
+          </div>
         </div>
       </main>
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Globe, Activity, Wifi, ArrowUpRight, Shield, Radar, Copy, Sparkles } from 'lucide-react';
+import { Users, Globe, Activity, Wifi, ArrowUpRight, Shield, Radar, Copy, Crosshair } from 'lucide-react';
 import { api, asList } from '@/lib/api';
 import { StatCard, Card, CardHeader, ProgressBar, Button, PageHeader } from '@/components';
 import { PanelLink } from '@/components/panel-link';
@@ -29,19 +29,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     api.get('/api/health').then((d) => setStatus(d)).catch(() => {});
-    api.get('/api/users').then((d) => {
-      const list = asList<any>(d);
-      setUsers({
-        total: list.length,
-        active: list.filter((x) => x.status === 'active' || x.enable !== false).length,
-      });
-      const admin = list.find((x) => x.role === 'admin') || list[0];
-      const id = admin?.uuid || admin?.sub_id;
-      if (id) {
-        const url = secureSubUrl(id) || `${window.location.origin}${getPanelPrefix()}/sub/${id}`;
-        setSubHint(url);
-      }
-    }).catch(() => {});
+    api
+      .get('/api/users')
+      .then((d) => {
+        const list = asList<any>(d);
+        setUsers({
+          total: list.length,
+          active: list.filter((x) => x.status === 'active' || x.enable !== false).length,
+        });
+        const admin = list.find((x) => x.role === 'admin') || list[0];
+        const id = admin?.uuid || admin?.sub_id;
+        if (id) {
+          const url = secureSubUrl(id) || `${window.location.origin}${getPanelPrefix()}/sub/${id}`;
+          setSubHint(url);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const formatBytes = (bytes: number) => {
@@ -56,9 +59,9 @@ export default function DashboardPage() {
   const month = status?.traffic?.month;
 
   return (
-    <div className="page-shell space-y-8">
+    <div className="page-shell space-y-7">
       <PageHeader
-        eyebrow="Control plane"
+        eyebrow="Aperture"
         title={t('dashboard')}
         description={t('overview')}
         actions={
@@ -70,7 +73,7 @@ export default function DashboardPage() {
             </PanelLink>
             <PanelLink href="/panel/admin">
               <Button size="sm" variant="secondary">
-                <Sparkles size={14} /> Admin
+                <Crosshair size={14} /> Admin
               </Button>
             </PanelLink>
             <PanelLink href="/panel/cleanip">
@@ -84,14 +87,17 @@ export default function DashboardPage() {
 
       <section className="hero-band">
         <div className="relative z-[1] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
-              XrayMOD · {status?.version || '5.1.1'}
-            </p>
-            <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
-              {status?.configured ? t('active') : 'Setup pending'}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="chip chip-live">v{status?.version || '5.1.1'}</span>
+              <span className={status?.configured ? 'chip chip-live' : 'chip chip-warn'}>
+                {status?.configured ? t('active') : 'Setup pending'}
+              </span>
+            </div>
+            <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight max-w-lg">
+              XrayMOD control plane
             </h2>
-            <p className="text-sm text-[var(--text-muted)] max-w-md">
+            <p className="text-sm text-[var(--text-muted)] max-w-md leading-relaxed">
               SECURE PATH · silent 404 · Admin Dashboard · D-tagged domains
             </p>
           </div>
@@ -110,7 +116,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           title={t('users')}
           value={String(users.total)}
@@ -137,14 +143,14 @@ export default function DashboardPage() {
           value={formatBytes(month?.total || 0)}
           subtitle={t('total')}
           icon={Globe}
-          color="violet"
+          color="rose"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Card>
           <CardHeader title={t('systemInfo')} description="Runtime health snapshot" />
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {[
               [t('version'), status?.version || 'N/A'],
               [t('uptime'), status?.uptime || 'N/A'],
@@ -183,12 +189,12 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <PanelLink href="/panel/config" className="group block">
-          <Card className="h-full transition-colors hover:border-[var(--accent)]/25">
+          <Card className="h-full transition-colors hover:border-[var(--accent)]/35">
             <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-                <Shield size={17} strokeWidth={1.75} />
+              <div className="p-2 rounded-md bg-[var(--accent-soft)] text-[var(--accent)]">
+                <Shield size={16} strokeWidth={1.9} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-display font-semibold text-sm">{t('config')}</p>
@@ -202,10 +208,10 @@ export default function DashboardPage() {
           </Card>
         </PanelLink>
         <PanelLink href="/panel/network" className="group block">
-          <Card className="h-full transition-colors hover:border-[var(--info)]/25">
+          <Card className="h-full transition-colors hover:border-[var(--info)]/35">
             <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-[rgba(108,182,255,0.12)] text-[var(--info)]">
-                <Wifi size={17} strokeWidth={1.75} />
+              <div className="p-2 rounded-md bg-[rgba(94,176,255,0.12)] text-[var(--info)]">
+                <Wifi size={16} strokeWidth={1.9} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-display font-semibold text-sm">{t('network')}</p>
@@ -220,8 +226,8 @@ export default function DashboardPage() {
         </PanelLink>
         <Card className="h-full">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-[rgba(180,160,255,0.12)] text-[#b4a0ff]">
-              <Globe size={17} strokeWidth={1.75} />
+            <div className="p-2 rounded-md bg-[var(--coral-soft)] text-[var(--coral)]">
+              <Globe size={16} strokeWidth={1.9} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-display font-semibold text-sm">{t('subLink')}</p>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Zap, Shield, Loader2, Eye, EyeOff, Lock, User } from 'lucide-react';
+import { Shield, Loader2, Eye, EyeOff, Lock, User } from 'lucide-react';
 import { api } from '@/lib/api';
 import { goPanel } from '@/lib/paths';
 import { toast } from 'sonner';
@@ -64,17 +64,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
-      <div className="absolute inset-0 grid-bg opacity-40 pointer-events-none" />
+      <div className="absolute inset-0 aperture-grid opacity-50 pointer-events-none" />
 
       <div className="w-full max-w-[400px] relative page-shell">
-        <div className="glass rounded-[1.35rem] p-7 sm:p-8 border border-[var(--stroke-strong)]">
+        <div className="surface rounded-[var(--radius-lg)] p-7 sm:p-8 border border-[var(--stroke-strong)]">
           <div className="flex flex-col items-center mb-8">
-            <div className="relative mb-5">
-              <div className="absolute inset-0 bg-[var(--accent)]/25 blur-2xl rounded-2xl" />
-              <div className="relative w-14 h-14 bg-gradient-to-br from-[var(--accent)] to-[var(--accent-deep)] rounded-2xl flex items-center justify-center">
-                <Zap className="w-7 h-7 text-[#06140e]" strokeWidth={2.4} />
-              </div>
-            </div>
+            <div className="brand-mark !w-14 !h-14 mb-5" aria-hidden />
             <h1 className="font-display text-2xl font-bold tracking-tight">
               Xray<span className="text-[var(--accent)]">MOD</span>
             </h1>
@@ -97,7 +92,7 @@ export default function LoginPage() {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       autoComplete="username"
-                      className="w-full pl-10 pr-4 py-3.5 bg-[var(--bg)] border border-[var(--stroke-strong)] rounded-[0.9rem] text-sm focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15 transition-all placeholder:text-[var(--text-faint)]"
+                      className="w-full pl-10 pr-4 py-3.5 bg-[var(--bg)] border border-[var(--stroke-strong)] rounded-[var(--radius)] text-sm focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15 transition-all placeholder:text-[var(--text-faint)]"
                       placeholder="you@example.com"
                       required
                     />
@@ -114,7 +109,7 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete="current-password"
-                      className="w-full pl-10 pr-12 py-3.5 bg-[var(--bg)] border border-[var(--stroke-strong)] rounded-[0.9rem] text-sm focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15 transition-all placeholder:text-[var(--text-faint)]"
+                      className="w-full pl-10 pr-12 py-3.5 bg-[var(--bg)] border border-[var(--stroke-strong)] rounded-[var(--radius)] text-sm focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15 transition-all placeholder:text-[var(--text-faint)]"
                       placeholder="••••••••"
                       required
                     />
@@ -145,7 +140,7 @@ export default function LoginPage() {
                   onChange={(e) => setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   autoComplete="one-time-code"
                   autoFocus
-                  className="w-full px-4 py-3.5 bg-[var(--bg)] border border-[var(--stroke-strong)] rounded-[0.9rem] text-sm text-center tracking-[0.4em] font-mono focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15"
+                  className="w-full px-4 py-3.5 bg-[var(--bg)] border border-[var(--stroke-strong)] rounded-[var(--radius)] text-sm text-center tracking-[0.4em] font-mono focus:border-[var(--accent)]/50 focus:ring-2 focus:ring-[var(--accent)]/15"
                   placeholder="000000"
                   required
                 />
@@ -153,7 +148,7 @@ export default function LoginPage() {
             )}
 
             {error && (
-              <div className="p-3.5 bg-[rgba(240,113,120,0.08)] border border-[rgba(240,113,120,0.25)] rounded-[0.85rem] text-sm text-[var(--danger)] leading-relaxed">
+              <div className="p-3.5 bg-[var(--coral-soft)] border border-[rgba(255,92,69,0.3)] rounded-[var(--radius)] text-sm text-[var(--coral)] leading-relaxed">
                 {error}
               </div>
             )}
@@ -161,7 +156,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || (!require2fa && (!username.trim() || !password))}
-              className="w-full py-3.5 bg-[var(--accent)] hover:brightness-110 active:scale-[0.99] disabled:bg-white/5 disabled:text-[var(--text-faint)] disabled:active:scale-100 text-[#06140e] font-semibold rounded-[0.9rem] transition-all flex items-center justify-center gap-2 shadow-[0_10px_28px_-14px_rgba(61,214,140,0.65)] mt-1"
+              className="w-full py-3.5 bg-[var(--coral)] hover:brightness-110 active:scale-[0.99] disabled:bg-white/5 disabled:text-[var(--text-faint)] disabled:active:scale-100 text-white font-semibold rounded-[var(--radius)] transition-all flex items-center justify-center gap-2 shadow-[0_10px_28px_-14px_rgba(255,92,69,0.7)] mt-1"
             >
               {loading ? (
                 <>
@@ -191,7 +186,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-[var(--text-faint)] mt-6 leading-relaxed">
+        <p className="text-center text-[11px] text-[var(--text-faint)] mt-6 leading-relaxed font-display tracking-wide">
           SECURE PATH · private entry
           <br />
           Unauthorized requests return 404

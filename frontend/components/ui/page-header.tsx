@@ -15,11 +15,11 @@ export function PageHeader({
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
       <div className="min-w-0 space-y-2">
         {eyebrow && (
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+          <p className="text-[11px] font-display font-700 font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
             {eyebrow}
           </p>
         )}
-        <h1 className="font-display text-3xl md:text-[2.15rem] font-bold tracking-tight leading-none">
+        <h1 className="font-display text-[1.85rem] md:text-[2.15rem] font-bold tracking-tight leading-[1.05]">
           {title}
         </h1>
         {description && (

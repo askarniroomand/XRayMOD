@@ -1,34 +1,37 @@
 /**
  * Self-contained login UI — no React/Next dependency.
- * Guarantees the submit button works even if /_next assets fail.
+ * Aperture Signal skin (matches frontend brand).
  */
 export function renderLoginPage(origin: string, panelPrefix: string): Response {
   const prefix = panelPrefix || '';
-  const panelUrl = `${prefix}/panel`;
   const html = `<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <meta name="theme-color" content="#050506" />
-  <title>Login</title>
+  <meta name="theme-color" content="#060b12" />
+  <title>Login · XrayMOD</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Syne:wght@600;700;800&family=Vazirmatn:wght@500;600;700&display=swap" rel="stylesheet" />
   <script>window.__API_BASE=${JSON.stringify(origin)};window.__PANEL_PREFIX=${JSON.stringify(prefix)};window.__LANG=localStorage.getItem('xraymod_lang')||'fa';</script>
   <style>
     :root {
-      --bg: #050506;
-      --card: rgba(18, 18, 22, 0.85);
-      --border: rgba(63, 63, 70, 0.65);
-      --text: #fafafa;
-      --muted: #71717a;
-      --accent: #10b981;
-      --accent2: #34d399;
-      --danger: #f43f5e;
-      --input: #09090b;
+      --bg: #060b12;
+      --panel: #101b2a;
+      --border: rgba(140,175,210,.16);
+      --text: #e8eef6;
+      --muted: #8fa3b8;
+      --faint: #5c7188;
+      --accent: #1ec8c8;
+      --coral: #ff5c45;
+      --input: #0a121c;
+      --danger: #ff5c6a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       min-height: 100vh;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Tahoma, sans-serif;
+      font-family: Vazirmatn, Manrope, ui-sans-serif, system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       display: grid;
@@ -38,87 +41,126 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
     }
     body::before {
       content: "";
-      position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      position: fixed; inset: 0; z-index: -2; pointer-events: none;
       background:
-        radial-gradient(ellipse 70% 50% at 50% -10%, rgba(16,185,129,.18), transparent 55%),
-        radial-gradient(ellipse 40% 30% at 100% 100%, rgba(59,130,246,.08), transparent 50%);
+        radial-gradient(ellipse 55% 40% at 85% -5%, rgba(30,200,200,.14), transparent 55%),
+        radial-gradient(ellipse 40% 35% at -5% 40%, rgba(255,92,69,.06), transparent 50%),
+        linear-gradient(165deg, #08101a 0%, #060b12 100%);
     }
-    .wrap { width: 100%; max-width: 420px; }
+    body::after {
+      content: "";
+      position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .04;
+      background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(140,175,210,.4) 2px, rgba(140,175,210,.4) 3px);
+    }
+    .wrap { width: 100%; max-width: 400px; animation: in .45s cubic-bezier(.16,1,.3,1) both; }
+    @keyframes in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
     .card {
-      background: var(--card);
+      background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 1.35rem;
-      padding: 2rem 1.75rem 1.75rem;
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.04);
+      border-radius: .9rem;
+      padding: 2rem 1.6rem 1.6rem;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
     }
     .logo {
-      width: 64px; height: 64px; margin: 0 auto 1.25rem;
-      border-radius: 1.1rem;
+      width: 56px; height: 56px; margin: 0 auto 1.15rem;
+      border-radius: 12px;
       display: grid; place-items: center;
-      background: linear-gradient(145deg, #34d399, #059669);
-      color: #000; font-weight: 900; font-size: 1.6rem;
-      box-shadow: 0 12px 40px rgba(16,185,129,.35);
+      background: #0d1622;
+      border: 1px solid var(--border);
+      position: relative;
     }
-    h1 { text-align: center; font-size: 1.65rem; font-weight: 900; letter-spacing: -0.03em; }
+    .logo::before {
+      content: "";
+      position: absolute; inset: 6px;
+      border: 1.5px solid var(--accent);
+      border-radius: 99px;
+      opacity: .85;
+      animation: pulse 3.2s ease-in-out infinite;
+    }
+    .logo::after {
+      content: "";
+      width: 8px; height: 8px; border-radius: 99px;
+      background: var(--coral);
+      box-shadow: 0 0 12px rgba(255,92,69,.65);
+      position: relative; z-index: 1;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: .35; transform: scale(1); }
+      50% { opacity: .75; transform: scale(1.08); }
+    }
+    h1 {
+      text-align: center;
+      font-family: Syne, Vazirmatn, sans-serif;
+      font-size: 1.55rem; font-weight: 800; letter-spacing: -.03em;
+    }
     h1 span { color: var(--accent); }
-    .sub { text-align: center; color: var(--muted); font-size: .875rem; margin: .5rem 0 1.75rem; line-height: 1.6; }
+    .sub { text-align: center; color: var(--muted); font-size: .875rem; margin: .45rem 0 1.6rem; line-height: 1.6; }
     label {
-      display: block; font-size: .7rem; font-weight: 700; color: #a1a1aa;
-      text-transform: uppercase; letter-spacing: .08em; margin-bottom: .45rem;
+      display: block; font-size: .68rem; font-weight: 700; color: var(--faint);
+      text-transform: uppercase; letter-spacing: .1em; margin-bottom: .4rem;
     }
     .field { margin-bottom: 1rem; position: relative; }
     input {
       width: 100%;
       padding: .95rem 1rem;
       background: var(--input);
-      border: 1px solid #27272a;
-      border-radius: .9rem;
+      border: 1px solid rgba(140,175,210,.18);
+      border-radius: .65rem;
       color: var(--text);
       font-size: .95rem;
       transition: border-color .15s, box-shadow .15s;
       outline: none;
+      font-family: inherit;
     }
     input:focus {
-      border-color: rgba(16,185,129,.7);
-      box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+      border-color: rgba(30,200,200,.55);
+      box-shadow: 0 0 0 3px rgba(30,200,200,.12);
     }
-    input::placeholder { color: #3f3f46; }
+    input::placeholder { color: var(--faint); }
     .toggle {
-      position: absolute; left: .75rem; top: 2.15rem;
-      background: none; border: 0; color: #52525b; cursor: pointer; font-size: .75rem; padding: .25rem;
+      position: absolute; left: .75rem; top: 2.1rem;
+      background: none; border: 0; color: var(--faint); cursor: pointer; font-size: .75rem; padding: .25rem;
+      font-family: inherit;
     }
-    .toggle:hover { color: #a1a1aa; }
-    [dir="rtl"] .toggle { left: .75rem; right: auto; }
+    .toggle:hover { color: var(--muted); }
     [dir="rtl"] input.has-toggle { padding-left: 3rem; padding-right: 1rem; }
     .btn {
       width: 100%; margin-top: .35rem;
       padding: 1rem;
-      border: 0; border-radius: .9rem;
-      background: linear-gradient(180deg, var(--accent2), var(--accent));
-      color: #052e1c; font-weight: 800; font-size: .95rem;
+      border: 0; border-radius: .65rem;
+      background: var(--coral);
+      color: #fff; font-weight: 700; font-size: .95rem;
       cursor: pointer;
-      box-shadow: 0 10px 30px rgba(16,185,129,.28);
+      box-shadow: 0 10px 28px -14px rgba(255,92,69,.7);
       transition: transform .12s, filter .12s, opacity .12s;
+      font-family: inherit;
     }
-    .btn:hover { filter: brightness(1.05); }
+    .btn:hover { filter: brightness(1.08); }
     .btn:active { transform: scale(.985); }
-    .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; filter: none; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: none; }
     .err {
       display: none; margin: .75rem 0 0;
-      padding: .85rem 1rem; border-radius: .85rem;
-      background: rgba(244,63,94,.1); border: 1px solid rgba(244,63,94,.25);
-      color: #fb7185; font-size: .85rem; line-height: 1.55;
+      padding: .85rem 1rem; border-radius: .65rem;
+      background: rgba(255,92,69,.1); border: 1px solid rgba(255,92,69,.28);
+      color: var(--coral); font-size: .85rem; line-height: 1.55;
     }
     .err.show { display: block; }
+    .langs { display: flex; justify-content: center; gap: .5rem; margin-top: 1rem; }
+    .lang {
+      padding: .35rem .7rem; border-radius: .5rem;
+      border: 1px solid rgba(140,175,210,.18);
+      background: var(--input); color: var(--muted);
+      font-weight: 800; font-size: .7rem; cursor: pointer; font-family: Syne, sans-serif;
+    }
+    .lang.on { background: var(--accent); color: #041414; border-color: transparent; }
     .foot {
-      text-align: center; margin-top: 1.25rem;
-      font-size: .7rem; color: #3f3f46; line-height: 1.7;
+      text-align: center; margin-top: 1.15rem;
+      font-size: .7rem; color: var(--faint); line-height: 1.7;
+      font-family: Syne, sans-serif; letter-spacing: .04em;
     }
     .spin {
       display: inline-block; width: 1em; height: 1em; margin-left: .4rem;
-      border: 2px solid rgba(0,0,0,.2); border-top-color: #052e1c;
+      border: 2px solid rgba(255,255,255,.25); border-top-color: #fff;
       border-radius: 50%; animation: s .7s linear infinite; vertical-align: -2px;
     }
     @keyframes s { to { transform: rotate(360deg); } }
@@ -127,8 +169,8 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="logo">·</div>
-      <h1>Panel</h1>
+      <div class="logo" aria-hidden="true"></div>
+      <h1>Xray<span>MOD</span></h1>
       <p class="sub">ورود امن به داشبورد</p>
 
       <form id="f" autocomplete="on">
@@ -149,9 +191,9 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
         <button class="btn" id="go" type="submit">ورود به پنل</button>
       </form>
     </div>
-    <div style="display:flex;justify-content:center;gap:.5rem;margin-top:1rem">
-      <button type="button" id="langFa" style="padding:.35rem .7rem;border-radius:.5rem;border:1px solid #27272a;background:#10b981;color:#000;font-weight:800;font-size:.7rem;cursor:pointer">FA</button>
-      <button type="button" id="langEn" style="padding:.35rem .7rem;border-radius:.5rem;border:1px solid #27272a;background:#09090b;color:#a1a1aa;font-weight:800;font-size:.7rem;cursor:pointer">EN</button>
+    <div class="langs">
+      <button type="button" id="langFa" class="lang on">FA</button>
+      <button type="button" id="langEn" class="lang">EN</button>
     </div>
     <p class="foot" id="foot">SECURE PATH · private entry<br/>Unauthorized requests return 404</p>
   </div>
@@ -172,6 +214,10 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
     fa: { title: 'ورود امن به داشبورد', user: 'ایمیل Cloudflare / نام کاربری', pass: 'رمز عبور', go: 'ورود به پنل', show: 'نمایش', hide: 'مخفی', bad: 'نام کاربری یا رمز اشتباه است', net: 'خطای شبکه — دوباره تلاش کنید', ok: 'موفق — در حال انتقال...' },
     en: { title: 'Secure panel sign-in', user: 'Cloudflare email / username', pass: 'Password', go: 'Sign in', show: 'Show', hide: 'Hide', bad: 'Invalid username or password', net: 'Network error — try again', ok: 'OK — redirecting...' }
   };
+  function setLangBtn() {
+    document.getElementById('langFa').className = 'lang' + (lang==='fa' ? ' on' : '');
+    document.getElementById('langEn').className = 'lang' + (lang==='en' ? ' on' : '');
+  }
   function applyLang() {
     var t = i18n[lang] || i18n.fa;
     document.documentElement.lang = lang;
@@ -182,10 +228,7 @@ export function renderLoginPage(origin: string, panelPrefix: string): Response {
     if (labs[1]) labs[1].textContent = t.pass;
     go.textContent = t.go;
     eye.textContent = pass.type === 'password' ? t.show : t.hide;
-    document.getElementById('langFa').style.background = lang==='fa' ? '#10b981' : '#09090b';
-    document.getElementById('langFa').style.color = lang==='fa' ? '#000' : '#a1a1aa';
-    document.getElementById('langEn').style.background = lang==='en' ? '#10b981' : '#09090b';
-    document.getElementById('langEn').style.color = lang==='en' ? '#000' : '#a1a1aa';
+    setLangBtn();
   }
   document.getElementById('langFa').onclick = function(){ lang='fa'; localStorage.setItem('xraymod_lang','fa'); applyLang(); };
   document.getElementById('langEn').onclick = function(){ lang='en'; localStorage.setItem('xraymod_lang','en'); applyLang(); };
