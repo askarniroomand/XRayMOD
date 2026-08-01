@@ -91,7 +91,13 @@ async function injectHtmlGlobals(
   // Rewrite absolute /_next and root assets under SECURE PATH
   if (panelPrefix) {
     html = html.replace(/(href|src)=(["'])\/_next\//g, `$1=$2${panelPrefix}/_next/`);
+    html = html.replace(/(href|src)=(["'])\.\/_next\//g, `$1=$2${panelPrefix}/_next/`);
     html = html.replace(/(href|src)=(["'])\/favicon/g, `$1=$2${panelPrefix}/favicon`);
+    // Next static export hardcodes /panel|/login — keep them under SECURE PATH
+    html = html.replace(
+      /(href|src)=(["'])\/(panel|login|install)(\/|"|'|\?|#)/g,
+      `$1=$2${panelPrefix}/$3$4`
+    );
   }
 
   const headers = new Headers(res.headers);

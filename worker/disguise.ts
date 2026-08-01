@@ -111,8 +111,13 @@ export function remapDisguisePath(
     return { remapped: '/sub' + clean.slice(config.subPath.length + 1), isDecoy: false };
   }
 
-  // Real paths leaked — serve decoy
-  if (clean === '/admin' || clean === '/login') {
+  // Canonical /login|/admin are decoys ONLY when custom aliases replace them.
+  // Under SECURE PATH the real UI is /{uuid}/login → remapped pathname `/login`;
+  // treating that as a decoy served the fake CF 1101 page and broke every install.
+  if (config.loginPath && clean === '/login') {
+    return { remapped: pathname, isDecoy: true };
+  }
+  if (config.adminPath && clean === '/admin') {
     return { remapped: pathname, isDecoy: true };
   }
 

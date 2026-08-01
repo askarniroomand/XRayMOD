@@ -127,8 +127,11 @@ async function serveAsset(
 ): Promise<Response | null> {
   if (!env.ASSETS || !isStaticAssetPath(pathname)) return null;
   try {
-    const assetReq = new Request(new URL(pathname, request.url), request);
-    const assetRes = await env.ASSETS.fetch(assetReq);
+    // Fresh GET — do not clone browser conditional headers (If-None-Match → 304)
+    // or the original /{uuid}/... URL into the Assets lookup.
+    const assetRes = await env.ASSETS.fetch(
+      new Request(new URL(pathname, 'https://assets.local'), { method: 'GET' })
+    );
     if (assetRes.status === 200) {
       const headers = new Headers(assetRes.headers);
       headers.set('Cache-Control', 'public, max-age=31536000, immutable');
@@ -222,16 +225,14 @@ export async function handleRequest(
       return handleInstall(request, env, ctx, {});
     }
 
-    // Bare /_next or public assets without SECURE PATH → 404 once configured
-    if (isConfigured && isStaticAssetPath(pathname)) {
-      return silent404();
-    }
-
-    // Compulsory SECURE PATH (access UUID) for everything except first-boot install
+    // Compulsory SECURE PATH (access UUID) for everything except first-boot install.
+    // IMPORTANT: do NOT 404 on file extensions before stripping the UUID —
+    // /{uuid}/_next/*.css matches /\.css$/ and was incorrectly rejected as a
+    // "bare" public asset, which left the panel HTML unstyled.
     if (isConfigured) {
       const segments = pathname.split('/').filter(Boolean);
       if (segments.length === 0 || segments[0] !== accessUuid!.v) {
-        // Legacy public paths that used to leak fingerprints → silent 404
+        // Bare /_next, /api, /login, etc. without SECURE PATH → silent 404/decoy
         return denyPublic(env, url.host);
       }
       panelPrefix = `/${accessUuid!.v}`;

@@ -127,7 +127,7 @@ export async function handleWizard(
         compatibility_flags: ['nodejs_compat'],
         bindings: [
           { type: 'plain_text', name: 'ADMIN_PASSWORD', text: adminPassword },
-          { type: 'plain_text', name: 'DISGUISE_PAGE', text: '1101' },
+          { type: 'plain_text', name: 'DISGUISE_PAGE', text: '404' },
           { type: 'plain_text', name: 'PANEL_RECOVERY', text: 'false' },
         ],
         migrations: {

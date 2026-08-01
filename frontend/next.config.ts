@@ -4,8 +4,9 @@ const nextConfig: NextConfig = {
   output: 'export',
   images: { unoptimized: true },
   trailingSlash: false,
-  // Static export is served from Workers ASSETS — relative asset paths
-  assetPrefix: undefined,
+  // Relative prefix so /{SECURE_PATH}/panel resolves ./_next → /{SECURE_PATH}/_next
+  // (absolute /_next would bypass the stealth UUID and 404 once configured).
+  assetPrefix: '.',
 };
 
 export default nextConfig;
