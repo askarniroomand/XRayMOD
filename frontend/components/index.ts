@@ -7,6 +7,7 @@ export { ProgressBar } from './ui/progress-bar';
 export { DataTable } from './ui/data-table';
 export { Toggle } from './ui/toggle';
 export { EmptyState } from './ui/empty-state';
+export { PageHeader } from './ui/page-header';
 
 // Dashboard Components
 export { StatCard } from './dashboard/stat-card';

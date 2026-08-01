@@ -283,12 +283,16 @@ export function useI18n() {
 export function LangToggle({ className = '' }: { className?: string }) {
   const { lang, setLang } = useI18n();
   return (
-    <div className={`inline-flex rounded-lg border border-zinc-800 bg-zinc-950 p-0.5 text-xs font-bold ${className}`}>
+    <div
+      className={`inline-flex rounded-lg border border-[var(--stroke-strong)] bg-[var(--bg)] p-0.5 text-[11px] font-semibold ${className}`}
+    >
       <button
         type="button"
         onClick={() => setLang('fa')}
         className={`px-2.5 py-1 rounded-md transition-colors ${
-          lang === 'fa' ? 'bg-emerald-500 text-black' : 'text-zinc-500 hover:text-zinc-300'
+          lang === 'fa'
+            ? 'bg-[var(--accent)] text-[#06140e]'
+            : 'text-[var(--text-faint)] hover:text-[var(--text-muted)]'
         }`}
       >
         FA
@@ -297,7 +301,9 @@ export function LangToggle({ className = '' }: { className?: string }) {
         type="button"
         onClick={() => setLang('en')}
         className={`px-2.5 py-1 rounded-md transition-colors ${
-          lang === 'en' ? 'bg-emerald-500 text-black' : 'text-zinc-500 hover:text-zinc-300'
+          lang === 'en'
+            ? 'bg-[var(--accent)] text-[#06140e]'
+            : 'text-[var(--text-faint)] hover:text-[var(--text-muted)]'
         }`}
       >
         EN

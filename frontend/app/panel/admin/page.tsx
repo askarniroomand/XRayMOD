@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Shield,
   RefreshCw,
   Globe,
   Mail,
@@ -14,7 +13,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { Card, CardHeader, Button, Input } from '@/components';
+import { Card, CardHeader, Button, Input, PageHeader } from '@/components';
 import { toast } from 'sonner';
 
 type Dash = {
@@ -131,50 +130,46 @@ export default function AdminPage() {
   };
 
   if (loading && !dash) {
-    return <div className="p-8 text-zinc-500">Loading admin…</div>;
+    return <div className="p-8 text-[var(--text-muted)]">Loading admin…</div>;
   }
 
   return (
-    <div className="space-y-6 p-1">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
-            <Shield className="w-6 h-6 text-emerald-400" />
-            Admin Dashboard
-          </h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            Gen 5.1.1 · SECURE PATH · update · domains · CF email · kill switch
-          </p>
-        </div>
-        <Button variant="secondary" onClick={load}>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+    <div className="page-shell space-y-6">
+      <PageHeader
+        eyebrow="Operations"
+        title="Admin Dashboard"
+        description="SECURE PATH · update · domains · CF email · kill switch"
+        actions={
+          <Button variant="secondary" onClick={load}>
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </Button>
+        }
+      />
 
       {dash?.warn_80 && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-200 text-sm">
+        <div className="flex items-start gap-3 rounded-[1rem] border border-[rgba(230,180,80,0.25)] bg-[rgba(230,180,80,0.08)] p-4 text-[var(--warn)] text-sm">
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
           Usage over 80% of monthly cap ({dash.usage_percent}%). Consider raising the cap or pausing proxy.
         </div>
       )}
 
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid md:grid-cols-4 gap-3.5">
         <Card>
           <CardHeader title="Version" />
-          <p className="text-2xl font-bold text-emerald-400">{dash?.version || '—'}</p>
+          <p className="font-display text-2xl font-bold text-[var(--accent)] tabular">{dash?.version || '—'}</p>
         </Card>
         <Card>
           <CardHeader title="Users" />
-          <p className="text-2xl font-bold">{dash?.users ?? '—'}</p>
+          <p className="font-display text-2xl font-bold tabular">{dash?.users ?? '—'}</p>
         </Card>
         <Card>
           <CardHeader title="Traffic" />
-          <p className="text-2xl font-bold">{fmtBytes(dash?.traffic_used || 0)}</p>
+          <p className="font-display text-2xl font-bold tabular">{fmtBytes(dash?.traffic_used || 0)}</p>
         </Card>
         <Card>
           <CardHeader title="Proxy" />
-          <p className="text-2xl font-bold">{dash?.paused ? 'PAUSED' : 'ON'}</p>
+          <p className="font-display text-2xl font-bold">{dash?.paused ? 'PAUSED' : 'ON'}</p>
         </Card>
       </div>
 
