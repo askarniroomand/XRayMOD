@@ -4,8 +4,9 @@
 
 | Version | Supported |
 |:--------|:----------|
-| `main` (latest) | ✅ |
-| Tagged releases `v1.x` | ✅ |
+| `5.1.x` / `main` (latest) | ✅ |
+| Tagged releases `v5.1.1+` | ✅ |
+| `v1.x` (pre–SECURE PATH) | ⚠️ upgrade strongly recommended |
 | Older untagged snapshots | ❌ |
 
 Always run the latest release tag when possible.
@@ -39,6 +40,7 @@ Please do not publicly disclose until a fix is released or you are told disclosu
 | `.env` / live `config.json` secrets | Leak risk |
 | Private keys (`*.pem`, `*.key`) | Cryptographic compromise |
 | Real user traffic logs | Privacy / legal risk |
+| Live **SECURE PATH** / panel URLs | Enables scanners |
 
 `wrangler.toml` in the repository is a **template** (placeholder IDs).  
 The installer rewrites local config during deploy.
@@ -50,14 +52,28 @@ The installer rewrites local config during deploy.
 3. Local metadata under `~/.xraymod/` should store **non-secret** deploy metadata only — not long-lived API tokens.
 4. Panel password is used for bootstrap and must not be committed.
 
+## Gen 5.1.1 security model (operators)
+
+| Control | Behavior |
+|:--------|:---------|
+| **SECURE PATH** | Compulsory random UUID prefix for panel / API / sub / portal / assets |
+| **Silent 404** | Unauthorized routes return plain 404 (default), not branded HTML |
+| **CF email login** | Bind Cloudflare account email as admin username (Admin Dashboard) |
+| **Disguise** | Enabled by default; canary paths log scanner probes |
+| **CORS** | Same-origin only |
+| **Health** | Unauthenticated heartbeat has no product fingerprint |
+| **Kill switch** | Pause proxy egress without exposing the panel |
+
 ## Hardening recommendations for operators
 
 - Create a **scoped** Cloudflare API token (Workers edit only), not Global API Key
 - Rotate tokens if pasted into chat, screenshots, or tickets
-- Keep panel UUID path private
-- Enable admin 2FA when available
+- **Never share** the SECURE PATH / panel URL publicly
+- Bind Cloudflare email + enable admin 2FA
 - Restrict who can access your Cloudflare account email
-- Review Worker logs for canary hits / brute force
+- Review Worker logs / audit for canary hits / brute force
+- Use monthly traffic cap + kill switch if the Worker attracts abuse
+- Prefer a custom domain over long-lived `workers.dev` when possible
 - Prefer least-privilege DNS / zone access
 
 ## Application security principles

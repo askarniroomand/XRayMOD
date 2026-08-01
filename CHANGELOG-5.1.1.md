@@ -1,45 +1,31 @@
-# XRayMOD 5.1.1 — Next Generation (SECURE PATH)
+# XRayMOD 5.1.1 — operator notes
 
-Revolutionary stealth update aligned with BPB Worker Panel 5.1.1 ideas, keeping XRayMOD’s D1 multi-user architecture.
+Canonical release notes live in **[CHANGELOG.md](./CHANGELOG.md)** under `[5.1.1]`.
 
-## Why panels were getting found / banned
+This file is a short operator checklist for the Gen 5.1.1 anti-ban / SECURE PATH upgrade.
 
-| Risk | Old behavior | 5.1.1 fix |
-|------|----------------|-----------|
-| Scanner discovery | `/api/*`, `/sub/*`, `/_next/*`, branded HTML public | Compulsory **SECURE PATH** on all panel/API/sub/portal routes |
-| Fingerprints | `/api/health` returned `service: xraymod` | Silent `{ ok: true }` without auth; brand removed from public surfaces |
-| Root probing | Branded fallback HTML | Default **silent 404** |
-| CORS | `Access-Control-Allow-Origin: *` | Same-origin only |
-| Login takeover | Username `admin` guessable | Optional **Cloudflare email** bind + enforce |
-| Asset leak | Bare `/_next/*` served | Assets only under `/{SECURE_PATH}/_next/…` |
-| Abuse / ToS | Always-on proxy | Kill switch + monthly cap in Admin Dashboard |
+## Why panels were found / banned
 
-## New features
+| Risk | Old | 5.1.1 |
+|------|-----|-------|
+| Scanners | Public `/api`, `/sub`, `/_next` | Compulsory **SECURE PATH** |
+| Fingerprints | Branded health JSON | Silent `{ ok: true }` / 404 |
+| Root probing | Branded HTML | Default **silent 404** |
+| Login | Guessable `admin` | Optional **CF email** bind |
+| Abuse | Always-on proxy | Kill switch + monthly cap |
 
-- **Admin Dashboard** (`/panel/admin`): usage, update check, password reset, CF email, custom domains, remote settings sync, kill switch
-- **Custom domains**: merge into subscriptions with **D** tag
-- **Remote sync**: import settings from another XRayMOD panel (secrets / path / domains excluded)
-- **Disguise ON by default** with `404` fallback
-- Subscription & portal URLs include SECURE PATH: `https://worker/{UUID}/sub/{user}`
-
-## Entry URLs (important)
+## Entry URLs
 
 ```
 https://YOUR.workers.dev/{SECURE_PATH}/panel
 https://YOUR.workers.dev/{SECURE_PATH}/login
 https://YOUR.workers.dev/{SECURE_PATH}/sub/{USER_UUID}
+https://YOUR.workers.dev/{SECURE_PATH}/me/{USER_UUID}
 ```
-
-Bare `/panel`, `/api/health`, `/sub/...` → **404**.
-
-## Client tips (same as BPB 5.1.1)
-
-- v2rayNG ≥ 2.2.3 — enable **Hev TUN**
-- sing-box ≥ 1.12.0
-- If Fragment fails on some ISPs, try packet `1-1`
 
 ## Upgrade
 
-Re-run the one-line installer or `git pull && npm run deploy`. D1 data is preserved. **Re-share subscription links** — they now include SECURE PATH.
-
-After deploy, open **Admin → Cloudflare email** and bind your CF account email.
+1. `git pull` + installer or `npm run deploy`
+2. Re-share subscription links
+3. Admin → bind Cloudflare email
+4. Clients: v2rayNG ≥ 2.2.3 (Hev TUN), sing-box ≥ 1.12.0

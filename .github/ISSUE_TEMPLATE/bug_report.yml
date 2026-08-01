@@ -6,7 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug. **Redact secrets** (tokens, passwords, full panel UUIDs, cookies).
+        Thanks for reporting a bug. **Redact secrets** (tokens, passwords, full SECURE PATH / panel UUIDs, cookies).
+        After Gen 5.1.1, bare `/panel` and `/sub` without SECURE PATH return 404 — mention your XRayMOD version.
   - type: textarea
     id: summary
     attributes:
@@ -44,7 +45,8 @@ body:
         - Installer (shell/ps1)
         - Worker runtime
         - Admin panel UI
-        - Subscription /me portal
+        - Admin Dashboard
+        - Subscription /me portal (SECURE PATH)
         - Documentation
         - Other
     validations:
@@ -53,7 +55,8 @@ body:
     id: version
     attributes:
       label: Version / commit
-      placeholder: v1.0.0 or commit SHA
+      placeholder: v5.1.1 or commit SHA
+      description: Prefer `v5.1.1` or newer (SECURE PATH generation)
   - type: dropdown
     id: os
     attributes:

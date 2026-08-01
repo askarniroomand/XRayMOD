@@ -126,15 +126,18 @@ curl -X POST "https://WORKER.workers.dev/install" \
 ورود:
 
 ```text
-https://WORKER.workers.dev/<ACCESS_UUID>/login
+https://WORKER.workers.dev/<SECURE_PATH>/login
+https://WORKER.workers.dev/<SECURE_PATH>/panel
 ```
 
 ساب و وضعیت:
 
 ```text
-https://WORKER.workers.dev/sub/<USER_UUID>
-https://WORKER.workers.dev/me/<USER_UUID>
+https://WORKER.workers.dev/<SECURE_PATH>/sub/<USER_UUID>
+https://WORKER.workers.dev/<SECURE_PATH>/me/<USER_UUID>
 ```
+
+> بدون `SECURE_PATH` همه چیز ۴۰۴ است (نسل ۵.۱.۱). جزئیات: [CHANGELOG.md](CHANGELOG.md)
 
 </details>
 

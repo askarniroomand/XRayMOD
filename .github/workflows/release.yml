@@ -36,6 +36,12 @@ jobs:
 
             See [CHANGELOG.md](https://github.com/askarniroomand/XRayMOD/blob/main/CHANGELOG.md) for details.
 
+            ### Breaking (5.1.1+)
+            Panel / API / subscription URLs require **SECURE PATH**:
+            `https://YOUR.workers.dev/{SECURE_PATH}/panel`
+
+            Bare `/panel` and `/sub/...` return **404**. Re-share subscription links after upgrade.
+
             ### Install
 
             **Linux / macOS / WSL**
@@ -48,7 +54,10 @@ jobs:
             irm https://raw.githubusercontent.com/askarniroomand/XRayMOD/main/install.ps1 | iex
             ```
 
+            ### Clients
+            v2rayNG ≥ 2.2.3 (enable Hev TUN) · sing-box ≥ 1.12.0
+
             ### Security
-            Never share Cloudflare API tokens in issues or chats.
+            Never share Cloudflare API tokens or your SECURE PATH URL in issues or chats.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

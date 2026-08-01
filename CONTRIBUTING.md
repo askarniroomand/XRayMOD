@@ -35,11 +35,23 @@ npm install
 
 ### Local worker (recommended path)
 ```bash
-cd worker   # if package root differs, use repo scripts
-npx wrangler dev
+npm run setup          # root + frontend deps
+npm run build:ui
+npm run dev            # build UI + wrangler dev --local
+# or:
+npm run dev:worker
 ```
 
-Follow [README.md](./README.md) install section for full panel bootstrap.  
+After first `POST /install`, all APIs live under `/{SECURE_PATH}/api/…` (Gen 5.1.1).  
+Bare `/api/*` returns 404 once the panel is configured.
+
+### Tests
+```bash
+npm test               # offline smoke
+npm run test:e2e       # local wrangler E2E (SECURE PATH aware)
+```
+
+Follow [README.md](./README.md) and [DEPLOY.md](./DEPLOY.md) for full panel bootstrap.  
 Never commit a real `.env` or production `wrangler.toml` bindings.
 
 ## Project map (canonical)

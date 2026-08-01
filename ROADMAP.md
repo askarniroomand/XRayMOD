@@ -117,19 +117,19 @@ Update documentation:
 
 ## Version History
 
-### v1.0.0 (Current)
-- Initial release
+### v5.1.1 (Current)
+- Compulsory SECURE PATH + silent 404
+- Admin Dashboard (update, CF email, domains, remote sync, kill switch)
+- Disguise ON by default · D-tagged custom domains
+- Schema v4 migration
+
+### v1.0.0
+- Initial open-source release
 - Core proxy engine (VLESS, Trojan, Shadowsocks)
 - Admin and user panels
 - Wizard installer
 - Bilingual documentation
 
-### v1.1.0 (Planned)
-- ECH and TLS fragment support
-- gRPC transport
-- Enhanced subscription formats
+### Planned
+- ECH / fragment polish, WARP stack, fleet domain pool
 
-### v1.2.0 (Planned)
-- External server bridge
-- Telegram bot integration
-- TON wallet support

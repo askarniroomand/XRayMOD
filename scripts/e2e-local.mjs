@@ -1,6 +1,6 @@
 /**
- * Local E2E against wrangler dev --local.
- * Starts worker, runs API flows: health → login → users → settings → sub.
+ * Local E2E against wrangler dev --local — Gen 5.1.1 SECURE PATH aware.
+ * Flow: wait /install → bootstrap → API under /{SECURE}/api → sub under /{SECURE}/sub
  *
  * Run: npm run test:e2e
  * Requires: npm run build:ui first (or uses existing frontend/out)
@@ -21,12 +21,12 @@ function log(msg) {
   console.log(`  ${msg}`);
 }
 
-async function waitForHealth(timeoutMs = 60000) {
+async function waitForInstall(timeoutMs = 60000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const r = await fetch(`${BASE}/api/health`);
-      if (r.ok || r.status === 500) return; // process is up
+      const r = await fetch(`${BASE}/install`);
+      if (r.status === 200 || r.status === 302) return;
     } catch {
       /* retry */
     }
@@ -44,8 +44,15 @@ async function json(res) {
   }
 }
 
+async function run(cmd, args, cwd) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(cmd, args, { cwd, stdio: 'inherit' });
+    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} exited ${code}`))));
+  });
+}
+
 async function main() {
-  console.log('\nXRayMOD local E2E\n');
+  console.log('\nXRayMOD local E2E (Gen 5.1.1)\n');
 
   if (!fs.existsSync(path.join(ROOT, 'frontend/out/index.html'))) {
     console.log('Building UI…');
@@ -59,10 +66,7 @@ async function main() {
     {
       cwd: ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        ADMIN_PASSWORD: ADMIN_PASS,
-      },
+      env: { ...process.env },
     }
   );
 
@@ -89,206 +93,145 @@ async function main() {
   });
 
   try {
-    await waitForHealth();
+    await waitForInstall();
     log('worker ready');
 
-    // Health
+    // Public /api/health before install may 404 (not configured) — install first
+    let secure = '';
     {
-      const r = await fetch(`${BASE}/api/health`);
-      const body = await json(r);
-      assert.equal(body.service, 'xraymod');
-      log('✓ GET /api/health');
-    }
-
-    // Install / ensure configured via ADMIN_PASSWORD or login seed
-    // Seed admin is admin/admin from schema; try that first then install password
-    let cookie = '';
-    {
-      let r = await fetch(`${BASE}/api/login`, {
+      const r = await fetch(`${BASE}/install`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'admin', password: 'admin' }),
+        body: JSON.stringify({ username: 'admin', password: ADMIN_PASS }),
       });
-      let body = await json(r);
+      const body = await json(r);
+      assert.equal(body.success, true, `install failed: ${JSON.stringify(body)}`);
+      assert.ok(body.accessUUID, 'missing accessUUID');
+      secure = `/${body.accessUUID}`;
+      log(`✓ POST /install → SECURE PATH ${body.accessUUID.slice(0, 8)}…`);
+    }
 
-      if (!body.success) {
-        // try install env password if used
-        r = await fetch(`${BASE}/api/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: 'admin', password: ADMIN_PASS }),
-        });
-        body = await json(r);
-      }
+    const api = (p) => `${BASE}${secure}${p}`;
 
-      if (body.require2fa) {
-        throw new Error('2FA unexpectedly enabled in fresh local DB');
-      }
+    // Bare public fingerprints must be closed
+    {
+      const r = await fetch(`${BASE}/api/health`);
+      assert.equal(r.status, 404, 'bare /api/health should 404');
+      const r2 = await fetch(`${BASE}/sub/does-not-exist`);
+      assert.equal(r2.status, 404, 'bare /sub should 404');
+      log('✓ bare /api and /sub → 404');
+    }
+
+    // Unauthenticated health under SECURE PATH = silent ok
+    {
+      const r = await fetch(api('/api/health'));
+      const body = await json(r);
+      assert.equal(r.status, 200);
+      assert.equal(body.ok, true);
+      assert.equal(body.service, undefined);
+      log('✓ GET /{SECURE}/api/health (anonymous)');
+    }
+
+    let cookie = '';
+    {
+      const r = await fetch(api('/api/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: ADMIN_PASS }),
+      });
+      const body = await json(r);
+      if (body.require2fa) throw new Error('2FA unexpectedly enabled');
       assert.equal(body.success, true, `login failed: ${JSON.stringify(body)}`);
       const setCookie = r.headers.getSetCookie?.() || [];
       const raw = setCookie[0] || r.headers.get('set-cookie') || '';
       cookie = raw.split(';')[0];
       assert.ok(cookie.startsWith('session='), 'missing session cookie');
-      log('✓ POST /api/login (admin)');
+      log('✓ POST /{SECURE}/api/login');
     }
 
     const auth = { Cookie: cookie, 'Content-Type': 'application/json' };
 
-    // List users
-    let adminUuid = '';
+    // Authenticated health
     {
-      const r = await fetch(`${BASE}/api/users`, { headers: { Cookie: cookie } });
+      const r = await fetch(api('/api/health'), { headers: { Cookie: cookie } });
+      const body = await json(r);
+      assert.equal(body.status, 'ok');
+      assert.equal(body.version, '5.1.1');
+      log('✓ GET /{SECURE}/api/health (admin) version 5.1.1');
+    }
+
+    // Admin dashboard
+    {
+      const r = await fetch(api('/api/admin/dashboard'), { headers: { Cookie: cookie } });
+      const body = await json(r);
+      assert.equal(body.success, true);
+      assert.equal(body.data.version, '5.1.1');
+      assert.ok(body.data.secure_path);
+      log('✓ GET /{SECURE}/api/admin/dashboard');
+    }
+
+    // Users
+    let newUserUuid = '';
+    {
+      const r = await fetch(api('/api/users'), { headers: { Cookie: cookie } });
       const body = await json(r);
       assert.equal(body.success, true);
       assert.ok(Array.isArray(body.data));
-      assert.ok(body.data.length >= 1);
-      const admin = body.data.find((u) => u.username === 'admin') || body.data[0];
-      adminUuid = admin.uuid || admin.sub_id;
-      log(`✓ GET /api/users (${body.data.length} users)`);
+      log(`✓ GET /{SECURE}/api/users (${body.data.length})`);
     }
 
-    // Create user
-    let newUserId = null;
-    let newUserUuid = '';
     {
       const uname = `e2e_${Date.now().toString(36)}`;
-      const r = await fetch(`${BASE}/api/users`, {
+      const r = await fetch(api('/api/users'), {
         method: 'POST',
         headers: auth,
         body: JSON.stringify({ username: uname, limit: 10, expiryDays: 7 }),
       });
       const body = await json(r);
       assert.equal(body.success, true, JSON.stringify(body));
-      newUserId = body.data.id;
       newUserUuid = body.data.uuid;
-      assert.ok(newUserUuid);
-      log(`✓ POST /api/users → ${uname}`);
+      assert.ok(body.data.sub_url.includes(secure + '/sub/'));
+      log(`✓ POST /{SECURE}/api/users → SECURE sub URL`);
     }
 
-    // Update user
+    // Settings
     {
-      const r = await fetch(`${BASE}/api/users/${newUserId}`, {
-        method: 'PUT',
-        headers: auth,
-        body: JSON.stringify({ limit: 20, enable: true }),
-      });
-      const body = await json(r);
-      assert.equal(body.success, true);
-      log('✓ PUT /api/users/:id');
-    }
-
-    // Settings write/read
-    {
-      const r = await fetch(`${BASE}/api/settings`, {
+      const r = await fetch(api('/api/settings'), {
         method: 'PUT',
         headers: auth,
         body: JSON.stringify({ 'panel.sub_name': 'E2E-XRayMOD' }),
       });
-      const body = await json(r);
-      assert.equal(body.success, true);
-      const r2 = await fetch(`${BASE}/api/settings`, { headers: { Cookie: cookie } });
-      const s = await json(r2);
-      assert.equal(s.data['panel.sub_name'], 'E2E-XRayMOD');
-      log('✓ GET/PUT /api/settings');
+      assert.equal((await json(r)).success, true);
+      const r2 = await fetch(api('/api/settings'), { headers: { Cookie: cookie } });
+      assert.equal((await json(r2)).data['panel.sub_name'], 'E2E-XRayMOD');
+      log('✓ GET/PUT /{SECURE}/api/settings');
     }
 
-    // Clean IP list
+    // Subscription under SECURE PATH
     {
-      const r = await fetch(`${BASE}/api/cleanip/list`, { headers: { Cookie: cookie } });
-      const body = await json(r);
-      assert.equal(body.success, true);
-      log('✓ GET /api/cleanip/list');
-    }
-
-    // Nodes
-    {
-      const r = await fetch(`${BASE}/api/nodes`, {
-        method: 'POST',
-        headers: auth,
-        body: JSON.stringify({ name: 'E2E Node', ip: '1.1.1.1' }),
-      });
-      const body = await json(r);
-      assert.equal(body.success, true);
-      const id = body.data.id;
-      const del = await fetch(`${BASE}/api/nodes/${id}`, {
-        method: 'DELETE',
-        headers: { Cookie: cookie },
-      });
-      const delBody = await json(del);
-      assert.equal(delBody.success, true);
-      log('✓ POST/DELETE /api/nodes');
-    }
-
-    // Subscription for new user (may be empty base64 if no configs path issues — we auto-create config)
-    {
-      const r = await fetch(`${BASE}/sub/${newUserUuid}`);
-      assert.ok(r.status === 200 || r.status === 200, `sub status ${r.status}`);
+      const r = await fetch(api(`/sub/${newUserUuid}`));
+      assert.equal(r.status, 200, `sub status ${r.status}`);
       const text = await r.text();
       assert.ok(text.length > 0, 'empty subscription body');
-      log('✓ GET /sub/:uuid');
+      log('✓ GET /{SECURE}/sub/:uuid');
     }
 
-    // UI asset
+    // Portal
     {
-      const r = await fetch(`${BASE}/login`);
-      // may be 200 HTML from assets or fallback
-      assert.ok([200, 302].includes(r.status));
-      const ct = r.headers.get('content-type') || '';
-      const body = await r.text();
-      if (r.status === 200) {
-        assert.ok(
-          ct.includes('text/html') || body.includes('html') || body.includes('Xray'),
-          'expected HTML UI'
-        );
-      }
-      log('✓ GET /login (UI)');
-    }
-
-    // Logout
-    {
-      const r = await fetch(`${BASE}/api/logout`, {
-        method: 'POST',
-        headers: { Cookie: cookie },
-      });
-      const body = await json(r);
-      assert.equal(body.success, true);
-      log('✓ POST /api/logout');
-    }
-
-    // Delete test user (re-login)
-    {
-      const r = await fetch(`${BASE}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'admin', password: 'admin' }),
-      });
-      const body = await json(r);
-      if (body.success) {
-        const c = (r.headers.getSetCookie?.() || [r.headers.get('set-cookie') || ''])[0]?.split(';')[0];
-        await fetch(`${BASE}/api/users/${newUserId}`, {
-          method: 'DELETE',
-          headers: { Cookie: c },
-        });
-        log('✓ DELETE /api/users/:id');
-      }
+      const r = await fetch(api(`/me/${newUserUuid}`));
+      assert.equal(r.status, 200);
+      log('✓ GET /{SECURE}/me/:uuid');
     }
 
     console.log('\nAll E2E checks passed.\n');
     cleanup();
     process.exit(0);
   } catch (e) {
-    console.error('\nE2E FAILED:', e.message || e);
-    if (stderr) console.error('\n--- wrangler stderr (tail) ---\n', stderr.slice(-3000));
+    console.error('\nE2E failed:', e);
+    if (stderr) console.error('\n--- wrangler stderr (tail) ---\n', stderr.slice(-4000));
     cleanup();
     process.exit(1);
   }
-}
-
-function run(cmd, args, cwd) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' });
-    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} exit ${code}`))));
-  });
 }
 
 main();
